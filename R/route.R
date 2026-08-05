@@ -29,56 +29,75 @@
   }, character(1))
 }
 
-# Rename pipeline columns for the human-facing review frame: `.id` -> the source
-# id label (e.g. UEI), `.ein` -> ein, the `_x`/`_y` split -> source/reference
-# suffixes, and the comparison columns -> readable `*_sim` names.
+# Rename pipeline columns to the human-facing review schema. Explicit map for the
+# match-summary and name/address progression fields; a generic `_x`/`_y` ->
+# source/reference swap for the remaining display, geo and veto-feature columns.
 .np_rename_review <- function(nm, source, reference, id_label) {
+  s <- source; r <- reference
+  m <- c(
+    ".id" = id_label, ".ein" = "ein",
+    "name_sim" = "name_similarity", "addr_sim" = "addr_similarity", "score" = "total_score",
+    # name match summary
+    "name_x" = paste0("match_name_", s),     "name_y" = paste0("match_name_", r),
+    "name_ver_x" = paste0("match_version_", s), "name_ver_y" = paste0("match_version_", r),
+    "name_match_type" = "match_type", "name_freq" = "match_name_freq",
+    # name cleaning progression
+    "name_raw_x" = paste0("name_", s, "_raw_main"), "name_raw_y" = paste0("name_", r, "_raw_main"),
+    "dba_x" = paste0("name_", s, "_raw_dba"),  "dba_y" = paste0("name_", r, "_raw_dba"),
+    "name_key_x" = paste0("name_", s, "_normalized"), "name_key_y" = paste0("name_", r, "_normalized"),
+    "name_form_x" = paste0("name_", s, "_org_type"),  "name_form_y" = paste0("name_", r, "_org_type"),
+    "name_tok_x" = paste0("name_", s, "_tokenized"),  "name_tok_y" = paste0("name_", r, "_tokenized"),
+    # address similarity + normalized
+    "street_key" = "street_similarity", "city" = "city_similarity", "zip5" = "zip_similarity",
+    "street_norm_x" = paste0("street_", s, "_normalized"),
+    "street_norm_y" = paste0("street_", r, "_normalized")
+  )
   out <- nm
-  out[nm == ".id"]        <- id_label
-  out[nm == ".ein"]       <- "ein"
-  # name-provenance cluster: raw (input) -> matched (variant shown) ->
-  # key (normalized string actually compared) -> version (which mechanism)
-  out[nm == "name_raw_x"] <- paste0("name_", source, "_raw")
-  out[nm == "name_raw_y"] <- paste0("name_", reference, "_raw")
-  out[nm == "name_x"]     <- paste0("name_", source, "_matched")
-  out[nm == "name_y"]     <- paste0("name_", reference, "_matched")
-  out[nm == "name_key_x"] <- paste0("name_", source, "_key")
-  out[nm == "name_key_y"] <- paste0("name_", reference, "_key")
-  out[nm == "name_ver_x"] <- paste0("name_", source, "_version")
-  out[nm == "name_ver_y"] <- paste0("name_", reference, "_version")
-  out[nm == "street_key"] <- "street_sim"
-  out[nm == "city"]       <- "city_sim"
-  out[nm == "zip5"]       <- "zip5_sim"
-  # generic suffix swap for any column still ending _x / _y (untouched above)
-  keep <- out == nm
-  out[keep] <- sub("_x$", paste0("_", source), out[keep])
-  out[keep] <- sub("_y$", paste0("_", reference), out[keep])
+  hit <- nm %in% names(m); out[hit] <- unname(m[nm[hit]])
+  keep <- out == nm                                   # untouched: display/geo/features
+  out[keep] <- sub("_x$", paste0("_", s), out[keep])
+  out[keep] <- sub("_y$", paste0("_", r), out[keep])
   out
 }
 
-# Rename + order the review columns: the curated decision block up front, then
-# every remaining generated feature/stat, in a stable order.
+# Rename + order the review columns into the information hierarchy: (1) match
+# strength + outcome, (2) name match summary, (3) name cleaning progression,
+# (4) address (similarity -> raw -> normalized/geo), (5) imported BMF fields,
+# then every remaining generated feature/stat.
 .np_review_layout <- function(df, source, reference, id_label) {
-  if (all(c("name_sim", "name_key") %in% names(df))) df$name_key <- NULL  # dup of name_sim
+  if (all(c("name_sim", "name_key") %in% names(df))) df$name_key <- NULL  # dup of name_similarity
   names(df) <- .np_rename_review(names(df), source, reference, id_label)
   s <- source; r <- reference
-  front <- c(id_label, "ein",
-    # name provenance clustered: raw -> matched -> key compared -> version, per side
-    paste0("name_", s, "_raw"), paste0("name_", s, "_matched"),
-    paste0("name_", s, "_key"), paste0("name_", s, "_version"),
-    paste0("name_", r, "_raw"), paste0("name_", r, "_matched"),
-    paste0("name_", r, "_key"), paste0("name_", r, "_version"),
-    "name_sim", "addr_sim", "score",
-    "decision", "decision_layer", "decision_reason", "notes",
+  front <- c(
+    id_label, "ein",
+    # (1) match strength + outcome
+    "name_similarity", "addr_similarity", "total_score", "candidate_type",
+    "decision", "decision_layer", "decision_reason",
+    "veto", "veto_reason", "veto_soft", "veto_soft_reason", "notes",
+    # (2) name match summary
+    paste0("match_name_", s), paste0("match_version_", s),
+    paste0("match_name_", r), paste0("match_version_", r),
+    "match_type", "match_name_freq",
+    # (3) name cleaning progression
+    paste0("name_", s, "_raw_main"), paste0("name_", s, "_raw_dba"),
+    paste0("name_", s, "_normalized"), paste0("name_", s, "_org_type"),
+    paste0("name_", s, "_tokenized"),
+    paste0("name_", r, "_raw_main"), paste0("name_", r, "_raw_dba"),
+    paste0("name_", r, "_normalized"), paste0("name_", r, "_org_type"),
+    paste0("name_", r, "_tokenized"),
+    # (4) address: similarity -> raw -> normalized/geo
+    "street_similarity", "city_similarity", "zip_similarity",
     paste0("street_", s), paste0("street_", r),
     paste0("city_", s),   paste0("city_", r),
     paste0("state_", s),  paste0("state_", r),
     paste0("zip5_", s),   paste0("zip5_", r),
-    "street_sim", "city_sim", "zip5_sim",
-    # default BMF context block (present when np_route(bmf=) supplied)
-    paste0(c("ntee", "subsection", "is_foundation", "rule_year",
-             "assets", "revenue", "form_990"), "_", r),
-    "name_match_type", "name_freq", "veto_soft", "veto_soft_reason", "candidate_type")
+    paste0("street_", s, "_normalized"), paste0("street_", r, "_normalized"),
+    "geo_stnum", "geo_zip9", "geo_zip5", "geo_zip3", "geo_state", "geo_pobox",
+    # (5) imported BMF fields
+    paste0(c("ntee_clean", "nteev2", "subsection", "is_foundation", "rule_year",
+             "assets", "revenue", "form_990", "affiliation_code",
+             "affiliation_code_definition", "group_exemption_number",
+             "group_exemption_is_member"), "_", r))
   ordered <- c(intersect(front, names(df)), setdiff(names(df), front))
   df[, ordered, drop = FALSE]
 }
@@ -137,6 +156,9 @@
 #'   fields from [np_bmf_review_fields()] (NTEE, 501(c) subsection, foundation
 #'   flag, ruling year, assets, revenue, 990 form type) are joined onto each
 #'   review row (suffixed `_<reference>`) and placed in the curated front block.
+#' @param review_tiers Which tiers to include in the `review` inspection frame.
+#'   Default all three (`c("YES","MAYBE","NO")`) so `decision` shows the full
+#'   YES/MAYBE/NO outcome; set to `"MAYBE"` for just the human-review hand-off.
 #' @param source_data,reference_data Optional data frames to pull extra
 #'   passthrough columns from (e.g. award fields from the source, NTEE/ruling
 #'   fields from the BMF). Joined by key onto each review row.
@@ -151,7 +173,7 @@
 np_route <- function(tiered, config = attr(tiered, "config"),
                      pairs = attr(tiered, "pairs"), k = 3,
                      source = "uss", reference = "bmf", id_label = "uei",
-                     bmf = NULL,
+                     bmf = NULL, review_tiers = c("YES", "MAYBE", "NO"),
                      source_data = NULL, reference_data = NULL,
                      extra_source = NULL, extra_reference = NULL,
                      source_key = NULL, reference_key = "ein") {
@@ -170,18 +192,32 @@ np_route <- function(tiered, config = attr(tiered, "config"),
                        paste0("name_", reference), "score")
   rownames(accepted) <- NULL
 
-  maybe_ids <- tiered$.id[tier == "MAYBE"]
-  cand <- .np_candidates(pairs, k = k, ids = maybe_ids)
-  # decision block: layer = how the candidate was surfaced (+ blocking pass),
-  # reason = why the query was held; decision/notes blank for the reviewer.
+  # review inspection frame: candidates for the requested tiers (default all).
+  review_ids <- tiered$.id[tier %in% review_tiers]
+  cand <- .np_candidates(pairs, k = k, ids = review_ids)
+  # (1) outcome block: decision = the algorithmic tier (YES/MAYBE/NO);
+  #     layer = how the candidate was surfaced (+ blocking pass);
+  #     reason = why the query landed in its tier; notes blank for the reviewer.
   layer <- cand$candidate_type
   if (!is.null(cand$pass))
     layer <- ifelse(is.na(cand$pass) | !nzchar(as.character(cand$pass)),
                     layer, paste(layer, cand$pass, sep = " / "))
+  cand$decision        <- as.character(tiered$tier[match(cand$.id, tiered$.id)])
   cand$decision_layer  <- if (nrow(cand)) layer else character(0)
   cand$decision_reason <- tiered$route_reason[match(cand$.id, tiered$.id)]
-  cand$decision <- rep(NA_character_, nrow(cand))     # rep() -> safe when empty
-  cand$notes    <- rep(NA_character_, nrow(cand))
+  cand$notes           <- rep(NA_character_, nrow(cand))
+  # tokenized name form (collapsed initials) the overlap matcher sees
+  ctok <- function(v) if (!length(v)) character(0) else
+    vapply(strsplit(as.character(v), "\\s+"),
+           function(t) paste(.np_collapse_initials(t), collapse = " "), character(1))
+  cand$name_tok_x <- ctok(cand$name_key_x)
+  cand$name_tok_y <- ctok(cand$name_key_y)
+  # round similarities for a scannable sheet
+  if (nrow(cand)) {
+    for (c2 in intersect(c("name_sim", "addr_sim", "street_key", "city", "zip5"), names(cand)))
+      cand[[c2]] <- round(as.numeric(cand[[c2]]), 2)
+    cand$score <- round(as.numeric(cand$score), 3)
+  }
 
   # default BMF context fields (joined before layout so they land in the front
   # block); reviewer sees what kind of nonprofit each candidate is and its size.
@@ -217,9 +253,9 @@ np_route <- function(tiered, config = attr(tiered, "config"),
     accepted  = accepted,
     review    = review,
     unmatched = unmatched,
-    summary   = c(accepted = nrow(accepted),
-                  review = length(unique(review[[id_label]])),
-                  unmatched = nrow(unmatched))
+    summary   = c(accepted = sum(tier == "YES"),
+                  review = sum(tier == "MAYBE"),
+                  unmatched = sum(tier == "NO"))
   )
   attr(out, "config") <- config
   attr(out, "source") <- source
@@ -257,7 +293,7 @@ np_as_prompt <- function(routing, id) {
   cand_lines <- vapply(seq_len(nrow(rows)), function(i) {
     r <- rows[i, ]
     sprintf("  [%d] EIN %s  %s\n      Address: %s\n      name_sim=%.2f  addr_sim=%.2f  score=%.2f%s",
-            i, r$ein, r[[paste0("name_", ref, "_matched")]], addr(r, ref),
+            i, r$ein, r[[paste0("match_name_", ref)]], addr(r, ref),
             r$name_sim, ifelse(is.na(r$addr_sim), 0, r$addr_sim), r$score,
             if (isTRUE(r$veto_soft)) paste0("  [soft veto: ", r$veto_soft_reason, "]") else "")
   }, character(1))
@@ -265,7 +301,7 @@ np_as_prompt <- function(routing, id) {
   paste0(
     "You are adjudicating a nonprofit record-linkage match.\n\n",
     "SOURCE RECORD:\n",
-    "  Name: ", q[[paste0("name_", src, "_matched")]], "\n",
+    "  Name: ", q[[paste0("match_name_", src)]], "\n",
     "  Address: ", addr(q, src), "\n\n",
     "CANDIDATE MATCHES (IRS BMF):\n",
     paste(cand_lines, collapse = "\n"), "\n\n",

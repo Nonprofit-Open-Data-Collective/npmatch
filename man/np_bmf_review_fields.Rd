@@ -19,13 +19,15 @@ Pass the raw processed BMF and join the result onto a review frame by \code{ein}
 (this is what \code{np_route(bmf = ...)} does automatically).
 }
 \details{
-Derived fields:
+Derived / imported fields:
 \itemize{
-\item \code{ntee} — NTEE common code (activity area)
+\item \code{ntee_clean}, \code{nteev2} — cleaned NTEE code and NTEEv2 classification
 \item \code{subsection} — 501(c) subsection number (3 = 501(c)(3), ...)
 \item \code{is_foundation} — TRUE for private (operating or non-operating) foundations
 \item \code{rule_year} — year of the IRS ruling (exemption) date
 \item \code{assets}, \code{revenue} — reported asset / revenue amounts
 \item \code{form_990} — filing requirement: 990PF / 990N / 990-EZ/990 / none / group
+\item \code{affiliation_code}, \code{affiliation_code_definition} — central/subordinate status
+\item \code{group_exemption_number}, \code{group_exemption_is_member} — group-ruling membership
 }
 }

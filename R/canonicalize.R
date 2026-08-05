@@ -34,13 +34,15 @@ np_map_bmf <- function() {
 #' Pass the raw processed BMF and join the result onto a review frame by `ein`
 #' (this is what `np_route(bmf = ...)` does automatically).
 #'
-#' Derived fields:
-#' * `ntee` — NTEE common code (activity area)
+#' Derived / imported fields:
+#' * `ntee_clean`, `nteev2` — cleaned NTEE code and NTEEv2 classification
 #' * `subsection` — 501(c) subsection number (3 = 501(c)(3), ...)
 #' * `is_foundation` — TRUE for private (operating or non-operating) foundations
 #' * `rule_year` — year of the IRS ruling (exemption) date
 #' * `assets`, `revenue` — reported asset / revenue amounts
 #' * `form_990` — filing requirement: 990PF / 990N / 990-EZ/990 / none / group
+#' * `affiliation_code`, `affiliation_code_definition` — central/subordinate status
+#' * `group_exemption_number`, `group_exemption_is_member` — group-ruling membership
 #'
 #' @param bmf The raw processed BMF data frame.
 #' @return A data frame keyed by `ein` with the fields above.
@@ -57,14 +59,19 @@ np_bmf_review_fields <- function(bmf) {
            ifelse(grepl("Group return", frq), "990-group",
            ifelse(grepl("Not required", frq), "none", NA_character_)))))
   data.frame(
-    ein           = as.character(g("ein")),
-    ntee          = as.character(g("ntee_common_code")),
-    subsection    = as.character(g("subsection_code")),
-    is_foundation = grepl("private (non-)?operating foundation", fdef),
-    rule_year     = suppressWarnings(as.integer(substr(as.character(g("ruling_date")), 1, 4))),
-    assets        = suppressWarnings(as.numeric(g("asset_amount"))),
-    revenue       = suppressWarnings(as.numeric(g("revenue_amount"))),
-    form_990      = form,
+    ein                         = as.character(g("ein")),
+    ntee_clean                  = as.character(g("ntee_code_clean")),
+    nteev2                      = as.character(g("nteev2")),
+    subsection                  = as.character(g("subsection_code")),
+    is_foundation               = grepl("private (non-)?operating foundation", fdef),
+    rule_year                   = suppressWarnings(as.integer(substr(as.character(g("ruling_date")), 1, 4))),
+    assets                      = suppressWarnings(as.numeric(g("asset_amount"))),
+    revenue                     = suppressWarnings(as.numeric(g("revenue_amount"))),
+    form_990                    = form,
+    affiliation_code            = as.character(g("affiliation_code")),
+    affiliation_code_definition = as.character(g("affiliation_code_definition")),
+    group_exemption_number      = as.character(g("group_exemption_number")),
+    group_exemption_is_member   = g("group_exemption_is_member"),
     stringsAsFactors = FALSE
   )
 }

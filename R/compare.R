@@ -101,8 +101,10 @@ np_compare <- function(query, reference, config = np_config(),
   # block below; name_ver_* labels which version. Set here so the columns exist
   # even when the DBA/overlap block is skipped.
   df$name_raw_x <- query$name[ix];      df$name_raw_y <- reference$name[iy]
+  df$dba_x      <- query$dba[ix];       df$dba_y      <- reference$dba[iy]
   df$name_x     <- query$name_full[ix]; df$name_y     <- reference$name_full[iy]
   df$name_key_x <- query$name_key[ix];  df$name_key_y <- reference$name_key[iy]
+  df$street_norm_x <- query$street_key[ix]; df$street_norm_y <- reference$street_key[iy]
   df$name_ver_x <- NA_character_;       df$name_ver_y <- NA_character_
 
   # location-granularity signals for the hierarchical geo score (cheap exact
