@@ -47,3 +47,7 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# Large local data (BMF/SAM reference + dev datasets & caches) — kept locally, not committed
+/data-raw/
+/data-dev/
