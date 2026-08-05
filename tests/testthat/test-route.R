@@ -42,9 +42,22 @@ test_that("the review queue is self-contained and reviewer-ready", {
     expect_true(all(rt$review$decision %in% c("YES", "MAYBE", "NO")))
   if (nrow(rt$review)) expect_true(all(nzchar(rt$review$decision_reason)))
   # (1) match strength + outcome leads the columns
-  expect_equal(names(rt$review)[1:6],
-               c("uei", "ein", "name_similarity", "addr_similarity",
-                 "total_score", "candidate_type"))
+  expect_equal(names(rt$review)[1:7],
+               c("uei", "ein", "is_top_candidate", "name_similarity",
+                 "addr_similarity", "total_score", "candidate_type"))
+})
+
+test_that("is_top_candidate flags one pick per YES/MAYBE group, none for NO", {
+  res <- route_fixture()
+  rt <- np_route(res)
+  skip_if(nrow(rt$review) == 0)
+  expect_true(all(rt$review$is_top_candidate %in% c(0L, 1L)))
+  by_q <- split(rt$review, rt$review$uei)
+  for (g in by_q) {
+    tier <- unique(g$decision)
+    expect_lte(sum(g$is_top_candidate), 1)               # at most one top per group
+    if (all(tier == "NO")) expect_equal(sum(g$is_top_candidate), 0)
+  }
 })
 
 test_that("name match summary + cleaning progression are present and labelled", {

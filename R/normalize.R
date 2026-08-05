@@ -297,6 +297,29 @@ np_name_freq <- function(name_keys) {
   stats::setNames(as.integer(tab), names(tab))
 }
 
+#' Per-token inverse document frequency for a reference corpus
+#'
+#' Document frequency of each name token across the reference, turned into
+#' `idf = log(N / df)`: rare tokens (distinctive, high IDF) are the ones the
+#' name-token blocking leverages; corpus-common tokens (low IDF) are not. Feed
+#' the result to [np_route()] (`token_idf =`) to annotate the tokenized name
+#' fields with each token's rarity, exposing which tokens carry the match.
+#'
+#' @param name_keys Character vector of normalized names (reference `name_key`).
+#' @param stopwords Tokens to drop (see [np_stopwords()]).
+#' @param min_token_len Minimum token length to count. Default 2.
+#' @return A named numeric vector mapping token -> IDF.
+#' @export
+np_token_idf <- function(name_keys, stopwords = np_stopwords(), min_token_len = 2L) {
+  v <- as.character(name_keys); v[is.na(v)] <- ""
+  toks <- strsplit(toupper(v), "\\s+")
+  ut <- lapply(toks, function(t)
+    unique(t[nchar(t) >= min_token_len & !(t %in% stopwords)]))
+  df <- table(unlist(ut, use.names = FALSE))
+  idf <- log(length(v) / as.numeric(df))
+  stats::setNames(idf, names(df))
+}
+
 # Token-set + acronym-aware name overlap: matched token "units" over the longer
 # name. Catches word-reorder ("Heritage Museum of Newaygo County" <-> "Newaygo
 # County Museum Heritage Center"), typos, and acronym/expansion pairs ("EMS" <->

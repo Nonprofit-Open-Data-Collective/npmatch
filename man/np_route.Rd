@@ -14,6 +14,7 @@ np_route(
   id_label = "uei",
   bmf = NULL,
   review_tiers = c("YES", "MAYBE", "NO"),
+  token_idf = NULL,
   source_data = NULL,
   reference_data = NULL,
   extra_source = NULL,
@@ -50,6 +51,10 @@ review row (suffixed \verb{_<reference>}) and placed in the curated front block.
 \item{review_tiers}{Which tiers to include in the \code{review} inspection frame.
 Default all three (\code{c("YES","MAYBE","NO")}) so \code{decision} shows the full
 YES/MAYBE/NO outcome; set to \code{"MAYBE"} for just the human-review hand-off.}
+
+\item{token_idf}{Optional token -> IDF table from \code{\link[=np_token_idf]{np_token_idf()}}. When given,
+the \verb{name_*_tokenized} fields annotate each content token with its reference
+IDF (rarest first), exposing which tokens carry the match.}
 
 \item{source_data, reference_data}{Optional data frames to pull extra
 passthrough columns from (e.g. award fields from the source, NTEE/ruling

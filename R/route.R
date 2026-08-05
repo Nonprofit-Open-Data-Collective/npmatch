@@ -69,7 +69,7 @@
   names(df) <- .np_rename_review(names(df), source, reference, id_label)
   s <- source; r <- reference
   front <- c(
-    id_label, "ein",
+    id_label, "ein", "is_top_candidate",
     # (1) match strength + outcome
     "name_similarity", "addr_similarity", "total_score", "candidate_type",
     "decision", "decision_layer", "decision_reason",
@@ -159,6 +159,9 @@
 #' @param review_tiers Which tiers to include in the `review` inspection frame.
 #'   Default all three (`c("YES","MAYBE","NO")`) so `decision` shows the full
 #'   YES/MAYBE/NO outcome; set to `"MAYBE"` for just the human-review hand-off.
+#' @param token_idf Optional token -> IDF table from [np_token_idf()]. When given,
+#'   the `name_*_tokenized` fields annotate each content token with its reference
+#'   IDF (rarest first), exposing which tokens carry the match.
 #' @param source_data,reference_data Optional data frames to pull extra
 #'   passthrough columns from (e.g. award fields from the source, NTEE/ruling
 #'   fields from the BMF). Joined by key onto each review row.
@@ -174,6 +177,7 @@ np_route <- function(tiered, config = attr(tiered, "config"),
                      pairs = attr(tiered, "pairs"), k = 3,
                      source = "uss", reference = "bmf", id_label = "uei",
                      bmf = NULL, review_tiers = c("YES", "MAYBE", "NO"),
+                     token_idf = NULL,
                      source_data = NULL, reference_data = NULL,
                      extra_source = NULL, extra_reference = NULL,
                      source_key = NULL, reference_key = "ein") {
@@ -195,23 +199,35 @@ np_route <- function(tiered, config = attr(tiered, "config"),
   # review inspection frame: candidates for the requested tiers (default all).
   review_ids <- tiered$.id[tier %in% review_tiers]
   cand <- .np_candidates(pairs, k = k, ids = review_ids)
+  qi <- match(cand$.id, tiered$.id)
   # (1) outcome block: decision = the algorithmic tier (YES/MAYBE/NO);
-  #     layer = how the candidate was surfaced (+ blocking pass);
-  #     reason = why the query landed in its tier; notes blank for the reviewer.
-  layer <- cand$candidate_type
-  if (!is.null(cand$pass))
-    layer <- ifelse(is.na(cand$pass) | !nzchar(as.character(cand$pass)),
-                    layer, paste(layer, cand$pass, sep = " / "))
-  cand$decision        <- as.character(tiered$tier[match(cand$.id, tiered$.id)])
-  cand$decision_layer  <- if (nrow(cand)) layer else character(0)
-  cand$decision_reason <- tiered$route_reason[match(cand$.id, tiered$.id)]
+  #     is_top_candidate = 1 on the selected pick (blank on NO, where nothing
+  #     clears the review floor); decision_layer = the blocking pass that found
+  #     it (distinct from candidate_type, the surfacing view); reason = why held.
+  cand$decision        <- as.character(tiered$tier[qi])
+  cand$is_top_candidate <- as.integer(!is.na(qi) & cand$.ein == tiered$overall_ein[qi] &
+                                       cand$decision %in% c("YES", "MAYBE"))
+  cand$decision_layer  <- if (!is.null(cand$pass)) as.character(cand$pass) else NA_character_
+  cand$decision_reason <- tiered$route_reason[qi]
   cand$notes           <- rep(NA_character_, nrow(cand))
-  # tokenized name form (collapsed initials) the overlap matcher sees
-  ctok <- function(v) if (!length(v)) character(0) else
-    vapply(strsplit(as.character(v), "\\s+"),
-           function(t) paste(.np_collapse_initials(t), collapse = " "), character(1))
-  cand$name_tok_x <- ctok(cand$name_key_x)
-  cand$name_tok_y <- ctok(cand$name_key_y)
+  # tokenized name: each content token annotated with its reference IDF (rarest
+  # first), so the tokens the blocking leverages are visible. Falls back to the
+  # collapsed-initials form when no token_idf table is supplied.
+  annotate_tok <- function(v) {
+    if (!length(v)) return(character(0))
+    maxidf <- if (length(token_idf)) max(token_idf, na.rm = TRUE) else NA_real_
+    vapply(strsplit(as.character(v), "\\s+"), function(t) {
+      t <- .np_collapse_initials(t)
+      if (is.null(token_idf)) return(paste(t, collapse = " "))
+      t <- t[nchar(t) >= 2 & !(t %in% np_stopwords())]
+      if (!length(t)) return("")
+      w <- token_idf[t]; w[is.na(w)] <- maxidf            # unseen token = rarest
+      ord <- order(-w)
+      paste(sprintf("%s(%.1f)", t[ord], w[ord]), collapse = " ")
+    }, character(1))
+  }
+  cand$name_tok_x <- annotate_tok(cand$name_key_x)
+  cand$name_tok_y <- annotate_tok(cand$name_key_y)
   # round similarities for a scannable sheet
   if (nrow(cand)) {
     for (c2 in intersect(c("name_sim", "addr_sim", "street_key", "city", "zip5"), names(cand)))
