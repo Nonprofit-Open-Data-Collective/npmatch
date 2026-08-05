@@ -33,17 +33,17 @@ test_that("np_route partitions into accepted / review / unmatched", {
 test_that("the review queue is self-contained and reviewer-ready", {
   res <- route_fixture()
   rt <- np_route(res)
-  need <- c("uei", "ein", "name_uss", "name_bmf", "street_bmf", "name_sim", "addr_sim",
-            "score", "candidate_type", "decision_layer", "decision_reason",
-            "decision", "notes")
+  need <- c("uei", "ein", "name_uss_matched", "name_bmf_matched", "street_bmf",
+            "name_sim", "addr_sim", "score", "candidate_type", "decision_layer",
+            "decision_reason", "decision", "notes")
   expect_true(all(need %in% names(rt$review)))
   expect_true(all(is.na(rt$review$decision)))     # blank for the reviewer
   if (nrow(rt$review)) expect_true(all(nzchar(rt$review$decision_reason)))
-  # curated block leads: keys, name-provenance cluster, then scores
-  expect_equal(names(rt$review)[1:11],
+  # curated block leads: keys, name-provenance cluster (raw/matched/key/version), scores
+  expect_equal(names(rt$review)[1:13],
                c("uei", "ein",
-                 "name_uss_raw", "name_uss", "name_uss_version",
-                 "name_bmf_raw", "name_bmf", "name_bmf_version",
+                 "name_uss_raw", "name_uss_matched", "name_uss_key", "name_uss_version",
+                 "name_bmf_raw", "name_bmf_matched", "name_bmf_key", "name_bmf_version",
                  "name_sim", "addr_sim", "score"))
 })
 
@@ -51,16 +51,17 @@ test_that("name-version provenance labels which version matched", {
   res <- route_fixture()
   rt <- np_route(res)
   skip_if(nrow(rt$review) == 0)
-  expect_true(all(c("name_uss_version", "name_bmf_version",
+  expect_true(all(c("name_uss_version", "name_bmf_version", "name_uss_key",
                     "name_uss_raw", "name_bmf_raw") %in% names(rt$review)))
   vers <- na.omit(c(rt$review$name_uss_version, rt$review$name_bmf_version))
-  if (length(vers)) expect_true(all(vers %in% c("MAIN", "DBA", "ABBR")))
+  if (length(vers)) expect_true(all(vers %in% c("MAIN", "DBA", "OVERLAP", "none")))
 })
 
 test_that("review column suffixes follow the source/reference arguments", {
   res <- route_fixture()
   rt <- np_route(res, source = "sam", reference = "irs", id_label = "duns")
-  expect_true(all(c("duns", "name_sam", "name_irs", "street_irs") %in% names(rt$review)))
+  expect_true(all(c("duns", "name_sam_matched", "name_irs_matched",
+                    "name_sam_key", "street_irs") %in% names(rt$review)))
   expect_false(any(grepl("_x$|_y$|^\\.id$", names(rt$review))))
 })
 

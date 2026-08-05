@@ -102,6 +102,7 @@ np_compare <- function(query, reference, config = np_config(),
   # even when the DBA/overlap block is skipped.
   df$name_raw_x <- query$name[ix];      df$name_raw_y <- reference$name[iy]
   df$name_x     <- query$name_full[ix]; df$name_y     <- reference$name_full[iy]
+  df$name_key_x <- query$name_key[ix];  df$name_key_y <- reference$name_key[iy]
   df$name_ver_x <- NA_character_;       df$name_ver_y <- NA_character_
 
   # location-granularity signals for the hierarchical geo score (cheap exact
@@ -155,12 +156,15 @@ np_compare <- function(query, reference, config = np_config(),
     # provenance: which name *version* on each side produced the match, and the
     # readable string of that version. Columns of M line up with (uss, bmf)
     # versions below.
+    # OVERLAP = token-set / acronym / word-reorder overlap (the s_ov recovery
+    # path), NOT specifically abbreviation. "none" = no name signal cleared the
+    # threshold: the pair is on the list because its address matched, not its name.
     M  <- cbind(s_nn, t_nd, t_dn, t_dd, s_ov)
     wi <- max.col(M, ties.method = "first")
-    uss_ver <- c("MAIN", "MAIN", "DBA", "DBA", "ABBR")[wi]
-    bmf_ver <- c("MAIN", "DBA", "MAIN", "DBA", "ABBR")[wi]
+    uss_ver <- c("MAIN", "MAIN", "DBA", "DBA", "OVERLAP")[wi]
+    bmf_ver <- c("MAIN", "DBA", "MAIN", "DBA", "OVERLAP")[wi]
     az <- rowSums(M) == 0                                  # no name signal
-    uss_ver[az] <- NA_character_; bmf_ver[az] <- NA_character_
+    uss_ver[az] <- "none"; bmf_ver[az] <- "none"
     ex <- s_nn >= 0.999                                    # exact main match
     uss_ver[ex] <- "MAIN"; bmf_ver[ex] <- "MAIN"
     df$name_ver_x <- uss_ver; df$name_ver_y <- bmf_ver

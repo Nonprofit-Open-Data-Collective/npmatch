@@ -36,9 +36,14 @@
   out <- nm
   out[nm == ".id"]        <- id_label
   out[nm == ".ein"]       <- "ein"
-  # name-provenance columns read best as name_<side>_raw / name_<side>_version
+  # name-provenance cluster: raw (input) -> matched (variant shown) ->
+  # key (normalized string actually compared) -> version (which mechanism)
   out[nm == "name_raw_x"] <- paste0("name_", source, "_raw")
   out[nm == "name_raw_y"] <- paste0("name_", reference, "_raw")
+  out[nm == "name_x"]     <- paste0("name_", source, "_matched")
+  out[nm == "name_y"]     <- paste0("name_", reference, "_matched")
+  out[nm == "name_key_x"] <- paste0("name_", source, "_key")
+  out[nm == "name_key_y"] <- paste0("name_", reference, "_key")
   out[nm == "name_ver_x"] <- paste0("name_", source, "_version")
   out[nm == "name_ver_y"] <- paste0("name_", reference, "_version")
   out[nm == "street_key"] <- "street_sim"
@@ -58,9 +63,11 @@
   names(df) <- .np_rename_review(names(df), source, reference, id_label)
   s <- source; r <- reference
   front <- c(id_label, "ein",
-    # name provenance clustered: raw -> matched version -> which version, both sides
-    paste0("name_", s, "_raw"), paste0("name_", s), paste0("name_", s, "_version"),
-    paste0("name_", r, "_raw"), paste0("name_", r), paste0("name_", r, "_version"),
+    # name provenance clustered: raw -> matched -> key compared -> version, per side
+    paste0("name_", s, "_raw"), paste0("name_", s, "_matched"),
+    paste0("name_", s, "_key"), paste0("name_", s, "_version"),
+    paste0("name_", r, "_raw"), paste0("name_", r, "_matched"),
+    paste0("name_", r, "_key"), paste0("name_", r, "_version"),
     "name_sim", "addr_sim", "score",
     "decision", "decision_layer", "decision_reason", "notes",
     paste0("street_", s), paste0("street_", r),
@@ -250,7 +257,7 @@ np_as_prompt <- function(routing, id) {
   cand_lines <- vapply(seq_len(nrow(rows)), function(i) {
     r <- rows[i, ]
     sprintf("  [%d] EIN %s  %s\n      Address: %s\n      name_sim=%.2f  addr_sim=%.2f  score=%.2f%s",
-            i, r$ein, r[[paste0("name_", ref)]], addr(r, ref),
+            i, r$ein, r[[paste0("name_", ref, "_matched")]], addr(r, ref),
             r$name_sim, ifelse(is.na(r$addr_sim), 0, r$addr_sim), r$score,
             if (isTRUE(r$veto_soft)) paste0("  [soft veto: ", r$veto_soft_reason, "]") else "")
   }, character(1))
@@ -258,7 +265,7 @@ np_as_prompt <- function(routing, id) {
   paste0(
     "You are adjudicating a nonprofit record-linkage match.\n\n",
     "SOURCE RECORD:\n",
-    "  Name: ", q[[paste0("name_", src)]], "\n",
+    "  Name: ", q[[paste0("name_", src, "_matched")]], "\n",
     "  Address: ", addr(q, src), "\n\n",
     "CANDIDATE MATCHES (IRS BMF):\n",
     paste(cand_lines, collapse = "\n"), "\n\n",
