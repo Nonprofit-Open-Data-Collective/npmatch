@@ -40,7 +40,7 @@
     # name match summary
     "name_x" = paste0("match_name_", s),     "name_y" = paste0("match_name_", r),
     "name_ver_x" = paste0("match_version_", s), "name_ver_y" = paste0("match_version_", r),
-    "name_match_type" = "match_type", "name_freq" = "match_name_freq",
+    "name_match_type" = "match_type", "name_freq" = "normalized_match_count",
     # name cleaning progression
     "name_raw_x" = paste0("name_", s, "_raw_main"), "name_raw_y" = paste0("name_", r, "_raw_main"),
     "dba_x" = paste0("name_", s, "_raw_dba"),  "dba_y" = paste0("name_", r, "_raw_dba"),
@@ -77,7 +77,7 @@
     # (2) name match summary
     paste0("match_name_", s), paste0("match_version_", s),
     paste0("match_name_", r), paste0("match_version_", r),
-    "match_type", "match_name_freq",
+    "match_type", "normalized_match_count",
     # (3) name cleaning progression
     paste0("name_", s, "_raw_main"), paste0("name_", s, "_raw_dba"),
     paste0("name_", s, "_normalized"), paste0("name_", s, "_org_type"),

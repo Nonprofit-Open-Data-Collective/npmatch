@@ -68,7 +68,7 @@ test_that("name match summary + cleaning progression are present and labelled", 
                     "name_uss_raw_main", "name_uss_raw_dba", "name_uss_normalized",
                     "name_uss_org_type", "name_uss_tokenized") %in% names(rt$review)))
   vers <- na.omit(c(rt$review$match_version_uss, rt$review$match_version_bmf))
-  if (length(vers)) expect_true(all(vers %in% c("MAIN", "DBA", "OVERLAP", "none")))
+  if (length(vers)) expect_true(all(vers %in% c("MAIN", "DBA", "TOKEN_OVERLAP", "none")))
 })
 
 test_that("review column suffixes follow the source/reference arguments", {

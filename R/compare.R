@@ -163,8 +163,8 @@ np_compare <- function(query, reference, config = np_config(),
     # threshold: the pair is on the list because its address matched, not its name.
     M  <- cbind(s_nn, t_nd, t_dn, t_dd, s_ov)
     wi <- max.col(M, ties.method = "first")
-    uss_ver <- c("MAIN", "MAIN", "DBA", "DBA", "OVERLAP")[wi]
-    bmf_ver <- c("MAIN", "DBA", "MAIN", "DBA", "OVERLAP")[wi]
+    uss_ver <- c("MAIN", "MAIN", "DBA", "DBA", "TOKEN_OVERLAP")[wi]
+    bmf_ver <- c("MAIN", "DBA", "MAIN", "DBA", "TOKEN_OVERLAP")[wi]
     az <- rowSums(M) == 0                                  # no name signal
     uss_ver[az] <- "none"; bmf_ver[az] <- "none"
     ex <- s_nn >= 0.999                                    # exact main match
@@ -179,8 +179,8 @@ np_compare <- function(query, reference, config = np_config(),
     df$name_x[use_qd] <- q_dba[use_qd]
     df$name_y[use_rd] <- r_dba[use_rd]
 
-    # name_match_type retained (exact / name / dba / overlap)
-    typ <- c("name", "dba", "dba", "dba", "overlap")[wi]
+    # name_match_type retained (exact / name / dba / token_overlap)
+    typ <- c("name", "dba", "dba", "dba", "token_overlap")[wi]
     typ[az] <- NA_character_; typ[ex] <- "exact"
     df$name_match_type <- typ
 
