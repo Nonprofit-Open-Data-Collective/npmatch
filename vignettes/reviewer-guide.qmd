@@ -6,7 +6,7 @@ format:
     df-print: kable
     highlight-style: tango
     toc: true
-    toc-location: left
+    toc-location: right
     css: clean.css
     embed-resources: true
 execute:
@@ -299,7 +299,7 @@ data.frame(
 Operationally, every source org lands in one of three tiers. Here is what each
 means and where its errors come from.
 
-### 🟢 YES — "accept this match" · **~99% correct (a wrong EIN ~1% of the time)**
+### **YES — "accept this match"** · ~99% correct (a wrong EIN ~1% of the time)
 Strong name and address agreement, no veto. Reviewer effort is light: confirm the
 obvious pick. *Why the ~1% go wrong:* two different organizations sharing
 distinctive words **and** an address —
@@ -310,7 +310,7 @@ distinctive words **and** an address —
   Authority" pulled toward "Luzerne County Historical Society." *(A new
   government-entity rule now routes most of these to MAYBE.)*
 
-### 🟡 MAYBE — "a match likely exists; please review" · **the review tier**
+### **MAYBE — "a match likely exists; please review"** · the review tier
 Of everything sent to MAYBE, **61% turn out to be a real match**, 31% resolve to
 no-match, and 8% need more information. Combined with YES, **~98% of all true
 matches are surfaced** for a reviewer to see. *Why a case lands here, not in YES:*
@@ -322,7 +322,8 @@ matches are surfaced** for a reviewer to see. *Why a case lands here, not in YES
 - **Cross-state parents** — a national org filing under a headquarters in a
   different state than the local address.
 
-### 🔴 NO — "no acceptable match found" · **mostly correct; ~2% of true matches missed**
+### **NO — "no acceptable match found"** · mostly correct; ~2% of true matches missed
+
 Most NO answers are right. Among the correct rejections, **~50%** are genuinely
 not nonprofits (government, for-profit, individuals), **~39%** are real nonprofits
 absent from the *active* file (foreign, brand-new, co-ops, churches), and ~10%

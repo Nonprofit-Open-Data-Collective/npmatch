@@ -549,8 +549,8 @@ Figure 1
 <p>Of the nonprofits in the source data that have a matchable IRS record, the package recovers the correct EIN for <strong>96.5%</strong> (84% fully automatic, the rest confirmed in review), and when it assigns an EIN it is right <strong>~99%</strong> of the time. It correctly declines to link <strong>99%</strong> of the organizations that are not nonprofits or are absent from the file. The main ceiling on total recovery is IRS coverage itself — about <strong>1 in 8</strong> nonprofits has no active record — which the inactive-file option partially recovers.</p>
 </blockquote>
 <p>Operationally, every source org lands in one of three tiers. Here is what each means and where its errors come from.</p>
-<section class="level3"><h3 id="yes-accept-this-match-99-correct-a-wrong-ein-1-of-the-time">🟢 YES — “accept this match” · <strong>~99% correct (a wrong EIN ~1% of the time)</strong>
-<a class="anchor" aria-label="anchor" href="#yes-accept-this-match-99-correct-a-wrong-ein-1-of-the-time"></a>
+<section class="level3"><h3 id="yes-accept-this-match-99-correct-a-wrong-ein-1-of-the-time">
+<strong>YES — “accept this match”</strong> · ~99% correct (a wrong EIN ~1% of the time)<a class="anchor" aria-label="anchor" href="#yes-accept-this-match-99-correct-a-wrong-ein-1-of-the-time"></a>
 </h3>
 <p>Strong name and address agreement, no veto. Reviewer effort is light: confirm the obvious pick. <em>Why the ~1% go wrong:</em> two different organizations sharing distinctive words <strong>and</strong> an address —</p>
 <ul>
@@ -559,8 +559,8 @@ Figure 1
 <li>
 <strong>Same distinctive name, wrong entity type</strong> — “Luzerne County Housing Authority” pulled toward “Luzerne County Historical Society.” <em>(A new government-entity rule now routes most of these to MAYBE.)</em>
 </li>
-</ul></section><section class="level3"><h3 id="maybe-a-match-likely-exists-please-review-the-review-tier">🟡 MAYBE — “a match likely exists; please review” · <strong>the review tier</strong>
-<a class="anchor" aria-label="anchor" href="#maybe-a-match-likely-exists-please-review-the-review-tier"></a>
+</ul></section><section class="level3"><h3 id="maybe-a-match-likely-exists-please-review-the-review-tier">
+<strong>MAYBE — “a match likely exists; please review”</strong> · the review tier<a class="anchor" aria-label="anchor" href="#maybe-a-match-likely-exists-please-review-the-review-tier"></a>
 </h3>
 <p>Of everything sent to MAYBE, <strong>61% turn out to be a real match</strong>, 31% resolve to no-match, and 8% need more information. Combined with YES, <strong>~98% of all true matches are surfaced</strong> for a reviewer to see. <em>Why a case lands here, not in YES:</em></p>
 <ul>
@@ -570,8 +570,8 @@ Figure 1
 <strong>Parent vs subsidiary vs chapter</strong> — all share the distinctive words, so the algorithm surfaces them but refuses to guess which EIN.</li>
 <li>
 <strong>Cross-state parents</strong> — a national org filing under a headquarters in a different state than the local address.</li>
-</ul></section><section class="level3"><h3 id="no-no-acceptable-match-found-mostly-correct-2-of-true-matches-missed">🔴 NO — “no acceptable match found” · <strong>mostly correct; ~2% of true matches missed</strong>
-<a class="anchor" aria-label="anchor" href="#no-no-acceptable-match-found-mostly-correct-2-of-true-matches-missed"></a>
+</ul></section><section class="level3"><h3 id="no-no-acceptable-match-found-mostly-correct-2-of-true-matches-missed">
+<strong>NO — “no acceptable match found”</strong> · mostly correct; ~2% of true matches missed<a class="anchor" aria-label="anchor" href="#no-no-acceptable-match-found-mostly-correct-2-of-true-matches-missed"></a>
 </h3>
 <p>Most NO answers are right. Among the correct rejections, <strong>~50%</strong> are genuinely not nonprofits (government, for-profit, individuals), <strong>~39%</strong> are real nonprofits absent from the <em>active</em> file (foreign, brand-new, co-ops, churches), and ~10% are undetermined. The small share of <strong>false negatives</strong> happen two ways:</p>
 <ol type="1">
