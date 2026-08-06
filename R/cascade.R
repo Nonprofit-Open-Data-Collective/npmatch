@@ -140,8 +140,9 @@ np_cascade <- function(query, reference, config = np_config(), method = "hier",
   class(union) <- c("np_pairs", "data.frame")
 
   res <- np_tier(np_select(union, config), config)
-  res$pass <- union$pass[match(paste(res$.id, res$overall_ein),
-                               paste(union$.id, union$.ein))]
+  ord <- match(paste(res$.id, res$overall_ein), paste(union$.id, union$.ein))
+  res$pass <- union$pass[ord]
+  if (!is.null(union$bmf_active)) res$bmf_active <- union$bmf_active[ord]  # unified-BMF flag
   ft <- table(factor(as.character(res$tier), c("YES", "MAYBE", "NO")))
   say("  final: %d YES | %d MAYBE | %d NO over %d/%d queries",
       ft[["YES"]], ft[["MAYBE"]], ft[["NO"]], nrow(res), nrow(q))

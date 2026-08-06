@@ -10,7 +10,9 @@
 np_fields <- c(
   ".id", ".ein",
   "name", "dba", "division",
-  "street", "unit", "city", "county", "state", "zip5", "zip_plus4"
+  "street", "unit", "city", "county", "state", "zip5", "zip_plus4",
+  "active"      # reference-only: TRUE if the EIN is in the active BMF (else in the
+                # unified/inactive file). NA when the reference is not flagged.
 )
 
 #' Geographic profiles

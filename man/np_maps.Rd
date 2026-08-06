@@ -6,9 +6,15 @@
 \alias{np_map_sam}
 \title{Built-in schema maps}
 \usage{
-np_map_bmf()
+np_map_bmf(active_col = NULL)
 
 np_map_sam()
+}
+\arguments{
+\item{active_col}{Optional source column flagging whether each EIN is in the
+active BMF. Supply it when the reference is the \strong{unified} (active +
+inactive) BMF so matches carry an \code{active} flag downstream (current-990s vs
+identity-resolution filtering). Omit for the active-only BMF.}
 }
 \value{
 A named character vector: \code{canonical_field = source_column}.

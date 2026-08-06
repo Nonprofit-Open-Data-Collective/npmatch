@@ -219,6 +219,9 @@ np_compare <- function(query, reference, config = np_config(),
     df[[paste0(f, "_x")]] <- query[[f]][ix]
     df[[paste0(f, "_y")]] <- reference[[f]][iy]
   }
+  # carry the reference active flag (unified-BMF option) so the result can be
+  # filtered to current-990 matches vs identity-resolution matches downstream
+  df$bmf_active <- if (!is.null(reference$active)) reference$active[iy] else NA
 
   attr(df, "profile")      <- profile
   attr(df, "cmp_fields")   <- cmp_fields

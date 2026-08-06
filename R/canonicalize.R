@@ -14,8 +14,14 @@
 #' @return A named character vector: `canonical_field = source_column`.
 #' @name np_maps
 #' @export
-np_map_bmf <- function() {
-  c(
+#' @param active_col Optional source column flagging whether each EIN is in the
+#'   active BMF. Supply it when the reference is the **unified** (active +
+#'   inactive) BMF so matches carry an `active` flag downstream (current-990s vs
+#'   identity-resolution filtering). Omit for the active-only BMF.
+#' @rdname np_maps
+#' @export
+np_map_bmf <- function(active_col = NULL) {
+  m <- c(
     .ein   = "ein",
     name   = "org_name_join",
     dba    = "dba_name",
@@ -25,6 +31,8 @@ np_map_bmf <- function() {
     zip5   = "org_addr_zip5",
     zip_plus4 = "org_addr_zip4"     # +4 add-on: input only, used to build zip9
   )
+  if (!is.null(active_col)) m <- c(m, active = active_col)
+  m
 }
 
 #' Default BMF context fields for the review queue
@@ -233,5 +241,28 @@ np_reference <- function(data, map = np_map_bmf()) {
     stop("reference data must map an entity key to `.ein`.", call. = FALSE)
   }
   out$.ein <- as.character(out$.ein)
+  # normalize the optional active flag to logical (accepts TRUE/FALSE, 1/0, "T"/"F")
+  if (!is.null(out$active) && !all(is.na(out$active))) {
+    a <- out$active
+    out$active <- if (is.logical(a)) a
+                  else toupper(trimws(as.character(a))) %in% c("TRUE", "T", "1", "Y", "YES", "ACTIVE")
+  }
   structure(out, class = c("np_reference", "data.frame"))
+}
+
+#' Flag which reference EINs are active
+#'
+#' Convenience for the unified (active + inactive) BMF: sets the `active` column
+#' to `TRUE` for EINs present in `active_eins`, `FALSE` otherwise, so matches
+#' carry the flag through to the result. Use when you loaded the unified BMF but
+#' only have the active EIN set separately.
+#'
+#' @param reference An `np_reference` (or a data frame with an `.ein`/`ein` key).
+#' @param active_eins Character vector of EINs in the active BMF.
+#' @return `reference` with a logical `active` column.
+#' @export
+np_flag_active <- function(reference, active_eins) {
+  key <- if (!is.null(reference$.ein)) reference$.ein else reference$ein
+  reference$active <- as.character(key) %in% as.character(active_eins)
+  reference
 }
