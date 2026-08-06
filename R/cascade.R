@@ -25,6 +25,9 @@ np_default_passes <- function() {
     list(name = "token-state", desc = "shared name token, same state",
          args = list(by = "state", token = TRUE, max_ref_freq = 25000,
                      min_pair_idf = 8)),
+    list(name = "token-concat", desc = "shared token incl. de-spaced compound, same state",
+         args = list(by = "state", token = TRUE, concat_adjacent = TRUE,
+                     max_ref_freq = 25000, min_pair_idf = 8)),
     list(name = "token-crossstate", desc = "shared name token, any state",
          args = list(by = NULL, token = TRUE, max_ref_freq = 5000,
                      min_pair_idf = 8))

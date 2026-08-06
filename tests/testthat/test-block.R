@@ -76,6 +76,25 @@ test_that("cross-key token blocking (by = NULL) crosses states", {
   expect_equal(nrow(np_block(q, r, by = NULL,   token = TRUE)), 1)    # token match crosses
 })
 
+test_that("concat_adjacent recovers de-spacing differences symmetrically", {
+  q <- np_normalize(np_query(data.frame(unique_entity_id = c("a", "b"),
+        name = c("STEP FORWARD", "FLORIDA SKILLSUSA"), state = "OH",
+        stringsAsFactors = FALSE),
+        c(.id = "unique_entity_id", name = "name", state = "state")))
+  r <- np_normalize(np_reference(data.frame(ein = c("1", "2", "3"),
+        name = c("STEPFORWARD", "SKILLS USA", "STEP LADDER RENTAL"),
+        state = "OH", stringsAsFactors = FALSE),
+        c(.ein = "ein", name = "name", state = "state")))
+  # spaced vs de-spaced share no token, so the standard token pass misses them
+  b0 <- np_block(q, r, by = "state", token = TRUE)
+  expect_false(any(q$.id[b0$.x] == "a" & r$.ein[b0$.y] == "1"))  # STEP FORWARD / STEPFORWARD
+  expect_false(any(q$.id[b0$.x] == "b" & r$.ein[b0$.y] == "2"))  # SKILLSUSA / SKILLS USA
+  # concat emits the compound token on the side that is spaced, recovering both
+  b1 <- np_block(q, r, by = "state", token = TRUE, concat_adjacent = TRUE)
+  expect_true(any(q$.id[b1$.x] == "a" & r$.ein[b1$.y] == "1"))
+  expect_true(any(q$.id[b1$.x] == "b" & r$.ein[b1$.y] == "2"))
+})
+
 test_that("np_compare accepts np_block candidates and scores them", {
   f <- setup_frames()
   blk <- np_block(f$q, f$r, by = "state", token = TRUE)

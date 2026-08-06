@@ -15,7 +15,8 @@ np_block(
   stopwords = np_stopwords(),
   min_token_len = 2L,
   max_ref_freq = NULL,
-  min_pair_idf = NULL
+  min_pair_idf = NULL,
+  concat_adjacent = FALSE
 )
 }
 \arguments{
@@ -48,6 +49,13 @@ weighted by its inverse document frequency \code{log(N_ref / df)} and a pair is
 kept only when the sum of its shared tokens' IDF is at least this value. One
 rare token, or several moderately common ones, clears the bar; a lone common
 token does not. \code{NULL} (default) disables this. Only used when \code{token}.}
+
+\item{concat_adjacent}{If \code{TRUE}, also index the concatenation of each adjacent
+pair of (post-stopword) tokens as an extra token. This recovers de-spacing
+differences symmetrically: "STEP FORWARD" emits the compound "STEPFORWARD"
+which matches a reference already spelled "STEPFORWARD", and vice versa. The
+compounds are rare (high IDF), so with \code{min_pair_idf} set they only justify a
+pair when genuinely shared. Default \code{FALSE}. Only used when \code{token}.}
 }
 \value{
 A data frame of candidate pairs with integer columns \code{.x} (query row)

@@ -59,6 +59,12 @@ np_stopwords <- function() {
 #' @param min_token_len Minimum token length to index. Default 2.
 #' @param max_ref_freq Optional: drop tokens occurring in more than this many
 #'   reference records (kills corpus-common words). `NULL` = stopwords only.
+#' @param concat_adjacent If `TRUE`, also index the concatenation of each adjacent
+#'   pair of (post-stopword) tokens as an extra token. This recovers de-spacing
+#'   differences symmetrically: "STEP FORWARD" emits the compound "STEPFORWARD"
+#'   which matches a reference already spelled "STEPFORWARD", and vice versa. The
+#'   compounds are rare (high IDF), so with `min_pair_idf` set they only justify a
+#'   pair when genuinely shared. Default `FALSE`. Only used when `token`.
 #' @param min_pair_idf Optional IDF-weighted pruning. A single common token
 #'   (e.g. "CALIFORNIA", "CHURCH") should not by itself justify a candidate pair,
 #'   but a global `max_ref_freq` can't see that such a token is concentrated
@@ -73,7 +79,8 @@ np_stopwords <- function() {
 np_block <- function(query, reference, by = "state", by_x = NULL, by_y = NULL,
                      token = TRUE, token_col = "name_key",
                      stopwords = np_stopwords(), min_token_len = 2L,
-                     max_ref_freq = NULL, min_pair_idf = NULL) {
+                     max_ref_freq = NULL, min_pair_idf = NULL,
+                     concat_adjacent = FALSE) {
   stopifnot(is.data.frame(query), is.data.frame(reference))
   if (is.null(by_x)) by_x <- by
   if (is.null(by_y)) by_y <- by
@@ -97,11 +104,27 @@ np_block <- function(query, reference, by = "state", by_x = NULL, by_y = NULL,
     idx_of <- function(frame, byk) {
       v <- as.character(frame[[token_col]]); v[is.na(v)] <- ""
       toks <- strsplit(v, "\\s+")
+      bk_all <- .np_bykey(frame, byk)
       d <- data.frame(row = rep(seq_len(nrow(frame)), lengths(toks)),
                       token = unlist(toks, use.names = FALSE),
-                      bk = rep(.np_bykey(frame, byk), lengths(toks)),
+                      bk = rep(bk_all, lengths(toks)),
                       stringsAsFactors = FALSE)
-      d[nchar(d$token) >= min_token_len & !(d$token %in% stopwords), , drop = FALSE]
+      d <- d[nchar(d$token) >= min_token_len & !(d$token %in% stopwords), , drop = FALSE]
+      if (isTRUE(concat_adjacent)) {
+        # per-record: keep informative tokens in order, concatenate adjacent pairs
+        filt <- lapply(toks, function(t)
+          t[nchar(t) >= min_token_len & !(t %in% stopwords)])
+        bg <- lapply(filt, function(t)
+          if (length(t) < 2L) character(0) else paste0(t[-length(t)], t[-1]))
+        nb <- lengths(bg)
+        if (any(nb)) {
+          d2 <- data.frame(row = rep(seq_len(nrow(frame)), nb),
+                           token = unlist(bg, use.names = FALSE),
+                           bk = rep(bk_all, nb), stringsAsFactors = FALSE)
+          d <- rbind(d, d2)
+        }
+      }
+      d
     }
     qi <- idx_of(query, by_x); ri <- idx_of(reference, by_y)
     # reference document frequency per token (distinct records), before pruning
