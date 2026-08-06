@@ -66,6 +66,11 @@ np_geo_profiles <- function() {
 #'   different states, or no state to compare). Cross-state exact-name-only
 #'   matches are far less reliable than same-state ones, so they are floored to
 #'   this lower value (landing in MAYBE for review) rather than `distinct_name_floor`.
+#' @param overlap_maybe_floor Minimum token-overlap name score for a
+#'   containment/acronym recovery match to be floored to the MAYBE tier. Such
+#'   matches (found only via token overlap, not JW/DBA) are always capped below
+#'   YES -- containment cannot separate a parent from a subsidiary or chapter --
+#'   so they surface for review rather than auto-accepting.
 #' @param name_comparator,addr_comparator reclin2 comparator constructors used
 #'   for name-like and address-like fields respectively.
 #' @param jw_threshold Jaro-Winkler floor passed to the comparators; per-field
@@ -84,6 +89,7 @@ np_config <- function(weights    = np_default_weights(),
                       tie_band = 0.05, tie_high = 0.95, tiebreak = "name",
                       distinct_name_maxfreq = 3, distinct_name_floor = 0.90,
                       distinct_name_floor_xstate = 0.72,
+                      overlap_maybe_floor = 0.80,
                       name_comparator = "jaro_winkler",
                       addr_comparator = "jaro_winkler",
                       jw_threshold = 0.85,
@@ -102,6 +108,7 @@ np_config <- function(weights    = np_default_weights(),
       distinct_name_maxfreq = distinct_name_maxfreq,
       distinct_name_floor   = distinct_name_floor,
       distinct_name_floor_xstate = distinct_name_floor_xstate,
+      overlap_maybe_floor = overlap_maybe_floor,
       name_comparator = name_comparator,
       addr_comparator = addr_comparator,
       jw_threshold    = jw_threshold,

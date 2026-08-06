@@ -86,6 +86,7 @@ np_cascade <- function(query, reference, config = np_config(), method = "hier",
   q <- np_normalize(query); r <- np_normalize(reference)
   q$.id <- as.character(q$.id)
   name_freq <- np_name_freq(r$name_key)          # distinctiveness reference
+  token_idf <- np_token_idf(r$name_key)          # per-token IDF for overlap recovery
 
   pending <- unique(q$.id)
   acc <- list(); stages <- list(); cmp_cols <- NULL; profile <- NULL
@@ -107,7 +108,7 @@ np_cascade <- function(query, reference, config = np_config(), method = "hier",
     blk$.x <- match(q_sub$.id[blk$.x], q$.id)          # remap to full-query rows
 
     pr <- np_veto(np_score(np_compare(q, r, config, candidates = blk,
-                                      name_freq = name_freq),
+                                      name_freq = name_freq, token_idf = token_idf),
                            config, method = method))
     if (is.null(cmp_cols)) { cmp_cols <- attr(pr, "cmp_cols"); profile <- attr(pr, "profile") }
     df <- as.data.frame(pr); df$pass <- p$name

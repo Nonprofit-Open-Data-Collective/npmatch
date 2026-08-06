@@ -52,6 +52,23 @@
   if (is.null(fx)) fx <- config$distinct_name_floor
   floor_val <- ifelse(geo_state == 1, config$distinct_name_floor, fx)
   score[promote] <- pmax(score[promote], floor_val[promote])
+
+  # Token-overlap (containment / acronym) recovery is review-only: it cannot tell
+  # a parent from a subsidiary, auxiliary or chapter that shares the same
+  # distinctive tokens (validated on the labelled set -- even distinctive full
+  # containment is ~1-in-4 correct). So a match found *only* via token overlap is
+  # capped below YES (never auto-accepted) and, when the overlap is strong,
+  # floored to MAYBE so a real subset/superset false negative surfaces for review.
+  nmt <- if (!is.null(pairs$name_match_type)) as.character(pairs$name_match_type)
+         else rep(NA_character_, n)
+  tov <- !is.na(nmt) & nmt == "token_overlap"
+  if (any(tov)) {
+    th  <- config$thresholds
+    omf <- config$overlap_maybe_floor; if (is.null(omf)) omf <- 0.80
+    strong <- tov & name_score >= omf
+    score[strong] <- pmax(score[strong], th[["maybe"]])
+    score[tov]    <- pmin(score[tov], th[["yes"]] - 1e-6)
+  }
   score
 }
 

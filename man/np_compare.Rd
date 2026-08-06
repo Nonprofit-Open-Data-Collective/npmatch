@@ -11,7 +11,8 @@ np_compare(
   block = "state",
   profile = NULL,
   candidates = NULL,
-  name_freq = NULL
+  name_freq = NULL,
+  token_idf = NULL
 )
 }
 \arguments{

@@ -46,7 +46,7 @@
 #' @export
 np_compare <- function(query, reference, config = np_config(),
                        block = "state", profile = NULL, candidates = NULL,
-                       name_freq = NULL) {
+                       name_freq = NULL, token_idf = NULL) {
   if (!requireNamespace("reclin2", quietly = TRUE)) {
     stop("np_compare() requires the reclin2 package.", call. = FALSE)
   }
@@ -147,15 +147,20 @@ np_compare <- function(query, reference, config = np_config(),
       assign(nm2, { z <- get(nm2); z[z < jt] <- 0; z })
     s_dba <- pmax(t_nd, t_dn, t_dd, t_vn, t_vd)
 
-    # Name-blind recovery: for pairs the JW scored to 0 *but* whose address is
-    # confirmed, try the token-set + acronym overlap (word-reorder, acronyms,
-    # typos). Gated on address to keep it cheap and avoid false positives.
+    # Name-blind recovery: for same-state pairs whose JW/DBA name score did not
+    # clear the threshold, try a containment-aware, acronym-aware token overlap
+    # (word-reorder, acronyms, subset/superset names). Containment alone is
+    # ambiguous -- a parent, a subsidiary, an auxiliary and a chapter all share
+    # the distinctive tokens -- so np_score caps a token_overlap-only match at the
+    # MAYBE (review) tier: it recovers a false negative into human/LLM review but
+    # never auto-accepts. (Previously gated on a confirmed address, which missed
+    # the state-only subset/superset false negatives.)
     s_ov <- numeric(nrow(df))
-    low <- which(pmax(s_nn, s_dba) == 0 &
-                 (df$geo_zip5 == 1 | df$geo_zip9 == 1 | df$geo_stnum == 1))
+    low <- which(pmax(s_nn, s_dba) < jt & df$geo_state == 1)
     if (length(low)) {
       qt <- strsplit(nkx[low], "\\s+"); rt <- strsplit(nky[low], "\\s+")
-      ov <- mapply(.np_name_overlap, qt, rt); ov[ov < 0.6] <- 0
+      ov <- mapply(function(a, b) .np_contain_overlap(a, b, token_idf), qt, rt)
+      ov[ov < 0.6] <- 0
       s_ov[low] <- ov
     }
     df[["name_key"]] <- pmax(s_nn, s_dba, s_ov)

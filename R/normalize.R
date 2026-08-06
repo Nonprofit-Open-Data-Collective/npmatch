@@ -363,6 +363,38 @@ np_token_idf <- function(name_keys, stopwords = np_stopwords(), min_token_len = 
   sum(ma) / max(length(ta), length(tb) - collapsed)
 }
 
+# Containment-aware name overlap for the review-tier recovery path. Unlike
+# .np_name_overlap (max denominator, so a fully-contained short name is penalised
+# by the longer name's extra words), this scores coverage of the *smaller*
+# informative token set -- "BAPTIST BIBLE COLLEGE" fully inside "BAPTIST BIBLE
+# COLLEGE AND GRADUATE SCHOOL" -> ~1.0, not 0.5. Requires >= 2 shared informative
+# tokens AND, when a token-IDF map is supplied, at least one *distinctive* shared
+# token (idf >= idf_min), so generic shared words ("COMMUNITY HOUSING") don't
+# trigger it. Falls back to the acronym-aware .np_name_overlap so YWCA-style
+# matches still register. The result feeds a MAYBE-capped recovery in np_score:
+# containment alone is ambiguous (parent vs subsidiary vs chapter share tokens),
+# so it surfaces for review, never auto-accepts.
+.np_contain_overlap <- function(ta, tb, idf = NULL, stopwords = np_stopwords(),
+                                idf_min = 9, min_len = 2L) {
+  acr <- .np_name_overlap(ta, tb)
+  qa <- ta[nchar(ta) >= min_len & !(ta %in% stopwords)]
+  qb <- tb[nchar(tb) >= min_len & !(tb %in% stopwords)]
+  con <- 0
+  if (length(qa) && length(qb)) {
+    sh <- intersect(qa, qb)
+    if (length(sh) >= 2L) {
+      distinct <- is.null(idf) || {
+        w <- idf[sh]; w <- w[!is.na(w)]; length(w) && max(w) >= idf_min
+      }
+      if (isTRUE(distinct)) {
+        cov <- length(sh) / min(length(qa), length(qb))   # coverage of smaller set
+        con <- 0.55 + 0.40 * cov                          # full containment -> ~0.95
+      }
+    }
+  }
+  max(acr, con)
+}
+
 # Parse a ZIP field into the nested prefix family zip5 / zip3 / zip9, restoring
 # dropped leading zeros. Handles 5-digit, 9-digit (with or without a dash), and
 # short (leading-zero-dropped) inputs. The +4 add-on is used internally to build

@@ -17,13 +17,21 @@ nb_match <- function(qname, rname, same_addr = TRUE) {
   np_score(np_compare(q, r, block = "state"), method = "hier")$score
 }
 
-test_that("acronym / expansion matches are recovered when the address confirms", {
-  expect_gte(nb_match("PORT MATILDA EMS", "PORT MATILDA EMERGENCY MEDICAL SERVICE"), 0.80)
+# Token-overlap recovery (acronym / word-reorder / subset-superset containment) is
+# ambiguous -- a parent, subsidiary, auxiliary or chapter shares the same tokens --
+# so it surfaces the pair for review (MAYBE) but never auto-accepts (never YES),
+# regardless of whether the address also confirms.
+test_that("acronym / expansion matches surface for review (MAYBE, not YES)", {
+  s <- nb_match("PORT MATILDA EMS", "PORT MATILDA EMERGENCY MEDICAL SERVICE")
+  expect_gte(s, 0.65)   # recovered into the review tier
+  expect_lt(s, 0.78)    # but capped below YES -- containment never auto-accepts
 })
 
-test_that("word-reorder matches are recovered when the address confirms", {
-  expect_gte(nb_match("HERITAGE MUSEUM OF NEWAYGO COUNTY",
-                      "NEWAYGO COUNTY MUSEUM AND HERITAGE CENTER"), 0.78)
+test_that("word-reorder matches surface for review (MAYBE, not YES)", {
+  s <- nb_match("HERITAGE MUSEUM OF NEWAYGO COUNTY",
+                "NEWAYGO COUNTY MUSEUM AND HERITAGE CENTER")
+  expect_gte(s, 0.65)
+  expect_lt(s, 0.78)
 })
 
 test_that("an unrelated org at the same address is NOT recovered", {
@@ -32,9 +40,10 @@ test_that("an unrelated org at the same address is NOT recovered", {
   expect_lt(s, 0.65)
 })
 
-test_that("name-blind recovery does not fire without address confirmation", {
-  # same acronym case but different address -> no geo gate, name stays 0
+test_that("token-overlap recovery never auto-accepts, even same-state w/o address", {
+  # ungated to same-state now (recovers state-only false negatives into review),
+  # but still capped below YES since containment alone can't confirm the entity
   s <- nb_match("PORT MATILDA EMS", "PORT MATILDA EMERGENCY MEDICAL SERVICE",
                 same_addr = FALSE)
-  expect_lt(s, 0.75)
+  expect_lt(s, 0.78)
 })

@@ -14,6 +14,7 @@ np_config(
   distinct_name_maxfreq = 3,
   distinct_name_floor = 0.9,
   distinct_name_floor_xstate = 0.72,
+  overlap_maybe_floor = 0.8,
   name_comparator = "jaro_winkler",
   addr_comparator = "jaro_winkler",
   jw_threshold = 0.85,
@@ -52,6 +53,12 @@ distinctive-name match is \emph{not} state-confirmed (query and candidate in
 different states, or no state to compare). Cross-state exact-name-only
 matches are far less reliable than same-state ones, so they are floored to
 this lower value (landing in MAYBE for review) rather than \code{distinct_name_floor}.}
+
+\item{overlap_maybe_floor}{Minimum token-overlap name score for a
+containment/acronym recovery match to be floored to the MAYBE tier. Such
+matches (found only via token overlap, not JW/DBA) are always capped below
+YES -- containment cannot separate a parent from a subsidiary or chapter --
+so they surface for review rather than auto-accepting.}
 
 \item{name_comparator, addr_comparator}{reclin2 comparator constructors used
 for name-like and address-like fields respectively.}
