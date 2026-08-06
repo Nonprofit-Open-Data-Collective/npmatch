@@ -1,0 +1,10 @@
+pandoc: '3.2'
+pkgdown: 2.1.1
+pkgdown_sha: ~
+articles:
+  candidate-evaluation-frame: candidate-evaluation-frame.html
+  reviewer-guide: reviewer-guide.html
+last_built: 2026-08-06T19:30Z
+urls:
+  reference: https://nonprofit-open-data-collective.github.io/npmatch/reference
+  article: https://nonprofit-open-data-collective.github.io/npmatch/articles

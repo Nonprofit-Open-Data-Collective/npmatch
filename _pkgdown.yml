@@ -1,0 +1,85 @@
+url: https://nonprofit-open-data-collective.github.io/npmatch/
+
+template:
+  bootstrap: 5
+  bslib:
+    primary: "#B22222"        # firebrick, matching the guide accents
+    link-color: "#AF7817"
+
+navbar:
+  structure:
+    left:  [reference, articles]
+    right: [search, github]
+
+articles:
+- title: Guides
+  navbar: ~
+  contents:
+  - reviewer-guide
+  - candidate-evaluation-frame
+
+reference:
+- title: Match pipeline
+  desc: Block, compare, score, veto, select, and tier candidate pairs.
+  contents:
+  - np_cascade
+  - np_match
+  - np_block
+  - np_block_union
+  - np_compare
+  - np_score
+  - np_veto
+  - np_select
+  - np_tier
+  - np_route
+- title: Setup & normalization
+  desc: Map raw datasets onto canonical fields and normalize names and addresses.
+  contents:
+  - np_config
+  - np_fields
+  - np_query
+  - np_reference
+  - np_normalize
+  - np_map_bmf
+  - np_map_sam
+  - np_flag_active
+  - np_geo_profiles
+  - np_detect_geo
+- title: Rules, distinctiveness & training
+  desc: Do-not-match rules, token/name statistics, and model benchmarking.
+  contents:
+  - np_default_rules
+  - np_rule
+  - np_rule_legal_form
+  - np_default_passes
+  - np_stopwords
+  - np_name_freq
+  - np_token_idf
+  - np_default_weights
+  - np_default_geo_weights
+  - np_train
+  - np_benchmark
+  - np_auc
+  - np_evaluate
+  - np_tune_thresholds
+- title: Review & labeling hand-off
+  desc: Build review frames, LLM prompts, and calibration/labeling tools.
+  contents:
+  - np_label_frame
+  - np_calibration_frame
+  - np_label
+  - np_preview_pair
+  - np_veto_audit
+  - np_bmf_review_fields
+  - np_sam_review_fields
+  - np_as_prompt
+  - np_as_prompts
+- title: Geography helpers
+  contents:
+  - np_clean_geo
+  - np_city_aliases
+  - np_augment_geo
+  - np_ruca_urban
+  - np_load_hud
+  - np_load_ruca
+  - np_load_zipcode_db

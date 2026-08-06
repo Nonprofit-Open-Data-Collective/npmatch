@@ -39,8 +39,7 @@ vignettes/*.pdf
 # R Environment Variables
 .Renviron
 
-# pkgdown site
-docs/
+# pkgdown site is served from main branch /docs, so it IS tracked
 
 # translation temp files
 po/*~
@@ -51,7 +50,5 @@ rsconnect/
 # Large local data (BMF/SAM reference + dev datasets & caches) — kept locally, not committed
 /data-raw/
 /data-dev/
-/docs/
 /vignettes/*_files/
-/vignettes/*.html
 /vignettes/*.err

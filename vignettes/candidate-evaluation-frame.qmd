@@ -6,7 +6,7 @@ format:
     df-print: kable
     highlight-style: tango
     toc: true
-    toc-location: left
+    toc-location: right
     css: clean.css
     embed-resources: true
 execute:
