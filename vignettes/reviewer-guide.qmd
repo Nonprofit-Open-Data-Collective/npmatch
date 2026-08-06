@@ -1,24 +1,29 @@
 ---
 title: "npmatch: A Reviewer's Guide"
-output:
-  rmarkdown::html_vignette:
+format:
+  html:
+    theme: readable
+    df-print: paged
+    highlight-style: tango
     toc: true
-    toc_depth: 2
+    toc-location: left
+    css: clean.css
+    embed-resources: true
+execute:
+  echo: false
+  warning: false
+  message: false
 vignette: >
   %\VignetteIndexEntry{npmatch: A Reviewer's Guide}
-  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEngine{quarto::html}
   %\VignetteEncoding{UTF-8}
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE,
-                      fig.width = 7, fig.height = 4.2, dpi = 110)
+knitr::opts_chunk$set(fig.width = 7, fig.height = 4.2, dpi = 110)
 library(npmatch)
 have <- function(p) requireNamespace(p, quietly = TRUE)
 if (have("ggplot2")) library(ggplot2)
-kbl <- function(x, ...) if (have("kableExtra"))
-  kableExtra::kable_styling(knitr::kable(x, ...), full_width = FALSE,
-    bootstrap_options = c("striped","condensed")) else knitr::kable(x, ...)
 ```
 
 *A plain-language overview of how the nonprofit crosswalk is built, what the
@@ -57,9 +62,9 @@ q  <- np_normalize(np_query(data.frame(unique_entity_id = seq_along(nm), name = 
         street = "", city = "", state = "OH", zip = "", stringsAsFactors = FALSE),
         c(.id="unique_entity_id", name="name", street="street", city="city",
           state="state", zip5="zip")))
-kbl(data.frame(`Original name` = nm, `Cleaned match key` = q$name_key,
+data.frame(`Original name` = nm, `Cleaned match key` = q$name_key,
    `Tokens compared` = vapply(strsplit(q$name_key, " "), paste, "", collapse = " · "),
-   check.names = FALSE))
+   check.names = FALSE)
 ```
 
 Addresses are parsed the same way — a standardized street body, a separated
@@ -73,9 +78,9 @@ ad <- data.frame(unique_entity_id = 1:3, name = c("A","B","C"),
    zip = c("63101-2200","45201","20814"), stringsAsFactors = FALSE)
 qa <- np_normalize(np_query(ad, c(.id="unique_entity_id", name="name", street="street",
         city="city", state="state", zip5="zip")))
-kbl(data.frame(`Original address` = ad$street, `Street key` = qa$street_key,
+data.frame(`Original address` = ad$street, `Street key` = qa$street_key,
    Unit = ifelse(is.na(qa$street_unit), "—", qa$street_unit),
-   ZIP5 = qa$zip5, `ZIP region` = qa$zip3, check.names = FALSE))
+   ZIP5 = qa$zip5, `ZIP region` = qa$zip3, check.names = FALSE)
 ```
 
 **Corrupted records are *tolerated*, not silently fixed.** Rather than guess a
@@ -84,12 +89,12 @@ typo or a spacing slip in the official record still scores as a near-match. A fe
 real BMF cases the fuzzy layer recovers:
 
 ```{r norm-fuzzy}
-kbl(data.frame(
+data.frame(
   `Source name` = c("CENTER FOR TRANSPORTATION AND THE ENVIRONMENT",
                     "STEP FORWARD", "HILLEL FOUNDATION"),
   `BMF record (as filed)` = c("...AND THE ENVIROMENT  (missing N)",
                     "STEPFORWARD  (de-spaced)", "HILEL FOUNDATION  (dropped L)"),
-  `Name similarity` = c("0.99", "0.98", "0.91"), check.names = FALSE))
+  `Name similarity` = c(0.99, 0.98, 0.91), check.names = FALSE)
 ```
 
 ## 3. The two-stage idea
@@ -123,7 +128,6 @@ fn <- data.frame(
   yes   = c(845, 22, 109, 7, 1),
   cost  = c("cheap","cheap","costly","costly","costliest"))
 fn$stage <- factor(fn$stage, levels = rev(fn$stage))
-fn$cum <- rev(cumsum(rev(fn$yes)))
 if (have("ggplot2")) {
   ggplot(fn, aes(stage, yes, fill = cost)) +
     geom_col(width = .7) +
@@ -134,29 +138,33 @@ if (have("ggplot2")) {
          subtitle = "Cheap exact passes run first and settle most matches",
          x = NULL, y = "matches auto-accepted", fill = NULL) +
     theme_minimal(base_size = 11) + theme(legend.position = "bottom")
-} else kbl(fn[,c("stage","yes","cost")])
+}
 ```
 
 ## 5. Reading the output: candidate sets
 
 For each source organization, npmatch surfaces the candidate EINs it considered
-with everything needed to judge the fit — the candidate's name and location, a
-**name similarity** (0–1), how the names matched (exact / fuzzy / DBA / token
-overlap), the combined **score**, and any **veto** that fired. Three real
-examples show the flavor and the pathologies.
+with everything needed to judge the fit — the candidate's name, a **Name
+Similarity** (0–1), which **Name Version** matched, the combined **Full Match
+Score**, and any veto that fired. Three real examples show the flavor and the
+pathologies. *(The source organization is named above each candidate set so you
+can see what it is being matched against.)*
 
 **(a) A clear winner amid noise.** The blocking step casts a wide net, so weak
 look-alikes appear — but the true match dominates and is auto-accepted (YES).
 
+> **Source organization:** *The North Carolina Coalition Against Domestic Violence, Inc.*
+
 ```{r cand-a}
-kbl(data.frame(
+data.frame(
   Candidate = c("The North Carolina Coalition Against Domestic Violence",
                 "North Carolina (DBA fragment)", "NC Guardian ad Litem Assn"),
-  Sim = c(0.95, 0.86, 0.67), Type = c("name","dba","token overlap"),
-  Score = c(0.95, 0.59, 0.48),
+  `Name Similarity` = c(0.95, 0.86, 0.67),
+  `Name Version` = c("name", "dba", "token overlap"),
+  `Full Match Score` = c(0.95, 0.59, 0.48),
   Why = c("near-exact name + state → the pick",
           "shares only the state words → noise",
-          "a few shared words, different org → noise"), check.names = FALSE))
+          "a few shared words, different org → noise"), check.names = FALSE)
 ```
 
 **(b) An organization vs. its foundation (a family of related EINs).** When both
@@ -164,34 +172,39 @@ the operating org and its affiliated foundation sit at the same place, the
 foundation is *soft-vetoed* — surfaced, but held back from auto-accept so a
 reviewer confirms which EIN is meant.
 
+> **Source organization:** *New York Rural Water Association*
+
 ```{r cand-b}
-kbl(data.frame(
+data.frame(
   Candidate = c("New York Rural Water Association", "New York Rural Water Foundation"),
-  Sim = c(1.00, 1.00), Type = c("exact","exact"), Score = c(0.96, "→ MAYBE"),
+  `Name Similarity` = c(1.00, 1.00), `Name Version` = c("exact", "exact"),
+  `Full Match Score` = c("0.96", "→ MAYBE"),
   Veto = c("—", "affiliate_suffix (Foundation)"),
   Why = c("the operating org → auto-accept",
           "the affiliate arm → routed to review, not auto-accepted"),
-  check.names = FALSE))
+  check.names = FALSE)
 ```
 
-**(c) A genuinely ambiguous cluster → MAYBE.** Several neighborhood
-organizations share the distinctive words; none dominates, so the algorithm
+**(c) A genuinely ambiguous cluster → MAYBE.** Several neighborhood organizations
+share the distinctive words; none clearly *is* the source org, so the algorithm
 refuses to guess and sends the set to review.
 
+> **Source organization:** *Young Men's and Young Women's Hebrew Association of Washington Heights*
+
 ```{r cand-c}
-kbl(data.frame(
+data.frame(
   Candidate = c("Washington Heights Inwood Mask Blocc...", "Washington Heights & Inwood Devel...",
                 "Chamber of Commerce of Washington Hts", "Washington Heights Inwood Preserv..."),
-  Sim = c(0.79, 0.85, 0.79, 0.75), Type = "token overlap",
-  Score = c(0.78, 0.73, 0.69, 0.67),
+  `Name Similarity` = c(0.79, 0.85, 0.79, 0.75), `Name Version` = "token overlap",
+  `Full Match Score` = c(0.78, 0.73, 0.69, 0.67),
   Why = c("top candidate, but not decisive","close second","related, weaker","related, weaker"),
-  check.names = FALSE))
+  check.names = FALSE)
 ```
 
-The recurring pathologies: **shared generic/geographic words** (candidate a),
-**parent/subsidiary/affiliate families** (candidate b), and **dense clusters of
-similarly-named local orgs** (candidate c). Name and address alone can rank
-these but cannot always decide them — which is the entire reason for MAYBE.
+The recurring pathologies: **shared generic/geographic words** (a),
+**parent/subsidiary/affiliate families** (b), and **dense clusters of
+similarly-named local orgs** (c). Name and address alone can rank these but
+cannot always decide them — which is the entire reason for MAYBE.
 
 ## 6. The three answers — how the cases flow
 
@@ -199,49 +212,61 @@ Here is where all 1,502 hand-verified benchmark cases land. **MAYBE is the real
 decision point**: YES is mostly settled and NO is mostly correct, but MAYBE is
 where a real match hides behind ambiguity and human/LLM judgment pays off.
 
-```{r tree}
-if (have("ggplot2")) {
-  nodes <- data.frame(
-    x = c(1, 2.4, 2.4, 2.4),
-    y = c(3, 4.5, 3.0, 1.5),
-    pct = c(100, 65, 16, 19),
-    lab = c("All source\norgs","YES\n65%","MAYBE\n16%","NO / no-cand\n19%"),
-    err = c(NA, 1.5, NA, 14),                 # FP inside YES, FN inside NO (% of that tier)
-    errlab = c(NA, "~1–2%\nfalse pos.", NA, "~14%\nfalse neg."))
-  edges <- data.frame(x=1, y=3, xe=2.4, ye=c(4.5,3,1.5))
-  ggplot() +
-    geom_segment(data=edges, aes(x=x,y=y,xend=xe,yend=ye), colour="grey70") +
-    geom_point(data=nodes, aes(x,y,size=pct), colour="#4575b4", alpha=.85) +
-    geom_point(data=subset(nodes,!is.na(err)), aes(x=x+.03,y=y-.02,size=err), colour="#d73027") +
-    geom_text(data=nodes, aes(x,y,label=lab), colour="white", fontface="bold", size=3) +
-    geom_text(data=subset(nodes,!is.na(err)), aes(x=x+.55,y=y,label=errlab),
-              colour="#d73027", size=2.7, hjust=0) +
-    scale_size_area(max_size=42, guide="none") +
-    expand_limits(x=c(.6,3.6), y=c(.5,5.3)) +
-    labs(title="How the 1,502 cases flow to YES / MAYBE / NO",
-         subtitle="Circle area ∝ share of cases; red = the error inside each confident tier") +
-    theme_void(base_size=11)
-} else kbl(data.frame(tier=c("YES","MAYBE","NO/zero"), pct=c(65,16,19),
-                      error=c("~1-2% FP","(review tier)","~14% FN")))
+```{mermaid}
+%%| label: fig-flow
+flowchart TD
+    A["<b>All source orgs</b><br/>n = 1,502"]
+    A --> Y["🟢 <b>YES</b> · 65.2%<br/>auto-accept<br/>99.6% correct · 0.4% false-pos."]
+    A --> M["🟡 <b>MAYBE</b> · 15.8%<br/>→ Stage 2 review"]
+    A --> N["🔴 <b>NO</b> · 18.9%<br/>85.9% correct reject · 14.1% false-neg."]
+    M --> M1["Confirmed match<br/>61%"]
+    M --> M2["No match<br/>31%"]
+    M --> M3["Needs more info<br/>8%"]
+    N --> N1["Not a nonprofit<br/>43%"]
+    N --> N2["Not in active BMF<br/>34%"]
+    N --> N3["False negative<br/>14%"]
+    N --> N4["Undetermined<br/>9%"]
+    classDef yes fill:#c7e9c0,stroke:#31a354,color:#111;
+    classDef maybe fill:#fee391,stroke:#d95f0e,color:#111;
+    classDef no fill:#fdcfcf,stroke:#d73027,color:#111;
+    class Y,M1 yes;
+    class M,M2,M3 maybe;
+    class N,N3 no;
 ```
 
-```{r splits, fig.height=2.6}
-if (have("ggplot2")) {
-  mb <- data.frame(part=c("confirmed match","no match","needs more info"),
-                   pct=c(61,31,8), grp="MAYBE resolves to →")
-  no <- data.frame(part=c("not a nonprofit\n(govt / for-profit / person)",
-                          "nonprofit, not in active BMF\n(foreign / new / co-op / church)",
-                          "undetermined"),
-                   pct=c(50,39,10), grp="Correct NO, by reason →")
-  d <- rbind(mb, no)
-  d$part <- factor(d$part, levels=rev(unique(d$part)))
-  ggplot(d, aes(part, pct, fill=grp)) + geom_col(width=.7, show.legend=FALSE) +
-    geom_text(aes(label=paste0(pct,"%")), hjust=-0.15, size=3) +
-    coord_flip() + facet_wrap(~grp, scales="free_y") + expand_limits(y=70) +
-    scale_fill_manual(values=c("MAYBE resolves to →"="#fdae61","Correct NO, by reason →"="#91bfdb")) +
-    labs(x=NULL, y="% within the tier") + theme_minimal(base_size=10)
-} else { kbl(data.frame(MAYBE=c("confirmed 61%","no-match 31%","unknown 8%")));
-         kbl(data.frame(NO_reason=c("not-a-nonprofit 50%","not-in-BMF 39%","undetermined 10%"))) }
+**First pass — the algorithm's initial tier.** YES and NO are *decisions*; MAYBE
+is *deferred* to Stage 2 (its resolution is the second table).
+
+```{r first-pass}
+data.frame(
+  Branch = c("🟢 YES","🟡 MAYBE","🔴 NO"),
+  `% of all cases` = c("65.2%", "15.8%", "18.9%"),
+  `% correct` = c("99.6% — right pick", "— deferred to review", "85.9% — right rejection"),
+  `% error` = c("0.4% — false positive", "—", "14.1% — false negative"),
+  check.names = FALSE)
+```
+
+**Second pass — what MAYBE resolves to after review**, and how the NO branch
+breaks down by reason. MAYBE is where the payoff is: **61% of it is a real match**
+that only a second look confirms.
+
+```{r maybe-resolve}
+data.frame(
+  `MAYBE resolves to` = c("Confirmed match", "No match", "Needs more info"),
+  `% of MAYBE` = c("61.3%", "31.1%", "7.6%"),
+  Meaning = c("reviewer / LLM confirms a real EIN",
+              "no real match — surfaced for safety, then cleared",
+              "needs external evidence to decide"), check.names = FALSE)
+```
+
+```{r no-types}
+data.frame(
+  `NO breaks into` = c("Not a nonprofit (govt / for-profit / person)",
+                       "Nonprofit, not in the active BMF (foreign / new / co-op / church)",
+                       "False negative — a real match was missed",
+                       "Undetermined"),
+  `% of NO` = c("43.3%", "33.5%", "14.1%", "8.5%"),
+  check.names = FALSE)
 ```
 
 ### 🟢 YES — "accept this match" · **~98% correct (~1–2% false positive)**
@@ -288,13 +313,13 @@ are undetermined. The small share of **false negatives** happen two ways:
 ## 7. What a reviewer does in each tier
 
 ```{r workflow}
-kbl(data.frame(
+data.frame(
   Tier = c("🟢 YES","🟡 MAYBE","🔴 NO"),
   Effort = c("Light / spot-check","Moderate","Targeted"),
   Task = c("Confirm the auto-selected EIN against the surfaced candidates.",
            "Pick the right candidate, or gather a little evidence to decide.",
            "Confirm the org is genuinely unmatched — or research a possible miss."),
-  check.names = FALSE))
+  check.names = FALSE)
 ```
 
 Because YES is ~98% precise and NO is mostly correct, **the real work
@@ -335,10 +360,11 @@ hundreds of thousands.
 ## Appendix — a peek at the evaluation dataset
 
 Each row is one candidate the algorithm surfaced, with the fields a reviewer uses
-to decide. (See the companion *Field Reference* vignette for full definitions.)
+to decide. (See the companion *Candidate Evaluation Frame* vignette for full
+definitions.)
 
 ```{r preview}
-ev <- data.frame(
+data.frame(
   source_org = c("Coalition for the Common Good","YWCA of Helena","Nowlin Hall Apartments",
                  "Luzerne County Housing Authority","Freedom Bird Foundation"),
   best_candidate = c("(Antioch University — rebrand, not surfaced)","(Young Women's Christian Assn — acronym)",
@@ -349,7 +375,4 @@ ev <- data.frame(
   note = c("rebrand: names share nothing (blocking miss)","acronym vs spelled-out (blocking miss)",
            "subset name → review","govt entity, wrong type (veto now catches)","short-form name → review"),
   stringsAsFactors = FALSE)
-tab <- knitr::kable(ev, col.names = c("Source org","Best candidate","Name sim","Tier","True EIN","Why"))
-if (have("kableExtra")) kableExtra::scroll_box(kableExtra::kable_styling(tab,
-  bootstrap_options = c("striped","condensed")), width = "100%", height = "260px") else tab
 ```

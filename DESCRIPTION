@@ -24,6 +24,7 @@ Suggests:
     ggplot2,
     kableExtra,
     knitr,
+    quarto,
     reclin2,
     readxl,
     rmarkdown,
@@ -31,4 +32,4 @@ Suggests:
     zipcodeR,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
-VignetteBuilder: knitr
+VignetteBuilder: quarto

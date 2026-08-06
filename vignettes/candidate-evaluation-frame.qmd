@@ -1,22 +1,27 @@
 ---
 title: "The Candidate Evaluation Frame — Fields & Methods"
-output:
-  rmarkdown::html_vignette:
+format:
+  html:
+    theme: readable
+    df-print: paged
+    highlight-style: tango
     toc: true
-    toc_depth: 2
+    toc-location: left
+    css: clean.css
+    embed-resources: true
+execute:
+  echo: false
+  warning: false
+  message: false
 vignette: >
   %\VignetteIndexEntry{The Candidate Evaluation Frame — Fields & Methods}
-  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEngine{quarto::html}
   %\VignetteEncoding{UTF-8}
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(message = FALSE, warning = FALSE)
 library(npmatch)
 have <- function(p) requireNamespace(p, quietly = TRUE)
-kbl <- function(x, ...) if (have("kableExtra"))
-  kableExtra::kable_styling(knitr::kable(x, ...), full_width = FALSE,
-    bootstrap_options = c("striped","condensed")) else knitr::kable(x, ...)
 ```
 
 *A technical companion to the Reviewer's Guide. It defines every field in the
@@ -47,7 +52,7 @@ field *imported* from that dataset rather than *derived* by npmatch.
 
 ### 1 · Match strength & outcome
 ```{r d1}
-kbl(data.frame(Field = c("uei / ein","name_similarity","addr_similarity",
+data.frame(Field = c("uei / ein","name_similarity","addr_similarity",
   "candidate_type","total_score","num_of_candidates","is_top_candidate",
   "match_decision","match_layer","decision_reason","veto / veto_reason",
   "veto_soft / veto_soft_reason","notes"),
@@ -64,24 +69,24 @@ kbl(data.frame(Field = c("uei / ein","name_similarity","addr_similarity",
   "short human-readable reason for the tier",
   "hard do-not-match rule fired → forces NO (e.g. for-profit legal form)",
   "soft rule fired → capped at MAYBE (e.g. affiliate suffix, government entity)",
-  "free-text annotations"), check.names = FALSE))
+  "free-text annotations"), check.names = FALSE)
 ```
 
 ### 2 · Name-match summary
 ```{r d2}
-kbl(data.frame(Field = c("match_name_uss / match_name_bmf",
+data.frame(Field = c("match_name_uss / match_name_bmf",
   "match_version_uss / match_version_bmf","match_type","normalized_match_count"),
   Meaning = c(
   "the actual name string that produced the match, on each side",
   "which name version matched: MAIN, DBA, or DIVISION",
   "exact · name (fuzzy) · dba · token_overlap — how the names were matched",
   "how many reference records share this exact normalized name — a distinctiveness measure (see Methods)"),
-  check.names = FALSE))
+  check.names = FALSE)
 ```
 
 ### 3 · Name-cleaning progression (each side, `_uss` and `_bmf`)
 ```{r d3}
-kbl(data.frame(Field = c("name_*_raw_main","name_*_raw_dba","name_*_raw_division",
+data.frame(Field = c("name_*_raw_main","name_*_raw_dba","name_*_raw_division",
   "name_*_normalized","name_*_org_type","name_*_tokenized"),
   Meaning = c(
   "the original legal name as supplied",
@@ -90,12 +95,12 @@ kbl(data.frame(Field = c("name_*_raw_main","name_*_raw_dba","name_*_raw_division
   "the cleaned match key (suffixes, 'The', punctuation removed; abbreviations standardized)",
   "the organization-type words that were stripped (Foundation, Inc, Association ...)",
   "the informative tokens with their IDF weights, rarest first — TOKEN(idf) (see Methods)"),
-  check.names = FALSE))
+  check.names = FALSE)
 ```
 
 ### 4 · Address & geography
 ```{r d4}
-kbl(data.frame(Field = c("street_similarity / city_similarity / zip_similarity",
+data.frame(Field = c("street_similarity / city_similarity / zip_similarity",
   "street_* / city_* / state_* / zip5_*  (per side)","street_*_normalized",
   "geo_stnum / geo_zip9 / geo_zip5 / geo_zip3 / geo_state / geo_pobox"),
   Meaning = c(
@@ -103,7 +108,7 @@ kbl(data.frame(Field = c("street_similarity / city_similarity / zip_similarity",
   "the raw address components carried for both sides",
   "the standardized street body used for comparison",
   "exact-agreement flags (1/0) at each granularity of the ZIP/geo hierarchy (see Methods)"),
-  check.names = FALSE))
+  check.names = FALSE)
 ```
 
 ### 5 · Imported context (appended last)
@@ -131,10 +136,10 @@ if (have("stringdist")) {
   ex <- data.frame(
     A = c("MERCY HEALTH","MERCY HEALTH","SAINT MARYS HOSPITAL","STEP FORWARD"),
     B = c("MERCY HEALTH SYSTEM","MEDSTAR HEALTH","SAINT MARYS HOSP","STEPFORWARD"))
-  ex$jaro    <- round(stringdist::stringsim(ex$A, ex$B, method = "jw", p = 0),   3)
+  ex$jaro         <- round(stringdist::stringsim(ex$A, ex$B, method = "jw", p = 0),   3)
   ex$jaro_winkler <- round(stringdist::stringsim(ex$A, ex$B, method = "jw", p = 0.1), 3)
-  kbl(ex)
-} else cat("(install 'stringdist' to run this example)")
+  ex
+}
 ```
 
 The `jaro_winkler` column is what npmatch uses. Note how the shared prefix lifts
@@ -156,8 +161,7 @@ reviewer can see at a glance which words carry the match.
 ref <- c("COMMUNITY HEALTH CENTER","COMMUNITY ACTION AGENCY","MERCY COMMUNITY CLINIC",
          "STEPFORWARD","MERCY HEALTH","HEALTH FOUNDATION","COMMUNITY FOUNDATION")
 idf <- np_token_idf(ref)
-kbl(data.frame(token = names(idf), idf = round(as.numeric(idf), 2))[order(-idf), ][1:6, ],
-    row.names = FALSE)
+data.frame(token = names(idf), idf = round(as.numeric(idf), 2))[order(-idf), ][1:6, ]
 ```
 
 Here "STEPFORWARD" (appears once) is far more discriminating than "COMMUNITY"
@@ -186,7 +190,7 @@ strongest to weakest:
 
 ```{r geo}
 gw <- np_default_geo_weights()
-kbl(data.frame(granularity = names(gw), weight = as.numeric(gw)), row.names = FALSE)
+data.frame(granularity = names(gw), weight = as.numeric(gw))
 ```
 
 This is what lets the score **degrade gracefully**: an org known only to the

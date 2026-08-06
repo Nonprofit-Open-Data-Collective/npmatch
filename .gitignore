@@ -51,3 +51,7 @@ rsconnect/
 # Large local data (BMF/SAM reference + dev datasets & caches) — kept locally, not committed
 /data-raw/
 /data-dev/
+/docs/
+/vignettes/*_files/
+/vignettes/*.html
+/vignettes/*.err
