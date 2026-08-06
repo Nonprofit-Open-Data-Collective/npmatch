@@ -3,7 +3,7 @@ title: "npmatch: A Reviewer's Guide"
 format:
   html:
     theme: readable
-    df-print: paged
+    df-print: kable
     highlight-style: tango
     toc: true
     toc-location: left
@@ -206,11 +206,27 @@ The recurring pathologies: **shared generic/geographic words** (a),
 similarly-named local orgs** (c). Name and address alone can rank these but
 cannot always decide them — which is the entire reason for MAYBE.
 
-## 6. The three answers — how the cases flow
+## 6. How well it recovers EINs
 
-Here is where all 1,502 hand-verified benchmark cases land. **MAYBE is the real
-decision point**: YES is mostly settled and NO is mostly correct, but MAYBE is
-where a real match hides behind ambiguity and human/LLM judgment pays off.
+The goal is to recover as many **correct EINs** as possible, so the useful way to
+score the package is as a *linkage* task — the positive result is "a correct EIN
+was assigned" — not a "nonprofit vs. not" classification. That reframing keeps one
+awkward case honest: assigning the *wrong* EIN is neither a success nor a
+misclassification of the organization; it is simply a **linkage error** (it costs
+both precision and recovery).
+
+The 1,502 hand-verified cases divide by ground truth as follows — and flow through
+the tiers as the diagram shows, the review stage recovering most of what lands in
+MAYBE:
+
+```{r population}
+data.frame(
+  `Ground-truth category` = c("Linkable nonprofit — a findable IRS record exists",
+     "Nonprofit, but not in the active IRS file",
+     "Not a nonprofit (government / for-profit / person)", "Undetermined"),
+  Count = c(1161, 158, 139, 44),
+  Share = c("77%", "11%", "9%", "3%"), check.names = FALSE)
+```
 
 ```{mermaid}
 %%| label: fig-flow
@@ -234,44 +250,58 @@ flowchart TD
     class N,N3 no;
 ```
 
-**First pass — the algorithm's initial tier.** YES and NO are *decisions*; MAYBE
-is *deferred* to Stage 2 (its resolution is the second table).
+::: {.callout-tip}
+## How to read these numbers
+- **Recall (sensitivity, "recovery")** — of the nonprofits that *have* a findable
+  EIN, the share we linked to the *correct* one. This is the headline for
+  "recover as many EINs as possible."
+- **Precision** — when the package hands back an EIN, how often it is the right
+  one. A *wrong* EIN counts against precision (and against recall — we missed the
+  true one); it is never scored as a success.
+- **Specificity** — of the orgs that should *not* be linked (not a nonprofit, or
+  absent from the file), how often we correctly withhold a match.
+:::
 
-```{r first-pass}
+```{r headline}
 data.frame(
-  Branch = c("🟢 YES","🟡 MAYBE","🔴 NO"),
-  `% of all cases` = c("65.2%", "15.8%", "18.9%"),
-  `% correct` = c("99.6% — right pick", "— deferred to review", "85.9% — right rejection"),
-  `% error` = c("0.4% — false positive", "—", "14.1% — false negative"),
+  Metric = c("Recall / recovery — automatic", "Recall / recovery — auto + review",
+             "Precision of assigned links", "Specificity"),
+  Value = c("84%", "96.5%", "~99%", "99.0%"),
+  `What it means` = c(
+    "of nonprofits with a findable EIN, the share auto-linked to the correct EIN",
+    "…after a human or LLM works the MAYBE queue",
+    "when an EIN is assigned, the share that are the right EIN (6 wrong of 980)",
+    "of not-a-nonprofit / not-in-file orgs, the share correctly left unlinked (3 spurious of 297)"),
   check.names = FALSE)
 ```
 
-**Second pass — what MAYBE resolves to after review**, and how the NO branch
-breaks down by reason. MAYBE is where the payoff is: **61% of it is a real match**
-that only a second look confirms.
+**Two recovery denominators** answer different questions — report both:
 
-```{r maybe-resolve}
+```{r denominators}
 data.frame(
-  `MAYBE resolves to` = c("Confirmed match", "No match", "Needs more info"),
-  `% of MAYBE` = c("61.3%", "31.1%", "7.6%"),
-  Meaning = c("reviewer / LLM confirms a real EIN",
-              "no real match — surfaced for safety, then cleared",
-              "needs external evidence to decide"), check.names = FALSE)
-```
-
-```{r no-types}
-data.frame(
-  `NO breaks into` = c("Not a nonprofit (govt / for-profit / person)",
-                       "Nonprofit, not in the active BMF (foreign / new / co-op / church)",
-                       "False negative — a real match was missed",
-                       "Undetermined"),
-  `% of NO` = c("43.3%", "33.5%", "14.1%", "8.5%"),
+  `Recall denominator` = c("Achievable — matcher performance", "Population yield — practical"),
+  Value = c("96.5%", "~85%"),
+  `Out of` = c("nonprofits with a findable IRS record (1,161)",
+               "all nonprofits, incl. those absent from the file (1,319)"),
+  Note = c("measures the algorithm itself",
+           "~1 in 8 nonprofits has no active IRS record; the inactive-file option recovers ~6%"),
   check.names = FALSE)
 ```
 
-### 🟢 YES — "accept this match" · **~98% correct (~1–2% false positive)**
+> Of the nonprofits in the source data that have a matchable IRS record, the
+> package recovers the correct EIN for **96.5%** (84% fully automatic, the rest
+> confirmed in review), and when it assigns an EIN it is right **~99%** of the
+> time. It correctly declines to link **99%** of the organizations that are not
+> nonprofits or are absent from the file. The main ceiling on total recovery is
+> IRS coverage itself — about **1 in 8** nonprofits has no active record — which
+> the inactive-file option partially recovers.
+
+Operationally, every source org lands in one of three tiers. Here is what each
+means and where its errors come from.
+
+### 🟢 YES — "accept this match" · **~99% correct (a wrong EIN ~1% of the time)**
 Strong name and address agreement, no veto. Reviewer effort is light: confirm the
-obvious pick. *Why the ~2% go wrong:* two different organizations sharing
+obvious pick. *Why the ~1% go wrong:* two different organizations sharing
 distinctive words **and** an address —
 
 - **Same campus, different entity** — a booster club, auxiliary, or foundation
@@ -349,13 +379,16 @@ hundreds of thousands.
 
 ## 9. Where things stand today
 
-- **YES precision ≈ 98%** — auto-accepts you can trust.
-- **Coverage ≈ 98%** — of orgs that have a real match, ~98% are surfaced as YES
-  or MAYBE; only ~2% are missed into NO.
-- **MAYBE is ~16% of cases** — the focused Stage-2 queue.
-- Matching against the **unified** (active + inactive) IRS file recovers a further
-  ~6% of matches to historical / defunct EINs, each tagged `active` so downstream
-  can filter current-990 matches from identity-resolution ones.
+- **Recovery (recall) ≈ 96.5%** of nonprofits with a findable EIN — 84% fully
+  automatic, the rest confirmed in review.
+- **Precision ≈ 99%** — when an EIN is assigned, it is almost always the right one.
+- **Specificity ≈ 99%** — non-nonprofits and not-in-file organizations are
+  correctly left unlinked.
+- **MAYBE is ~16% of cases** — the focused Stage-2 queue, where most of the
+  remaining recovery happens.
+- The **unified** (active + inactive) IRS file raises the findable set — recovering
+  ~6% more matches to historical / defunct EINs, each tagged `active` so downstream
+  can separate current-990 matches from identity-resolution ones.
 
 ## Appendix — a peek at the evaluation dataset
 

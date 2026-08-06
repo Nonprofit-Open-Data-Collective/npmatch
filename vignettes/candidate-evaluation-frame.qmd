@@ -3,7 +3,7 @@ title: "The Candidate Evaluation Frame — Fields & Methods"
 format:
   html:
     theme: readable
-    df-print: paged
+    df-print: kable
     highlight-style: tango
     toc: true
     toc-location: left
