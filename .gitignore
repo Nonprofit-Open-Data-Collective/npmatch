@@ -39,11 +39,16 @@ vignettes/*.pdf
 # R Environment Variables
 .Renviron
 
-# pkgdown site
-docs/
+# pkgdown site is served from main branch /docs, so it IS tracked
 
 # translation temp files
 po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# Large local data (BMF/SAM reference + dev datasets & caches) — kept locally, not committed
+/data-raw/
+/data-dev/
+/vignettes/*_files/
+/vignettes/*.err

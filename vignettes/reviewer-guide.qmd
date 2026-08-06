@@ -1,0 +1,411 @@
+---
+title: "npmatch: A Reviewer's Guide"
+format:
+  html:
+    theme: readable
+    df-print: kable
+    highlight-style: tango
+    toc: true
+    toc-location: left
+    css: clean.css
+    embed-resources: true
+execute:
+  echo: false
+  warning: false
+  message: false
+vignette: >
+  %\VignetteIndexEntry{npmatch: A Reviewer's Guide}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.width = 7, fig.height = 4.2, dpi = 110)
+library(npmatch)
+have <- function(p) requireNamespace(p, quietly = TRUE)
+if (have("ggplot2")) library(ggplot2)
+```
+
+*A plain-language overview of how the nonprofit crosswalk is built, what the
+package decides on its own, and where a human — or an LLM standing in for one —
+comes in.*
+
+## 1. What the package does
+
+**npmatch** links organizations from one list (here, federal award and
+registration records keyed by a **UEI**) to the IRS **Business Master File**
+of nonprofits (keyed by an **EIN**). It does three things:
+
+1. **Normalizes** both sides so they can be compared fairly.
+2. **Runs a multi-tier matching strategy** — strict first, then progressively
+   looser — scoring how well each candidate agrees on name and address.
+3. **Returns a scored, labeled candidate dataset** — for every source
+   organization: the candidate EIN(s) it weighed, a 0–1 match score, and a
+   **decision label: YES, MAYBE, or NO**.
+
+The output is not just "the answer." It is an auditable table showing *which
+candidates were considered and why one was chosen* — the raw material for the
+review stage.
+
+## 2. How names and addresses are normalized
+
+Before anything can be compared, "The Smith Family Foundation, Inc." and
+"Smith Family Fdn" have to be made to look alike. npmatch cleans each name to a
+**match key**, then splits it into **tokens** (the words the matcher actually
+compares). Legal suffixes (Inc, Foundation), a leading "The", and punctuation
+are dropped; abbreviations are standardized (St → Saint, & → and, Ctr → Center).
+
+```{r norm-names}
+nm <- c("The Smith Family Foundation, Inc.", "St. Mary's Hosp. & Health Ctr",
+        "Boys & Girls Club of N.E. Texas", "Y.W.C.A. of Helena", "StepForward")
+q  <- np_normalize(np_query(data.frame(unique_entity_id = seq_along(nm), name = nm,
+        street = "", city = "", state = "OH", zip = "", stringsAsFactors = FALSE),
+        c(.id="unique_entity_id", name="name", street="street", city="city",
+          state="state", zip5="zip")))
+data.frame(`Original name` = nm, `Cleaned match key` = q$name_key,
+   `Tokens compared` = vapply(strsplit(q$name_key, " "), paste, "", collapse = " · "),
+   check.names = FALSE)
+```
+
+Addresses are parsed the same way — a standardized street body, a separated
+**unit**, and a **ZIP hierarchy** (the 5-digit ZIP nests inside a 3-digit region,
+so a match can degrade gracefully when only partial geography is known).
+
+```{r norm-addr}
+ad <- data.frame(unique_entity_id = 1:3, name = c("A","B","C"),
+   street = c("123 North Main Street, Suite 400","P.O. Box 1234","45 Elm St Apt 2B"),
+   city = c("Saint Louis","Cincinnati","Bethesda"), state = "OH",
+   zip = c("63101-2200","45201","20814"), stringsAsFactors = FALSE)
+qa <- np_normalize(np_query(ad, c(.id="unique_entity_id", name="name", street="street",
+        city="city", state="state", zip5="zip")))
+data.frame(`Original address` = ad$street, `Street key` = qa$street_key,
+   Unit = ifelse(is.na(qa$street_unit), "—", qa$street_unit),
+   ZIP5 = qa$zip5, `ZIP region` = qa$zip3, check.names = FALSE)
+```
+
+**Corrupted records are *tolerated*, not silently fixed.** Rather than guess a
+correction, the matcher compares the fuzzy *similarity* of the two strings, so a
+typo or a spacing slip in the official record still scores as a near-match. A few
+real BMF cases the fuzzy layer recovers:
+
+```{r norm-fuzzy}
+data.frame(
+  `Source name` = c("CENTER FOR TRANSPORTATION AND THE ENVIRONMENT",
+                    "STEP FORWARD", "HILLEL FOUNDATION"),
+  `BMF record (as filed)` = c("...AND THE ENVIROMENT  (missing N)",
+                    "STEPFORWARD  (de-spaced)", "HILEL FOUNDATION  (dropped L)"),
+  `Name similarity` = c(0.99, 0.98, 0.91), check.names = FALSE)
+```
+
+## 3. The two-stage idea
+
+npmatch is deliberately split into two stages:
+
+> **Stage 1 (the algorithm)** surfaces and sorts the candidates — fast,
+> consistent, cheap across millions of records.
+> **Stage 2 (a human or an LLM)** confirms the ambiguous cases and gathers the
+> extra evidence the algorithm can't see.
+
+The three labels are the handoff. **YES** is confident enough to accept
+automatically; **NO** is confident enough to reject; **MAYBE** means *"a match
+probably exists, but I can't be sure on name and address alone — please look."*
+Stage 1's job is not to be right about everything — it is to be **right when it
+is confident and honest when it isn't**, so Stage 2's effort goes only where it
+is needed.
+
+## 4. The matching cascade (fastest checks first)
+
+The multi-tier strategy runs cheapest-to-most-expensive and stops working on a
+source org once it is confidently placed. Exact name-and-place agreement is a
+fast hash lookup; the broad token search (comparing every shared distinctive
+word) is far costlier, so it only runs on what is still unresolved. On the 1,502
+benchmark cases, **the four exact passes settle ~88% of all YES matches before
+the expensive token search runs at all.**
+
+```{r funnel}
+fn <- data.frame(
+  stage = c("exact name","exact name↔DBA","token, same state","de-spaced token","token, cross-state"),
+  yes   = c(845, 22, 109, 7, 1),
+  cost  = c("cheap","cheap","costly","costly","costliest"))
+fn$stage <- factor(fn$stage, levels = rev(fn$stage))
+if (have("ggplot2")) {
+  ggplot(fn, aes(stage, yes, fill = cost)) +
+    geom_col(width = .7) +
+    geom_text(aes(label = yes), hjust = -0.2, size = 3.4) +
+    coord_flip() + expand_limits(y = 950) +
+    scale_fill_manual(values = c(cheap="#2c7fb8", costly="#7fcdbb", costliest="#edf8b1")) +
+    labs(title = "YES matches resolved at each cascade stage",
+         subtitle = "Cheap exact passes run first and settle most matches",
+         x = NULL, y = "matches auto-accepted", fill = NULL) +
+    theme_minimal(base_size = 11) + theme(legend.position = "bottom")
+}
+```
+
+## 5. Reading the output: candidate sets
+
+For each source organization, npmatch surfaces the candidate EINs it considered
+with everything needed to judge the fit — the candidate's name, a **Name
+Similarity** (0–1), which **Name Version** matched, the combined **Full Match
+Score**, and any veto that fired. Three real examples show the flavor and the
+pathologies. *(The source organization is named above each candidate set so you
+can see what it is being matched against.)*
+
+**(a) A clear winner amid noise.** The blocking step casts a wide net, so weak
+look-alikes appear — but the true match dominates and is auto-accepted (YES).
+
+> **Source organization:** *The North Carolina Coalition Against Domestic Violence, Inc.*
+
+```{r cand-a}
+data.frame(
+  Candidate = c("The North Carolina Coalition Against Domestic Violence",
+                "North Carolina (DBA fragment)", "NC Guardian ad Litem Assn"),
+  `Name Similarity` = c(0.95, 0.86, 0.67),
+  `Name Version` = c("name", "dba", "token overlap"),
+  `Full Match Score` = c(0.95, 0.59, 0.48),
+  Why = c("near-exact name + state → the pick",
+          "shares only the state words → noise",
+          "a few shared words, different org → noise"), check.names = FALSE)
+```
+
+**(b) An organization vs. its foundation (a family of related EINs).** When both
+the operating org and its affiliated foundation sit at the same place, the
+foundation is *soft-vetoed* — surfaced, but held back from auto-accept so a
+reviewer confirms which EIN is meant.
+
+> **Source organization:** *New York Rural Water Association*
+
+```{r cand-b}
+data.frame(
+  Candidate = c("New York Rural Water Association", "New York Rural Water Foundation"),
+  `Name Similarity` = c(1.00, 1.00), `Name Version` = c("exact", "exact"),
+  `Full Match Score` = c("0.96", "→ MAYBE"),
+  Veto = c("—", "affiliate_suffix (Foundation)"),
+  Why = c("the operating org → auto-accept",
+          "the affiliate arm → routed to review, not auto-accepted"),
+  check.names = FALSE)
+```
+
+**(c) A genuinely ambiguous cluster → MAYBE.** Several neighborhood organizations
+share the distinctive words; none clearly *is* the source org, so the algorithm
+refuses to guess and sends the set to review.
+
+> **Source organization:** *Young Men's and Young Women's Hebrew Association of Washington Heights*
+
+```{r cand-c}
+data.frame(
+  Candidate = c("Washington Heights Inwood Mask Blocc...", "Washington Heights & Inwood Devel...",
+                "Chamber of Commerce of Washington Hts", "Washington Heights Inwood Preserv..."),
+  `Name Similarity` = c(0.79, 0.85, 0.79, 0.75), `Name Version` = "token overlap",
+  `Full Match Score` = c(0.78, 0.73, 0.69, 0.67),
+  Why = c("top candidate, but not decisive","close second","related, weaker","related, weaker"),
+  check.names = FALSE)
+```
+
+The recurring pathologies: **shared generic/geographic words** (a),
+**parent/subsidiary/affiliate families** (b), and **dense clusters of
+similarly-named local orgs** (c). Name and address alone can rank these but
+cannot always decide them — which is the entire reason for MAYBE.
+
+## 6. How well it recovers EINs
+
+The goal is to recover as many **correct EINs** as possible, so the useful way to
+score the package is as a *linkage* task — the positive result is "a correct EIN
+was assigned" — not a "nonprofit vs. not" classification. That reframing keeps one
+awkward case honest: assigning the *wrong* EIN is neither a success nor a
+misclassification of the organization; it is simply a **linkage error** (it costs
+both precision and recovery).
+
+The 1,502 hand-verified cases divide by ground truth as follows — and flow through
+the tiers as the diagram shows, the review stage recovering most of what lands in
+MAYBE:
+
+```{r population}
+data.frame(
+  `Ground-truth category` = c("Linkable nonprofit — a findable IRS record exists",
+     "Nonprofit, but not in the active IRS file",
+     "Not a nonprofit (government / for-profit / person)", "Undetermined"),
+  Count = c(1161, 158, 139, 44),
+  Share = c("77%", "11%", "9%", "3%"), check.names = FALSE)
+```
+
+```{mermaid}
+%%| label: fig-flow
+flowchart TD
+    A["<b>All source orgs</b><br/>n = 1,502"]
+    A --> Y["🟢 <b>YES</b> · 65.2%<br/>auto-accept<br/>99.6% correct · 0.4% false-pos."]
+    A --> M["🟡 <b>MAYBE</b> · 15.8%<br/>→ Stage 2 review"]
+    A --> N["🔴 <b>NO</b> · 18.9%<br/>85.9% correct reject · 14.1% false-neg."]
+    M --> M1["Confirmed match<br/>61%"]
+    M --> M2["No match<br/>31%"]
+    M --> M3["Needs more info<br/>8%"]
+    N --> N1["Not a nonprofit<br/>43%"]
+    N --> N2["Not in active BMF<br/>34%"]
+    N --> N3["False negative<br/>14%"]
+    N --> N4["Undetermined<br/>9%"]
+    classDef yes fill:#c7e9c0,stroke:#31a354,color:#111;
+    classDef maybe fill:#fee391,stroke:#d95f0e,color:#111;
+    classDef no fill:#fdcfcf,stroke:#d73027,color:#111;
+    class Y,M1 yes;
+    class M,M2,M3 maybe;
+    class N,N3 no;
+```
+
+::: {.callout-tip}
+## How to read these numbers
+- **Recall (sensitivity, "recovery")** — of the nonprofits that *have* a findable
+  EIN, the share we linked to the *correct* one. This is the headline for
+  "recover as many EINs as possible."
+- **Precision** — when the package hands back an EIN, how often it is the right
+  one. A *wrong* EIN counts against precision (and against recall — we missed the
+  true one); it is never scored as a success.
+- **Specificity** — of the orgs that should *not* be linked (not a nonprofit, or
+  absent from the file), how often we correctly withhold a match.
+:::
+
+```{r headline}
+data.frame(
+  Metric = c("Recall / recovery — automatic", "Recall / recovery — auto + review",
+             "Precision of assigned links", "Specificity"),
+  Value = c("84%", "96.5%", "~99%", "99.0%"),
+  `What it means` = c(
+    "of nonprofits with a findable EIN, the share auto-linked to the correct EIN",
+    "…after a human or LLM works the MAYBE queue",
+    "when an EIN is assigned, the share that are the right EIN (6 wrong of 980)",
+    "of not-a-nonprofit / not-in-file orgs, the share correctly left unlinked (3 spurious of 297)"),
+  check.names = FALSE)
+```
+
+**Two recovery denominators** answer different questions — report both:
+
+```{r denominators}
+data.frame(
+  `Recall denominator` = c("Achievable — matcher performance", "Population yield — practical"),
+  Value = c("96.5%", "~85%"),
+  `Out of` = c("nonprofits with a findable IRS record (1,161)",
+               "all nonprofits, incl. those absent from the file (1,319)"),
+  Note = c("measures the algorithm itself",
+           "~1 in 8 nonprofits has no active IRS record; the inactive-file option recovers ~6%"),
+  check.names = FALSE)
+```
+
+> Of the nonprofits in the source data that have a matchable IRS record, the
+> package recovers the correct EIN for **96.5%** (84% fully automatic, the rest
+> confirmed in review), and when it assigns an EIN it is right **~99%** of the
+> time. It correctly declines to link **99%** of the organizations that are not
+> nonprofits or are absent from the file. The main ceiling on total recovery is
+> IRS coverage itself — about **1 in 8** nonprofits has no active record — which
+> the inactive-file option partially recovers.
+
+Operationally, every source org lands in one of three tiers. Here is what each
+means and where its errors come from.
+
+### 🟢 YES — "accept this match" · **~99% correct (a wrong EIN ~1% of the time)**
+Strong name and address agreement, no veto. Reviewer effort is light: confirm the
+obvious pick. *Why the ~1% go wrong:* two different organizations sharing
+distinctive words **and** an address —
+
+- **Same campus, different entity** — a booster club, auxiliary, or foundation
+  at its parent's building ("Virtua Health" vs "Virtua Health and Rehabilitation").
+- **Same distinctive name, wrong entity type** — "Luzerne County Housing
+  Authority" pulled toward "Luzerne County Historical Society." *(A new
+  government-entity rule now routes most of these to MAYBE.)*
+
+### 🟡 MAYBE — "a match likely exists; please review" · **the review tier**
+Of everything sent to MAYBE, **61% turn out to be a real match**, 31% resolve to
+no-match, and 8% need more information. Combined with YES, **~98% of all true
+matches are surfaced** for a reviewer to see. *Why a case lands here, not in YES:*
+
+- **Subset / superset names** — "Nowlin Hall" vs "Nowlin Hall Apartments": same
+  org or a related property? Name alone can't tell.
+- **Parent vs subsidiary vs chapter** — all share the distinctive words, so the
+  algorithm surfaces them but refuses to guess which EIN.
+- **Cross-state parents** — a national org filing under a headquarters in a
+  different state than the local address.
+
+### 🔴 NO — "no acceptable match found" · **mostly correct; ~2% of true matches missed**
+Most NO answers are right. Among the correct rejections, **~50%** are genuinely
+not nonprofits (government, for-profit, individuals), **~39%** are real nonprofits
+absent from the *active* file (foreign, brand-new, co-ops, churches), and ~10%
+are undetermined. The small share of **false negatives** happen two ways:
+
+1. **The right candidate was never surfaced (a "blocking" miss)** — the names are
+   too different for the search to connect:
+   - **Rebrands** — "Coalition for the Common Good" is Antioch University's new
+     legal name; the strings share nothing.
+   - **Acronyms** — "YWCA of Helena" vs "Young Women's Christian Association."
+   - **Typos in the record** — "…Environment" vs the BMF's "…Enviroment."
+   - **Spacing / abbreviation** — "Step Forward" vs "StepForward." *(Now recovered
+     automatically.)*
+2. **The org truly isn't in the file** — churches (auto-exempt, often unlisted),
+   foreign orgs, brand-new nonprofits. Here NO is *correct*; the reviewer just
+   confirms it.
+
+## 7. What a reviewer does in each tier
+
+```{r workflow}
+data.frame(
+  Tier = c("🟢 YES","🟡 MAYBE","🔴 NO"),
+  Effort = c("Light / spot-check","Moderate","Targeted"),
+  Task = c("Confirm the auto-selected EIN against the surfaced candidates.",
+           "Pick the right candidate, or gather a little evidence to decide.",
+           "Confirm the org is genuinely unmatched — or research a possible miss."),
+  check.names = FALSE)
+```
+
+Because YES is ~98% precise and NO is mostly correct, **the real work
+concentrates in MAYBE** — exactly where you want human judgment spent.
+
+## 8. Humans or LLMs — interchangeable at Stage 2
+
+Stage 2 is the same task whether a person or a language model does it: *look at a
+surfaced organization, decide whether a candidate is the right EIN, and if not,
+find out what the organization actually is.* npmatch is built so the two are
+drop-in substitutes.
+
+To make the LLM path turnkey, the project ships a **tiered research protocol with
+a reusable per-organization prompt** (`dev/RESEARCH-PROTOCOL.md`) that escalates
+only as far as needed and is cost-aware:
+
+- **Tier 1** — a free local recheck against the full IRS file (name variants,
+  de-spaced forms, typos).
+- **Tier 2** — nonprofit registries (e.g. ProPublica) for the EIN.
+- **Tier 3** — open web search to establish what the org is when registries are silent.
+
+Each organization returns a determination, the EIN found (if any), the source, a
+confidence level, and a token/cost estimate — the same structured verdict a human
+enumerator records, so the two mix freely (LLM triage first, humans on the
+residual). This is what lets the review stage scale from hundreds of cases to
+hundreds of thousands.
+
+## 9. Where things stand today
+
+- **Recovery (recall) ≈ 96.5%** of nonprofits with a findable EIN — 84% fully
+  automatic, the rest confirmed in review.
+- **Precision ≈ 99%** — when an EIN is assigned, it is almost always the right one.
+- **Specificity ≈ 99%** — non-nonprofits and not-in-file organizations are
+  correctly left unlinked.
+- **MAYBE is ~16% of cases** — the focused Stage-2 queue, where most of the
+  remaining recovery happens.
+- The **unified** (active + inactive) IRS file raises the findable set — recovering
+  ~6% more matches to historical / defunct EINs, each tagged `active` so downstream
+  can separate current-990 matches from identity-resolution ones.
+
+## Appendix — a peek at the evaluation dataset
+
+Each row is one candidate the algorithm surfaced, with the fields a reviewer uses
+to decide. (See the companion *Candidate Evaluation Frame* vignette for full
+definitions.)
+
+```{r preview}
+data.frame(
+  source_org = c("Coalition for the Common Good","YWCA of Helena","Nowlin Hall Apartments",
+                 "Luzerne County Housing Authority","Freedom Bird Foundation"),
+  best_candidate = c("(Antioch University — rebrand, not surfaced)","(Young Women's Christian Assn — acronym)",
+                     "Nowlin Hall","Luzerne County Historical Society","Operation Freedom Birds"),
+  name_sim = c(NA, NA, 0.95, 0.90, 0.72),
+  tier = c("NO","NO","MAYBE","YES→(now MAYBE)","MAYBE"),
+  gt_ein = c("31-0536640","81-0235416","23-7110959","(no match)","87-2482496"),
+  note = c("rebrand: names share nothing (blocking miss)","acronym vs spelled-out (blocking miss)",
+           "subset name → review","govt entity, wrong type (veto now catches)","short-form name → review"),
+  stringsAsFactors = FALSE)
+```
