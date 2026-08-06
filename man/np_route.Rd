@@ -13,6 +13,7 @@ np_route(
   reference = "bmf",
   id_label = "uei",
   bmf = NULL,
+  sam = NULL,
   review_tiers = c("YES", "MAYBE", "NO"),
   token_idf = NULL,
   source_data = NULL,
@@ -46,7 +47,12 @@ Default \code{"uei"} (Unique Entity Identifier). The reference key is \code{ein}
 \item{bmf}{Optional raw processed BMF. When supplied, the default context
 fields from \code{\link[=np_bmf_review_fields]{np_bmf_review_fields()}} (NTEE, 501(c) subsection, foundation
 flag, ruling year, assets, revenue, 990 form type) are joined onto each
-review row (suffixed \verb{_<reference>}) and placed in the curated front block.}
+review row (\code{BMF_}-prefixed) and placed at the end, after the derived fields.}
+
+\item{sam}{Optional raw SAM source frame. When supplied, \code{\link[=np_sam_review_fields]{np_sam_review_fields()}}
+context columns (entity start/fiscal dates, URL, structure + label, primary
+NAICS, POC name/title, and one boolean per business type) are joined onto
+each review row (\code{SAM_}-prefixed) and placed at the end.}
 
 \item{review_tiers}{Which tiers to include in the \code{review} inspection frame.
 Default all three (\code{c("YES","MAYBE","NO")}) so \code{decision} shows the full

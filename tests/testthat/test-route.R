@@ -42,9 +42,9 @@ test_that("the review queue is self-contained and reviewer-ready", {
     expect_true(all(rt$review$match_decision %in% c("YES", "MAYBE", "NO")))
   if (nrow(rt$review)) expect_true(all(nzchar(rt$review$decision_reason)))
   # (1) match strength + outcome leads the columns
-  expect_equal(names(rt$review)[1:7],
+  expect_equal(names(rt$review)[1:8],
                c("uei", "ein", "name_similarity", "addr_similarity",
-                 "candidate_type", "total_score", "is_top_candidate"))
+                 "candidate_type", "total_score", "num_of_candidates", "is_top_candidate"))
 })
 
 test_that("is_top_candidate flags one pick per YES/MAYBE group, none for NO", {

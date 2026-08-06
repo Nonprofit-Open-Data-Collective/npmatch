@@ -10,7 +10,7 @@ np_bmf_review_fields(bmf)
 \item{bmf}{The raw processed BMF data frame.}
 }
 \value{
-A data frame keyed by \code{ein} with the fields above.
+A data frame keyed by \code{ein} with \code{BMF_}-prefixed context fields.
 }
 \description{
 Builds the small set of IRS-BMF descriptive fields worth showing a human
@@ -30,4 +30,7 @@ Derived / imported fields:
 \item \code{affiliation_code}, \code{affiliation_code_definition} — central/subordinate status
 \item \code{group_exemption_number}, \code{group_exemption_is_member} — group-ruling membership
 }
+
+Imported columns are prefixed \code{BMF_} (capitalized source prefix) so they read
+as distinct from the pipeline's derived \verb{_bmf} matching fields.
 }

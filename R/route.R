@@ -74,8 +74,8 @@
     id_label, "ein",
     # (1) match strength + outcome
     "name_similarity", "addr_similarity", "candidate_type", "total_score",
-    "is_top_candidate", "match_decision", "match_layer", "decision_reason",
-    "veto", "veto_reason", "veto_soft", "veto_soft_reason", "notes",
+    "num_of_candidates", "is_top_candidate", "match_decision", "match_layer",
+    "decision_reason", "veto", "veto_reason", "veto_soft", "veto_soft_reason", "notes",
     # (2) name match summary
     paste0("match_name_", s), paste0("match_version_", s),
     paste0("match_name_", r), paste0("match_version_", r),
@@ -96,14 +96,13 @@
     paste0("state_", s),  paste0("state_", r),
     paste0("zip5_", s),   paste0("zip5_", r),
     paste0("street_", s, "_normalized"), paste0("street_", r, "_normalized"),
-    "geo_stnum", "geo_zip9", "geo_zip5", "geo_zip3", "geo_state", "geo_pobox",
-    # (5) imported BMF fields
-    paste0(c("ntee_clean", "nteev2", "subsection", "is_foundation", "rule_year",
-             "assets", "revenue", "form_990", "affiliation_code",
-             "affiliation_code_definition", "group_exemption_number",
-             "group_exemption_is_member"), "_", r))
-  ordered <- c(intersect(front, names(df)), setdiff(names(df), front))
-  df[, ordered, drop = FALSE]
+    "geo_stnum", "geo_zip9", "geo_zip5", "geo_zip3", "geo_state", "geo_pobox")
+  # derived fields first (front-ordered, then any remaining derived features),
+  # then every imported field (BMF_ / SAM_) at the very end.
+  imported <- grep("^(BMF|SAM)_", names(df), value = TRUE)
+  fp <- intersect(front, names(df))
+  derived_rest <- setdiff(names(df), c(fp, imported))
+  df[, c(fp, derived_rest, imported), drop = FALSE]
 }
 
 # Join optional passthrough columns from a source/reference dataset by key,
@@ -120,7 +119,7 @@
     stop(sprintf("extra %s columns not found: %s", suffix, paste(miss, collapse = ", ")),
          call. = FALSE)
   add <- data[match(rev[[id_col]], data[[key]]), cols, drop = FALSE]
-  names(add) <- paste0(cols, "_", suffix)
+  if (!is.null(suffix) && nzchar(suffix)) names(add) <- paste0(cols, "_", suffix)
   rownames(add) <- NULL
   cbind(rev, add)
 }
@@ -159,7 +158,11 @@
 #' @param bmf Optional raw processed BMF. When supplied, the default context
 #'   fields from [np_bmf_review_fields()] (NTEE, 501(c) subsection, foundation
 #'   flag, ruling year, assets, revenue, 990 form type) are joined onto each
-#'   review row (suffixed `_<reference>`) and placed in the curated front block.
+#'   review row (`BMF_`-prefixed) and placed at the end, after the derived fields.
+#' @param sam Optional raw SAM source frame. When supplied, [np_sam_review_fields()]
+#'   context columns (entity start/fiscal dates, URL, structure + label, primary
+#'   NAICS, POC name/title, and one boolean per business type) are joined onto
+#'   each review row (`SAM_`-prefixed) and placed at the end.
 #' @param review_tiers Which tiers to include in the `review` inspection frame.
 #'   Default all three (`c("YES","MAYBE","NO")`) so `decision` shows the full
 #'   YES/MAYBE/NO outcome; set to `"MAYBE"` for just the human-review hand-off.
@@ -180,7 +183,7 @@
 np_route <- function(tiered, config = attr(tiered, "config"),
                      pairs = attr(tiered, "pairs"), k = 3,
                      source = "uss", reference = "bmf", id_label = "uei",
-                     bmf = NULL, review_tiers = c("YES", "MAYBE", "NO"),
+                     bmf = NULL, sam = NULL, review_tiers = c("YES", "MAYBE", "NO"),
                      token_idf = NULL,
                      source_data = NULL, reference_data = NULL,
                      extra_source = NULL, extra_reference = NULL,
@@ -232,6 +235,9 @@ np_route <- function(tiered, config = attr(tiered, "config"),
   }
   cand$name_tok_x <- annotate_tok(cand$name_key_x)
   cand$name_tok_y <- annotate_tok(cand$name_key_y)
+  # number of surfaced candidate rows per query (the review group size)
+  cand$num_of_candidates <- if (nrow(cand))
+    stats::ave(seq_len(nrow(cand)), cand$.id, FUN = length) else integer(0)
   # round similarities for a scannable sheet
   if (nrow(cand)) {
     for (c2 in intersect(c("name_sim", "addr_sim", "street_key", "city", "zip5"), names(cand)))
@@ -239,11 +245,15 @@ np_route <- function(tiered, config = attr(tiered, "config"),
     cand$score <- round(as.numeric(cand$score), 3)
   }
 
-  # default BMF context fields (joined before layout so they land in the front
-  # block); reviewer sees what kind of nonprofit each candidate is and its size.
+  # imported context fields (BMF_/SAM_-prefixed, already; joined without a suffix).
+  # The layout places all imported fields at the very end, after derived features.
   if (!is.null(bmf)) {
     bf <- np_bmf_review_fields(bmf)
-    cand <- .np_join_extra(cand, ".ein", bf, "ein", setdiff(names(bf), "ein"), reference)
+    cand <- .np_join_extra(cand, ".ein", bf, "ein", setdiff(names(bf), "ein"), NULL)
+  }
+  if (!is.null(sam)) {
+    sf <- np_sam_review_fields(sam)
+    cand <- .np_join_extra(cand, ".id", sf, "uei", setdiff(names(sf), "uei"), NULL)
   }
 
   review <- .np_review_layout(cand, source, reference, id_label)
