@@ -20,11 +20,10 @@ raw data -> np_normalize -> np_block -> np_compare -> np_score -> np_veto -> np_
 
 ### Raw data sources
 
-* **USASpending / SAM organizations** — the query (source) side. Key fields:
+- **USASpending / SAM organizations** — the query (source) side. Key fields:
   `legal_business_name`, `dba_name`, `entity_division_name`, physical address, and the
   Unique Entity Identifier (`uei`).
-
-* **Standardized IRS EO Business Master File (BMF)** — from NCCS; the reference (candidate)
+- **Standardized IRS EO Business Master File (BMF)** — from NCCS; the reference (candidate)
   side, keyed by `ein`. Carries `org_name_join`, `dba_name`, address, NTEE, 501(c)
   subsection, foundation code, ruling date, assets/revenue, filing requirement, affiliation
   and group-exemption codes.
@@ -34,9 +33,9 @@ raw data -> np_normalize -> np_block -> np_compare -> np_score -> np_veto -> np_
 Rename raw source columns onto the canonical schema so every downstream stage works on
 common column names.
 
-*subroutines*
+**subroutines**
 
-  * `.np_canonicalize()` :: apply a schema map (`np_map_sam()` / `np_map_bmf()`) that maps canonical fields (`name`, `dba`, `division`, `street`, `city`, `state`, `zip5`, `.id`/`.ein`) to source columns
+- `.np_canonicalize()` :: apply a schema map (`np_map_sam()` / `np_map_bmf()`) that maps canonical fields (`name`, `dba`, `division`, `street`, `city`, `state`, `zip5`, `.id`/`.ein`) to source columns
 
 **process:**
 
@@ -50,37 +49,23 @@ features the veto layer needs. Adds `name_key`, `dba_key`, `division_key`, `name
 `name_form`, `name_gen`, `name_nums`, `name_ord`, `name_dir`, `street_key`,
 `street_num/name/type/unit`, `is_po_box`, `zip5/zip3/zip9`, `state_abb`.
 
-*subroutines*
+**subroutines**
 
-  * `.np_basic_clean()` :: uppercase, de-accent, `&` -> `AND`, strip punctuation, squish space
-
-  * `.np_replace_tokens(dict)` :: whole-word dictionary substitution (abbreviations, USPS types)
-
-  * `.np_strip_lead_the()` :: drop a single leading `THE`
-
-  * `.np_strip_suffix()` :: strip trailing legal suffixes to form the match key
-
-  * `.np_extract_form()` / `.np_canon_form()` :: detect and canonicalize the legal form
-
-  * `.np_extract_generation()` :: JR / SR marker
-
-  * `.np_extract_numbers()` :: embedded digit tokens (chapter / local numbers)
-
-  * `.np_extract_ordinals()` :: FIRST / SECOND / ... -> canonical rank
-
-  * `.np_extract_direction()` :: NORTH / SOUTHWEST / ... -> N / SW
-
-  * `.np_street_key()` :: cleaned street with unit dropped and USPS types standardized
-
-  * `.np_extract_unit()` :: pull the suite / apt / unit token
-
-  * `.np_is_pobox()` :: detect PO-box variants (`PO BOX`, `POB`, `P O`, `BOX`, ...)
-
-  * `.np_parse_street()` :: split the street key into number / name / type
-
-  * `.np_parse_zip()` :: build the nested `zip3` < `zip5` < `zip9` family, restoring leading zeros
-
-  * `.np_to_state_abb()` :: map a full state name to its 2-letter code
+- `.np_basic_clean()` :: uppercase, de-accent, `&` -> `AND`, strip punctuation, squish space
+- `.np_replace_tokens(dict)` :: whole-word dictionary substitution (abbreviations, USPS types)
+- `.np_strip_lead_the()` :: drop a single leading `THE`
+- `.np_strip_suffix()` :: strip trailing legal suffixes to form the match key
+- `.np_extract_form()` / `.np_canon_form()` :: detect and canonicalize the legal form
+- `.np_extract_generation()` :: JR / SR marker
+- `.np_extract_numbers()` :: embedded digit tokens (chapter / local numbers)
+- `.np_extract_ordinals()` :: FIRST / SECOND / ... -> canonical rank
+- `.np_extract_direction()` :: NORTH / SOUTHWEST / ... -> N / SW
+- `.np_street_key()` :: cleaned street with unit dropped and USPS types standardized
+- `.np_extract_unit()` :: pull the suite / apt / unit token
+- `.np_is_pobox()` :: detect PO-box variants (`PO BOX`, `POB`, `P O`, `BOX`, ...)
+- `.np_parse_street()` :: split the street key into number / name / type
+- `.np_parse_zip()` :: build the nested `zip3` < `zip5` < `zip9` family, restoring leading zeros
+- `.np_to_state_abb()` :: map a full state name to its 2-letter code
 
 **process (name):**
 
@@ -110,13 +95,11 @@ features the veto layer needs. Adds `name_key`, `dba_key`, `division_key`, `name
 Produces only the (query, reference) pairs worth comparing, so `np_compare()` never scores
 every same-state pair. This is where **inverse document frequency (IDF) tokenization** lives.
 
-*subroutines*
+**subroutines**
 
-  * `.np_bykey()` :: build a composite exact-block key (e.g. `state`, or `state` + `name_key`)
-
-  * `np_stopwords()` :: the non-discriminating tokens dropped before token blocking
-
-  * `np_token_idf()` :: per-token IDF, `log(N / df)`, over the reference corpus
+- `.np_bykey()` :: build a composite exact-block key (e.g. `state`, or `state` + `name_key`)
+- `np_stopwords()` :: the non-discriminating tokens dropped before token blocking
+- `np_token_idf()` :: per-token IDF, `log(N / df)`, over the reference corpus
 
 **process:**
 
@@ -131,15 +114,12 @@ query out of later (looser, costlier) passes once it is resolved (**residual pru
 
 ### `np_compare(query, reference)` — per-field similarity
 
-*subroutines*
+**subroutines**
 
-  * `reclin2::compare_pairs()` with `cmp_jarowinkler()` / `cmp_identical()` :: per-field comparison
-
-  * `.np_name_overlap()` :: token-set + acronym-aware overlap (word-reorder, `EMS` <-> `Emergency Medical Service`)
-
-  * `.np_collapse_initials()` :: collapse single-letter runs (`F O R` -> `FOR`)
-
-  * `np_name_freq()` :: how many reference records share a normalized name
+- `reclin2::compare_pairs()` with `cmp_jarowinkler()` / `cmp_identical()` :: per-field comparison
+- `.np_name_overlap()` :: token-set + acronym-aware overlap (word-reorder, `EMS` <-> `Emergency Medical Service`)
+- `.np_collapse_initials()` :: collapse single-letter runs (`F O R` -> `FOR`)
+- `np_name_freq()` :: how many reference records share a normalized name
 
 **process:**
 
@@ -154,9 +134,9 @@ query out of later (looser, costlier) passes once it is resolved (**residual pru
 
 ### `np_score(pairs, method = "hier")` — combine into one score
 
-*subroutines*
+**subroutines**
 
-  * `.np_hier_score()` :: name similarity + a hierarchical geo sub-score
+- `.np_hier_score()` :: name similarity + a hierarchical geo sub-score
 
 **process:**
 
@@ -167,11 +147,10 @@ query out of later (looser, costlier) passes once it is resolved (**residual pru
 
 ### `np_veto(pairs)` — do-not-match rules
 
-*subroutines*
+**subroutines**
 
-  * `.np_rule_number()` / `.np_rule_ordinal()` / `.np_rule_direction()` :: hard predicates
-
-  * `.np_rule_affiliate_suffix()` :: soft predicate
+- `.np_rule_number()` / `.np_rule_ordinal()` / `.np_rule_direction()` :: hard predicates
+- `.np_rule_affiliate_suffix()` :: soft predicate
 
 **process:**
 
@@ -183,13 +162,11 @@ query out of later (looser, costlier) passes once it is resolved (**residual pru
 
 ### `np_select(pairs)` — best candidate per query
 
-*subroutines*
+**subroutines**
 
-  * `.np_overall_summary()` :: the overall pick with tie-aware tiebreaking
-
-  * `.np_argmax_by()` :: best row per query for a given column
-
-  * `.np_full_name_sim()` :: break a high tie by full-name similarity
+- `.np_overall_summary()` :: the overall pick with tie-aware tiebreaking
+- `.np_argmax_by()` :: best row per query for a given column
+- `.np_full_name_sim()` :: break a high tie by full-name similarity
 
 **process:**
 
@@ -209,15 +186,12 @@ query out of later (looser, costlier) passes once it is resolved (**residual pru
 
 ### `np_route(tiered)` — hand-off products
 
-*subroutines*
+**subroutines**
 
-  * `.np_candidates()` :: surface top-k by score plus the best name-only and best address-only pairs
-
-  * `.np_review_layout()` / `.np_rename_review()` :: assemble the human review / evaluation frame
-
-  * `np_bmf_review_fields()` :: import BMF context (NTEE, subsection, foundation flag, ruling year, assets/revenue, 990 form type, affiliation, group exemption)
-
-  * `np_token_idf()` :: annotate the tokenized name fields with each token's rarity
+- `.np_candidates()` :: surface top-k by score plus the best name-only and best address-only pairs
+- `.np_review_layout()` / `.np_rename_review()` :: assemble the human review / evaluation frame
+- `np_bmf_review_fields()` :: import BMF context (NTEE, subsection, foundation flag, ruling year, assets/revenue, 990 form type, affiliation, group exemption)
+- `np_token_idf()` :: annotate the tokenized name fields with each token's rarity
 
 **process:**
 
