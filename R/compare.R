@@ -102,6 +102,7 @@ np_compare <- function(query, reference, config = np_config(),
   # even when the DBA/overlap block is skipped.
   df$name_raw_x <- query$name[ix];      df$name_raw_y <- reference$name[iy]
   df$dba_x      <- query$dba[ix];       df$dba_y      <- reference$dba[iy]
+  df$division_x <- query$division[ix];  df$division_y <- reference$division[iy]
   df$name_x     <- query$name_full[ix]; df$name_y     <- reference$name_full[iy]
   df$name_key_x <- query$name_key[ix];  df$name_key_y <- reference$name_key[iy]
   df$street_norm_x <- query$street_key[ix]; df$street_norm_y <- reference$street_key[iy]
@@ -135,12 +136,16 @@ np_compare <- function(query, reference, config = np_config(),
                             s[is.na(s)] <- 0; s }
     nkx <- query$name_key[ix]; nky <- reference$name_key[iy]
     dkx <- query$dba_key[ix];  dky <- reference$dba_key[iy]
+    vkx <- if (!is.null(query$division_key)) query$division_key[ix] else rep("", nrow(df))
     s_nn <- df[["name_key"]]                              # name==name (floored)
-    t_nd <- ifelse(has(dky),            jw(nkx, dky), 0)   # uss name == bmf dba
-    t_dn <- ifelse(has(dkx),            jw(dkx, nky), 0)   # uss dba  == bmf name
-    t_dd <- ifelse(has(dkx) & has(dky), jw(dkx, dky), 0)   # uss dba  == bmf dba
-    t_nd[t_nd < jt] <- 0; t_dn[t_dn < jt] <- 0; t_dd[t_dd < jt] <- 0
-    s_dba <- pmax(t_nd, t_dn, t_dd)
+    t_nd <- ifelse(has(dky),            jw(nkx, dky), 0)   # uss name     == bmf dba
+    t_dn <- ifelse(has(dkx),            jw(dkx, nky), 0)   # uss dba      == bmf name
+    t_dd <- ifelse(has(dkx) & has(dky), jw(dkx, dky), 0)   # uss dba      == bmf dba
+    t_vn <- ifelse(has(vkx),            jw(vkx, nky), 0)   # uss division == bmf name
+    t_vd <- ifelse(has(vkx) & has(dky), jw(vkx, dky), 0)   # uss division == bmf dba
+    for (nm2 in c("t_nd", "t_dn", "t_dd", "t_vn", "t_vd"))
+      assign(nm2, { z <- get(nm2); z[z < jt] <- 0; z })
+    s_dba <- pmax(t_nd, t_dn, t_dd, t_vn, t_vd)
 
     # Name-blind recovery: for pairs the JW scored to 0 *but* whose address is
     # confirmed, try the token-set + acronym overlap (word-reorder, acronyms,
@@ -161,26 +166,29 @@ np_compare <- function(query, reference, config = np_config(),
     # OVERLAP = token-set / acronym / word-reorder overlap (the s_ov recovery
     # path), NOT specifically abbreviation. "none" = no name signal cleared the
     # threshold: the pair is on the list because its address matched, not its name.
-    M  <- cbind(s_nn, t_nd, t_dn, t_dd, s_ov)
+    M  <- cbind(s_nn, t_nd, t_dn, t_dd, t_vn, t_vd, s_ov)
     wi <- max.col(M, ties.method = "first")
-    uss_ver <- c("MAIN", "MAIN", "DBA", "DBA", "TOKEN_OVERLAP")[wi]
-    bmf_ver <- c("MAIN", "DBA", "MAIN", "DBA", "TOKEN_OVERLAP")[wi]
+    uss_ver <- c("MAIN", "MAIN", "DBA", "DBA", "DIVISION", "DIVISION", "TOKEN_OVERLAP")[wi]
+    bmf_ver <- c("MAIN", "DBA", "MAIN", "DBA", "MAIN", "DBA", "TOKEN_OVERLAP")[wi]
     az <- rowSums(M) == 0                                  # no name signal
     uss_ver[az] <- "none"; bmf_ver[az] <- "none"
     ex <- s_nn >= 0.999                                    # exact main match
     uss_ver[ex] <- "MAIN"; bmf_ver[ex] <- "MAIN"
     df$name_ver_x <- uss_ver; df$name_ver_y <- bmf_ver
 
-    # show the matched version's string in the display name (DBA when that side
-    # matched on its DBA, else the cleaned main name set above)
-    q_dba <- query$dba[ix]; r_dba <- reference$dba[iy]
+    # show the matched version's string in the display name (the DBA or division
+    # when that side matched on it, else the cleaned main name set above)
+    q_dba <- query$dba[ix]; r_dba <- reference$dba[iy]; q_div <- query$division[ix]
     use_qd <- !is.na(uss_ver) & uss_ver == "DBA" & !is.na(q_dba) & nzchar(q_dba)
+    use_qv <- !is.na(uss_ver) & uss_ver == "DIVISION" & !is.na(q_div) & nzchar(q_div)
     use_rd <- !is.na(bmf_ver) & bmf_ver == "DBA" & !is.na(r_dba) & nzchar(r_dba)
     df$name_x[use_qd] <- q_dba[use_qd]
+    df$name_x[use_qv] <- q_div[use_qv]
     df$name_y[use_rd] <- r_dba[use_rd]
 
-    # name_match_type retained (exact / name / dba / token_overlap)
-    typ <- c("name", "dba", "dba", "dba", "token_overlap")[wi]
+    # name_match_type retained (exact / name / dba / token_overlap); the division
+    # cross-products fall under "dba" (match_version distinguishes them).
+    typ <- c("name", "dba", "dba", "dba", "dba", "dba", "token_overlap")[wi]
     typ[az] <- NA_character_; typ[ex] <- "exact"
     df$name_match_type <- typ
 

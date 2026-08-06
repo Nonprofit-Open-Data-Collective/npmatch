@@ -80,9 +80,10 @@ np_bmf_review_fields <- function(bmf) {
 #' @export
 np_map_sam <- function() {
   c(
-    .id    = "unique_entity_id",
-    name   = "legal_business_name",
-    dba    = "dba_name",
+    .id      = "unique_entity_id",
+    name     = "legal_business_name",
+    dba      = "dba_name",
+    division = "entity_division_name",   # SAM's second alternate-name field
     street = "physical_address_line_1",
     unit   = "physical_address_line_2",
     city   = "physical_address_city",

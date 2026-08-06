@@ -151,6 +151,14 @@ np_normalize <- function(data) {
   data$dba_key <- .np_strip_lead_the(
     .np_strip_suffix(.np_replace_tokens(.np_basic_clean(dv), .np_abbrev)))
 
+  # Division key: a second alternate-name field (SAM's entity_division_name),
+  # normalized like the DBA so it can be cross-matched independently.
+  dv2 <- if (!is.null(data$division)) as.character(data$division) else
+    rep(NA_character_, nrow(data))
+  dv2[is.na(dv2)] <- ""
+  data$division_key <- .np_strip_lead_the(
+    .np_strip_suffix(.np_replace_tokens(.np_basic_clean(dv2), .np_abbrev)))
+
   data$street_unit <- .np_extract_unit(data$street)
   sk  <- .np_street_key(data$street)
   pob <- .np_is_pobox(sk)

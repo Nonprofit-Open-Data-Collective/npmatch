@@ -35,16 +35,16 @@ test_that("the review queue is self-contained and reviewer-ready", {
   rt <- np_route(res)
   need <- c("uei", "ein", "match_name_uss", "match_name_bmf", "street_bmf",
             "name_similarity", "addr_similarity", "total_score", "candidate_type",
-            "decision", "decision_layer", "decision_reason", "notes")
+            "match_decision", "match_layer", "decision_reason", "notes")
   expect_true(all(need %in% names(rt$review)))
-  # decision is the algorithmic tier, not blank
+  # match_decision is the algorithmic tier, not blank
   if (nrow(rt$review))
-    expect_true(all(rt$review$decision %in% c("YES", "MAYBE", "NO")))
+    expect_true(all(rt$review$match_decision %in% c("YES", "MAYBE", "NO")))
   if (nrow(rt$review)) expect_true(all(nzchar(rt$review$decision_reason)))
   # (1) match strength + outcome leads the columns
   expect_equal(names(rt$review)[1:7],
-               c("uei", "ein", "is_top_candidate", "name_similarity",
-                 "addr_similarity", "total_score", "candidate_type"))
+               c("uei", "ein", "name_similarity", "addr_similarity",
+                 "candidate_type", "total_score", "is_top_candidate"))
 })
 
 test_that("is_top_candidate flags one pick per YES/MAYBE group, none for NO", {
@@ -54,7 +54,7 @@ test_that("is_top_candidate flags one pick per YES/MAYBE group, none for NO", {
   expect_true(all(rt$review$is_top_candidate %in% c(0L, 1L)))
   by_q <- split(rt$review, rt$review$uei)
   for (g in by_q) {
-    tier <- unique(g$decision)
+    tier <- unique(g$match_decision)
     expect_lte(sum(g$is_top_candidate), 1)               # at most one top per group
     if (all(tier == "NO")) expect_equal(sum(g$is_top_candidate), 0)
   }
@@ -68,7 +68,8 @@ test_that("name match summary + cleaning progression are present and labelled", 
                     "name_uss_raw_main", "name_uss_raw_dba", "name_uss_normalized",
                     "name_uss_org_type", "name_uss_tokenized") %in% names(rt$review)))
   vers <- na.omit(c(rt$review$match_version_uss, rt$review$match_version_bmf))
-  if (length(vers)) expect_true(all(vers %in% c("MAIN", "DBA", "TOKEN_OVERLAP", "none")))
+  if (length(vers))
+    expect_true(all(vers %in% c("MAIN", "DBA", "DIVISION", "TOKEN_OVERLAP", "none")))
 })
 
 test_that("review column suffixes follow the source/reference arguments", {

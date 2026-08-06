@@ -44,6 +44,8 @@
     # name cleaning progression
     "name_raw_x" = paste0("name_", s, "_raw_main"), "name_raw_y" = paste0("name_", r, "_raw_main"),
     "dba_x" = paste0("name_", s, "_raw_dba"),  "dba_y" = paste0("name_", r, "_raw_dba"),
+    "division_x" = paste0("name_", s, "_raw_division"),
+    "division_y" = paste0("name_", r, "_raw_division"),
     "name_key_x" = paste0("name_", s, "_normalized"), "name_key_y" = paste0("name_", r, "_normalized"),
     "name_form_x" = paste0("name_", s, "_org_type"),  "name_form_y" = paste0("name_", r, "_org_type"),
     "name_tok_x" = paste0("name_", s, "_tokenized"),  "name_tok_y" = paste0("name_", r, "_tokenized"),
@@ -69,10 +71,10 @@
   names(df) <- .np_rename_review(names(df), source, reference, id_label)
   s <- source; r <- reference
   front <- c(
-    id_label, "ein", "is_top_candidate",
+    id_label, "ein",
     # (1) match strength + outcome
-    "name_similarity", "addr_similarity", "total_score", "candidate_type",
-    "decision", "decision_layer", "decision_reason",
+    "name_similarity", "addr_similarity", "candidate_type", "total_score",
+    "is_top_candidate", "match_decision", "match_layer", "decision_reason",
     "veto", "veto_reason", "veto_soft", "veto_soft_reason", "notes",
     # (2) name match summary
     paste0("match_name_", s), paste0("match_version_", s),
@@ -80,9 +82,11 @@
     "match_type", "normalized_match_count",
     # (3) name cleaning progression
     paste0("name_", s, "_raw_main"), paste0("name_", s, "_raw_dba"),
+    paste0("name_", s, "_raw_division"),
     paste0("name_", s, "_normalized"), paste0("name_", s, "_org_type"),
     paste0("name_", s, "_tokenized"),
     paste0("name_", r, "_raw_main"), paste0("name_", r, "_raw_dba"),
+    paste0("name_", r, "_raw_division"),
     paste0("name_", r, "_normalized"), paste0("name_", r, "_org_type"),
     paste0("name_", r, "_tokenized"),
     # (4) address: similarity -> raw -> normalized/geo
@@ -204,10 +208,10 @@ np_route <- function(tiered, config = attr(tiered, "config"),
   #     is_top_candidate = 1 on the selected pick (blank on NO, where nothing
   #     clears the review floor); decision_layer = the blocking pass that found
   #     it (distinct from candidate_type, the surfacing view); reason = why held.
-  cand$decision        <- as.character(tiered$tier[qi])
+  cand$match_decision  <- as.character(tiered$tier[qi])
   cand$is_top_candidate <- as.integer(!is.na(qi) & cand$.ein == tiered$overall_ein[qi] &
-                                       cand$decision %in% c("YES", "MAYBE"))
-  cand$decision_layer  <- if (!is.null(cand$pass)) as.character(cand$pass) else NA_character_
+                                       cand$match_decision %in% c("YES", "MAYBE"))
+  cand$match_layer     <- if (!is.null(cand$pass)) as.character(cand$pass) else NA_character_
   cand$decision_reason <- tiered$route_reason[qi]
   cand$notes           <- rep(NA_character_, nrow(cand))
   # tokenized name: each content token annotated with its reference IDF (rarest

@@ -9,7 +9,7 @@
 #' @export
 np_fields <- c(
   ".id", ".ein",
-  "name", "dba",
+  "name", "dba", "division",
   "street", "unit", "city", "county", "state", "zip5", "zip_plus4"
 )
 
