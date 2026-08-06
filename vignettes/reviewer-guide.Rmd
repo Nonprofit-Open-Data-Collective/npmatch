@@ -1,0 +1,355 @@
+---
+title: "npmatch: A Reviewer's Guide"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 2
+vignette: >
+  %\VignetteIndexEntry{npmatch: A Reviewer's Guide}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE,
+                      fig.width = 7, fig.height = 4.2, dpi = 110)
+library(npmatch)
+have <- function(p) requireNamespace(p, quietly = TRUE)
+if (have("ggplot2")) library(ggplot2)
+kbl <- function(x, ...) if (have("kableExtra"))
+  kableExtra::kable_styling(knitr::kable(x, ...), full_width = FALSE,
+    bootstrap_options = c("striped","condensed")) else knitr::kable(x, ...)
+```
+
+*A plain-language overview of how the nonprofit crosswalk is built, what the
+package decides on its own, and where a human — or an LLM standing in for one —
+comes in.*
+
+## 1. What the package does
+
+**npmatch** links organizations from one list (here, federal award and
+registration records keyed by a **UEI**) to the IRS **Business Master File**
+of nonprofits (keyed by an **EIN**). It does three things:
+
+1. **Normalizes** both sides so they can be compared fairly.
+2. **Runs a multi-tier matching strategy** — strict first, then progressively
+   looser — scoring how well each candidate agrees on name and address.
+3. **Returns a scored, labeled candidate dataset** — for every source
+   organization: the candidate EIN(s) it weighed, a 0–1 match score, and a
+   **decision label: YES, MAYBE, or NO**.
+
+The output is not just "the answer." It is an auditable table showing *which
+candidates were considered and why one was chosen* — the raw material for the
+review stage.
+
+## 2. How names and addresses are normalized
+
+Before anything can be compared, "The Smith Family Foundation, Inc." and
+"Smith Family Fdn" have to be made to look alike. npmatch cleans each name to a
+**match key**, then splits it into **tokens** (the words the matcher actually
+compares). Legal suffixes (Inc, Foundation), a leading "The", and punctuation
+are dropped; abbreviations are standardized (St → Saint, & → and, Ctr → Center).
+
+```{r norm-names}
+nm <- c("The Smith Family Foundation, Inc.", "St. Mary's Hosp. & Health Ctr",
+        "Boys & Girls Club of N.E. Texas", "Y.W.C.A. of Helena", "StepForward")
+q  <- np_normalize(np_query(data.frame(unique_entity_id = seq_along(nm), name = nm,
+        street = "", city = "", state = "OH", zip = "", stringsAsFactors = FALSE),
+        c(.id="unique_entity_id", name="name", street="street", city="city",
+          state="state", zip5="zip")))
+kbl(data.frame(`Original name` = nm, `Cleaned match key` = q$name_key,
+   `Tokens compared` = vapply(strsplit(q$name_key, " "), paste, "", collapse = " · "),
+   check.names = FALSE))
+```
+
+Addresses are parsed the same way — a standardized street body, a separated
+**unit**, and a **ZIP hierarchy** (the 5-digit ZIP nests inside a 3-digit region,
+so a match can degrade gracefully when only partial geography is known).
+
+```{r norm-addr}
+ad <- data.frame(unique_entity_id = 1:3, name = c("A","B","C"),
+   street = c("123 North Main Street, Suite 400","P.O. Box 1234","45 Elm St Apt 2B"),
+   city = c("Saint Louis","Cincinnati","Bethesda"), state = "OH",
+   zip = c("63101-2200","45201","20814"), stringsAsFactors = FALSE)
+qa <- np_normalize(np_query(ad, c(.id="unique_entity_id", name="name", street="street",
+        city="city", state="state", zip5="zip")))
+kbl(data.frame(`Original address` = ad$street, `Street key` = qa$street_key,
+   Unit = ifelse(is.na(qa$street_unit), "—", qa$street_unit),
+   ZIP5 = qa$zip5, `ZIP region` = qa$zip3, check.names = FALSE))
+```
+
+**Corrupted records are *tolerated*, not silently fixed.** Rather than guess a
+correction, the matcher compares the fuzzy *similarity* of the two strings, so a
+typo or a spacing slip in the official record still scores as a near-match. A few
+real BMF cases the fuzzy layer recovers:
+
+```{r norm-fuzzy}
+kbl(data.frame(
+  `Source name` = c("CENTER FOR TRANSPORTATION AND THE ENVIRONMENT",
+                    "STEP FORWARD", "HILLEL FOUNDATION"),
+  `BMF record (as filed)` = c("...AND THE ENVIROMENT  (missing N)",
+                    "STEPFORWARD  (de-spaced)", "HILEL FOUNDATION  (dropped L)"),
+  `Name similarity` = c("0.99", "0.98", "0.91"), check.names = FALSE))
+```
+
+## 3. The two-stage idea
+
+npmatch is deliberately split into two stages:
+
+> **Stage 1 (the algorithm)** surfaces and sorts the candidates — fast,
+> consistent, cheap across millions of records.
+> **Stage 2 (a human or an LLM)** confirms the ambiguous cases and gathers the
+> extra evidence the algorithm can't see.
+
+The three labels are the handoff. **YES** is confident enough to accept
+automatically; **NO** is confident enough to reject; **MAYBE** means *"a match
+probably exists, but I can't be sure on name and address alone — please look."*
+Stage 1's job is not to be right about everything — it is to be **right when it
+is confident and honest when it isn't**, so Stage 2's effort goes only where it
+is needed.
+
+## 4. The matching cascade (fastest checks first)
+
+The multi-tier strategy runs cheapest-to-most-expensive and stops working on a
+source org once it is confidently placed. Exact name-and-place agreement is a
+fast hash lookup; the broad token search (comparing every shared distinctive
+word) is far costlier, so it only runs on what is still unresolved. On the 1,502
+benchmark cases, **the four exact passes settle ~88% of all YES matches before
+the expensive token search runs at all.**
+
+```{r funnel}
+fn <- data.frame(
+  stage = c("exact name","exact name↔DBA","token, same state","de-spaced token","token, cross-state"),
+  yes   = c(845, 22, 109, 7, 1),
+  cost  = c("cheap","cheap","costly","costly","costliest"))
+fn$stage <- factor(fn$stage, levels = rev(fn$stage))
+fn$cum <- rev(cumsum(rev(fn$yes)))
+if (have("ggplot2")) {
+  ggplot(fn, aes(stage, yes, fill = cost)) +
+    geom_col(width = .7) +
+    geom_text(aes(label = yes), hjust = -0.2, size = 3.4) +
+    coord_flip() + expand_limits(y = 950) +
+    scale_fill_manual(values = c(cheap="#2c7fb8", costly="#7fcdbb", costliest="#edf8b1")) +
+    labs(title = "YES matches resolved at each cascade stage",
+         subtitle = "Cheap exact passes run first and settle most matches",
+         x = NULL, y = "matches auto-accepted", fill = NULL) +
+    theme_minimal(base_size = 11) + theme(legend.position = "bottom")
+} else kbl(fn[,c("stage","yes","cost")])
+```
+
+## 5. Reading the output: candidate sets
+
+For each source organization, npmatch surfaces the candidate EINs it considered
+with everything needed to judge the fit — the candidate's name and location, a
+**name similarity** (0–1), how the names matched (exact / fuzzy / DBA / token
+overlap), the combined **score**, and any **veto** that fired. Three real
+examples show the flavor and the pathologies.
+
+**(a) A clear winner amid noise.** The blocking step casts a wide net, so weak
+look-alikes appear — but the true match dominates and is auto-accepted (YES).
+
+```{r cand-a}
+kbl(data.frame(
+  Candidate = c("The North Carolina Coalition Against Domestic Violence",
+                "North Carolina (DBA fragment)", "NC Guardian ad Litem Assn"),
+  Sim = c(0.95, 0.86, 0.67), Type = c("name","dba","token overlap"),
+  Score = c(0.95, 0.59, 0.48),
+  Why = c("near-exact name + state → the pick",
+          "shares only the state words → noise",
+          "a few shared words, different org → noise"), check.names = FALSE))
+```
+
+**(b) An organization vs. its foundation (a family of related EINs).** When both
+the operating org and its affiliated foundation sit at the same place, the
+foundation is *soft-vetoed* — surfaced, but held back from auto-accept so a
+reviewer confirms which EIN is meant.
+
+```{r cand-b}
+kbl(data.frame(
+  Candidate = c("New York Rural Water Association", "New York Rural Water Foundation"),
+  Sim = c(1.00, 1.00), Type = c("exact","exact"), Score = c(0.96, "→ MAYBE"),
+  Veto = c("—", "affiliate_suffix (Foundation)"),
+  Why = c("the operating org → auto-accept",
+          "the affiliate arm → routed to review, not auto-accepted"),
+  check.names = FALSE))
+```
+
+**(c) A genuinely ambiguous cluster → MAYBE.** Several neighborhood
+organizations share the distinctive words; none dominates, so the algorithm
+refuses to guess and sends the set to review.
+
+```{r cand-c}
+kbl(data.frame(
+  Candidate = c("Washington Heights Inwood Mask Blocc...", "Washington Heights & Inwood Devel...",
+                "Chamber of Commerce of Washington Hts", "Washington Heights Inwood Preserv..."),
+  Sim = c(0.79, 0.85, 0.79, 0.75), Type = "token overlap",
+  Score = c(0.78, 0.73, 0.69, 0.67),
+  Why = c("top candidate, but not decisive","close second","related, weaker","related, weaker"),
+  check.names = FALSE))
+```
+
+The recurring pathologies: **shared generic/geographic words** (candidate a),
+**parent/subsidiary/affiliate families** (candidate b), and **dense clusters of
+similarly-named local orgs** (candidate c). Name and address alone can rank
+these but cannot always decide them — which is the entire reason for MAYBE.
+
+## 6. The three answers — how the cases flow
+
+Here is where all 1,502 hand-verified benchmark cases land. **MAYBE is the real
+decision point**: YES is mostly settled and NO is mostly correct, but MAYBE is
+where a real match hides behind ambiguity and human/LLM judgment pays off.
+
+```{r tree}
+if (have("ggplot2")) {
+  nodes <- data.frame(
+    x = c(1, 2.4, 2.4, 2.4),
+    y = c(3, 4.5, 3.0, 1.5),
+    pct = c(100, 65, 16, 19),
+    lab = c("All source\norgs","YES\n65%","MAYBE\n16%","NO / no-cand\n19%"),
+    err = c(NA, 1.5, NA, 14),                 # FP inside YES, FN inside NO (% of that tier)
+    errlab = c(NA, "~1–2%\nfalse pos.", NA, "~14%\nfalse neg."))
+  edges <- data.frame(x=1, y=3, xe=2.4, ye=c(4.5,3,1.5))
+  ggplot() +
+    geom_segment(data=edges, aes(x=x,y=y,xend=xe,yend=ye), colour="grey70") +
+    geom_point(data=nodes, aes(x,y,size=pct), colour="#4575b4", alpha=.85) +
+    geom_point(data=subset(nodes,!is.na(err)), aes(x=x+.03,y=y-.02,size=err), colour="#d73027") +
+    geom_text(data=nodes, aes(x,y,label=lab), colour="white", fontface="bold", size=3) +
+    geom_text(data=subset(nodes,!is.na(err)), aes(x=x+.55,y=y,label=errlab),
+              colour="#d73027", size=2.7, hjust=0) +
+    scale_size_area(max_size=42, guide="none") +
+    expand_limits(x=c(.6,3.6), y=c(.5,5.3)) +
+    labs(title="How the 1,502 cases flow to YES / MAYBE / NO",
+         subtitle="Circle area ∝ share of cases; red = the error inside each confident tier") +
+    theme_void(base_size=11)
+} else kbl(data.frame(tier=c("YES","MAYBE","NO/zero"), pct=c(65,16,19),
+                      error=c("~1-2% FP","(review tier)","~14% FN")))
+```
+
+```{r splits, fig.height=2.6}
+if (have("ggplot2")) {
+  mb <- data.frame(part=c("confirmed match","no match","needs more info"),
+                   pct=c(61,31,8), grp="MAYBE resolves to →")
+  no <- data.frame(part=c("not a nonprofit\n(govt / for-profit / person)",
+                          "nonprofit, not in active BMF\n(foreign / new / co-op / church)",
+                          "undetermined"),
+                   pct=c(50,39,10), grp="Correct NO, by reason →")
+  d <- rbind(mb, no)
+  d$part <- factor(d$part, levels=rev(unique(d$part)))
+  ggplot(d, aes(part, pct, fill=grp)) + geom_col(width=.7, show.legend=FALSE) +
+    geom_text(aes(label=paste0(pct,"%")), hjust=-0.15, size=3) +
+    coord_flip() + facet_wrap(~grp, scales="free_y") + expand_limits(y=70) +
+    scale_fill_manual(values=c("MAYBE resolves to →"="#fdae61","Correct NO, by reason →"="#91bfdb")) +
+    labs(x=NULL, y="% within the tier") + theme_minimal(base_size=10)
+} else { kbl(data.frame(MAYBE=c("confirmed 61%","no-match 31%","unknown 8%")));
+         kbl(data.frame(NO_reason=c("not-a-nonprofit 50%","not-in-BMF 39%","undetermined 10%"))) }
+```
+
+### 🟢 YES — "accept this match" · **~98% correct (~1–2% false positive)**
+Strong name and address agreement, no veto. Reviewer effort is light: confirm the
+obvious pick. *Why the ~2% go wrong:* two different organizations sharing
+distinctive words **and** an address —
+
+- **Same campus, different entity** — a booster club, auxiliary, or foundation
+  at its parent's building ("Virtua Health" vs "Virtua Health and Rehabilitation").
+- **Same distinctive name, wrong entity type** — "Luzerne County Housing
+  Authority" pulled toward "Luzerne County Historical Society." *(A new
+  government-entity rule now routes most of these to MAYBE.)*
+
+### 🟡 MAYBE — "a match likely exists; please review" · **the review tier**
+Of everything sent to MAYBE, **61% turn out to be a real match**, 31% resolve to
+no-match, and 8% need more information. Combined with YES, **~98% of all true
+matches are surfaced** for a reviewer to see. *Why a case lands here, not in YES:*
+
+- **Subset / superset names** — "Nowlin Hall" vs "Nowlin Hall Apartments": same
+  org or a related property? Name alone can't tell.
+- **Parent vs subsidiary vs chapter** — all share the distinctive words, so the
+  algorithm surfaces them but refuses to guess which EIN.
+- **Cross-state parents** — a national org filing under a headquarters in a
+  different state than the local address.
+
+### 🔴 NO — "no acceptable match found" · **mostly correct; ~2% of true matches missed**
+Most NO answers are right. Among the correct rejections, **~50%** are genuinely
+not nonprofits (government, for-profit, individuals), **~39%** are real nonprofits
+absent from the *active* file (foreign, brand-new, co-ops, churches), and ~10%
+are undetermined. The small share of **false negatives** happen two ways:
+
+1. **The right candidate was never surfaced (a "blocking" miss)** — the names are
+   too different for the search to connect:
+   - **Rebrands** — "Coalition for the Common Good" is Antioch University's new
+     legal name; the strings share nothing.
+   - **Acronyms** — "YWCA of Helena" vs "Young Women's Christian Association."
+   - **Typos in the record** — "…Environment" vs the BMF's "…Enviroment."
+   - **Spacing / abbreviation** — "Step Forward" vs "StepForward." *(Now recovered
+     automatically.)*
+2. **The org truly isn't in the file** — churches (auto-exempt, often unlisted),
+   foreign orgs, brand-new nonprofits. Here NO is *correct*; the reviewer just
+   confirms it.
+
+## 7. What a reviewer does in each tier
+
+```{r workflow}
+kbl(data.frame(
+  Tier = c("🟢 YES","🟡 MAYBE","🔴 NO"),
+  Effort = c("Light / spot-check","Moderate","Targeted"),
+  Task = c("Confirm the auto-selected EIN against the surfaced candidates.",
+           "Pick the right candidate, or gather a little evidence to decide.",
+           "Confirm the org is genuinely unmatched — or research a possible miss."),
+  check.names = FALSE))
+```
+
+Because YES is ~98% precise and NO is mostly correct, **the real work
+concentrates in MAYBE** — exactly where you want human judgment spent.
+
+## 8. Humans or LLMs — interchangeable at Stage 2
+
+Stage 2 is the same task whether a person or a language model does it: *look at a
+surfaced organization, decide whether a candidate is the right EIN, and if not,
+find out what the organization actually is.* npmatch is built so the two are
+drop-in substitutes.
+
+To make the LLM path turnkey, the project ships a **tiered research protocol with
+a reusable per-organization prompt** (`dev/RESEARCH-PROTOCOL.md`) that escalates
+only as far as needed and is cost-aware:
+
+- **Tier 1** — a free local recheck against the full IRS file (name variants,
+  de-spaced forms, typos).
+- **Tier 2** — nonprofit registries (e.g. ProPublica) for the EIN.
+- **Tier 3** — open web search to establish what the org is when registries are silent.
+
+Each organization returns a determination, the EIN found (if any), the source, a
+confidence level, and a token/cost estimate — the same structured verdict a human
+enumerator records, so the two mix freely (LLM triage first, humans on the
+residual). This is what lets the review stage scale from hundreds of cases to
+hundreds of thousands.
+
+## 9. Where things stand today
+
+- **YES precision ≈ 98%** — auto-accepts you can trust.
+- **Coverage ≈ 98%** — of orgs that have a real match, ~98% are surfaced as YES
+  or MAYBE; only ~2% are missed into NO.
+- **MAYBE is ~16% of cases** — the focused Stage-2 queue.
+- Matching against the **unified** (active + inactive) IRS file recovers a further
+  ~6% of matches to historical / defunct EINs, each tagged `active` so downstream
+  can filter current-990 matches from identity-resolution ones.
+
+## Appendix — a peek at the evaluation dataset
+
+Each row is one candidate the algorithm surfaced, with the fields a reviewer uses
+to decide. (See the companion *Field Reference* vignette for full definitions.)
+
+```{r preview}
+ev <- data.frame(
+  source_org = c("Coalition for the Common Good","YWCA of Helena","Nowlin Hall Apartments",
+                 "Luzerne County Housing Authority","Freedom Bird Foundation"),
+  best_candidate = c("(Antioch University — rebrand, not surfaced)","(Young Women's Christian Assn — acronym)",
+                     "Nowlin Hall","Luzerne County Historical Society","Operation Freedom Birds"),
+  name_sim = c(NA, NA, 0.95, 0.90, 0.72),
+  tier = c("NO","NO","MAYBE","YES→(now MAYBE)","MAYBE"),
+  gt_ein = c("31-0536640","81-0235416","23-7110959","(no match)","87-2482496"),
+  note = c("rebrand: names share nothing (blocking miss)","acronym vs spelled-out (blocking miss)",
+           "subset name → review","govt entity, wrong type (veto now catches)","short-form name → review"),
+  stringsAsFactors = FALSE)
+tab <- knitr::kable(ev, col.names = c("Source org","Best candidate","Name sim","Tier","True EIN","Why"))
+if (have("kableExtra")) kableExtra::scroll_box(kableExtra::kable_styling(tab,
+  bootstrap_options = c("striped","condensed")), width = "100%", height = "260px") else tab
+```

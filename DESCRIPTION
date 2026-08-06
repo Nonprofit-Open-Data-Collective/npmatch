@@ -21,9 +21,14 @@ Imports:
     stringr
 Suggests:
     campfin,
+    ggplot2,
+    kableExtra,
+    knitr,
     reclin2,
     readxl,
+    rmarkdown,
     stringdist,
     zipcodeR,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
+VignetteBuilder: knitr
