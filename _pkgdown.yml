@@ -74,6 +74,24 @@ reference:
   - np_sam_review_fields
   - np_as_prompt
   - np_as_prompts
+- title: Data management, fetching & reporting
+  desc: Resolve data assets, fetch/prepare source files, run incremental diffs, and report on a run.
+  contents:
+  - np_data_root
+  - np_data_path
+  - np_data_init
+  - np_manifest
+  - np_manifest_add
+  - np_source_urls
+  - np_fetch
+  - np_fetch_bmf
+  - np_fetch_sam
+  - np_read_sam
+  - np_sam_layout
+  - np_flag_nonprofits
+  - np_prepare_sam
+  - np_diff_unmatched
+  - np_run_report
 - title: Geography helpers
   contents:
   - np_clean_geo

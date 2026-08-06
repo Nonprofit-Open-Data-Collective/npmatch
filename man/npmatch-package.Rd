@@ -22,6 +22,15 @@ reclin2. The stages compose left to right:
 
 \code{\link[=np_match]{np_match()}} runs the whole chain; \code{\link[=np_label_frame]{np_label_frame()}} emits training data.
 }
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://github.com/Nonprofit-Open-Data-Collective/npmatch}
+  \item \url{https://nonprofit-open-data-collective.github.io/npmatch/}
+  \item Report bugs at \url{https://github.com/Nonprofit-Open-Data-Collective/npmatch/issues}
+}
+
+}
 \author{
 \strong{Maintainer}: Jesse Lecy \email{jdlecy@gmail.com}
 
