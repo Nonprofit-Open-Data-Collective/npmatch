@@ -83,6 +83,10 @@ test_that("Tier-1 gate: for-profit form hard-vetoes, government soft-vetoes", {
   expect_true(grepl("government_entity", gv$veto_soft_reason))
   ok <- mk("ALASKA CONSERVATION FOUNDATION")            # ordinary nonprofit: neither
   expect_false(ok$veto); expect_false(ok$veto_soft)
+  cu <- mk("TRUSTEES OF COLUMBIA UNIVERSITY IN THE CITY OF NEW YORK")
+  expect_false(cu$veto_soft)                            # "in the City of" != a municipality
+  muni <- mk("CITY OF SPRINGFIELD PARKS DEPARTMENT")
+  expect_true(muni$veto_soft)                           # leading "City of" IS government
 })
 
 test_that("legal-form rule is off by default but can be enabled", {

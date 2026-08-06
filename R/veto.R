@@ -94,8 +94,11 @@
   x <- if (!is.null(df$name_raw_x)) df$name_raw_x else df$name_x
   if (is.null(x)) return(logical(nrow(df)))
   n <- .np_gate_clean(x)
+  # municipal "City/County of X" only when it *leads* the name -- a real
+  # municipality is named "City of Springfield ...", whereas "... University in
+  # the City of New York" just carries the phrase, and is not government.
   grepl(paste0(
-    "(^| )(CITY|COUNTY|TOWN|VILLAGE|TOWNSHIP|BOROUGH) OF ",
+    "^(THE )?(CITY|COUNTY|TOWN|VILLAGE|TOWNSHIP|BOROUGH) OF ",
     "|HOUSING AUTHORITY|REDEVELOPMENT AUTHORITY|SCHOOL DISTRICT",
     "|BOARD OF EDUCATION|PUBLIC LIBRARY|COUNCIL OF GOVERNMENTS|JOINT POWERS",
     "|(WATER|SEWER|SEWERAGE|SANITATION|SANITARY|IRRIGATION|RECLAMATION|FIRE",
