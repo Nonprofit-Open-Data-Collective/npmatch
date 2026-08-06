@@ -21,10 +21,16 @@ candidate-pair frame with a \code{severity}:
 \itemize{
 \item \strong{hard} forces the pair to NO regardless of similarity —
 \code{number_conflict} ("Local 32" vs "Local 45"), \code{ordinal_conflict}
-(FIRST vs SECOND), \code{direction_conflict} ("Southwest ..." vs "Southeast ...").
+(FIRST vs SECOND), \code{direction_conflict} ("Southwest ..." vs "Southeast ..."),
+\code{forprofit_form} (query legal name ends in LLC/LP/LLP/PLLC — a for-profit
+form that no exempt org uses).
 \item \strong{soft} blocks auto-YES (caps at MAYBE for review) but does not reject —
 \code{affiliate_suffix} (query "Rend Lake College" matched to "Rend Lake College
-Foundation": only the affiliate arm is in the reference, so send to review).
+Foundation": only the affiliate arm is in the reference, so send to review),
+\code{government_entity} (query is a municipality / special district / authority —
+almost never a 501(c), but a few "... authority" bodies file as exempt, so
+route to review). The last two fold the Tier-1 legal-form/entity screen into
+the cascade.
 }
 
 \code{legal_form} (INC vs CORP vs LLC) ships \strong{inactive}; add it with

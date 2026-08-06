@@ -70,6 +70,38 @@
   out
 }
 
+# Query-side legal-form / entity gate, folding the Tier-1 screen into the cascade.
+# Operates on the RAW query name (name_raw_x) because normalization strips the
+# legal suffix from name_key. A SAM registrant that is a for-profit or a unit of
+# government should not resolve to a BMF nonprofit.
+.np_gate_clean <- function(x)
+  trimws(gsub("\\s+", " ", gsub("[^A-Z0-9 ]", " ", toupper(ifelse(is.na(x), "", x)))))
+
+# For-profit legal form as the name ending (LLC / LP / LLP / PLLC / limited
+# partnership) -> hard: these forms are not used by exempt organizations.
+.np_rule_forprofit <- function(df) {
+  x <- if (!is.null(df$name_raw_x)) df$name_raw_x else df$name_x
+  if (is.null(x)) return(logical(nrow(df)))
+  n <- .np_gate_clean(x)
+  grepl(" (LLC|L L C|LP|L P|LLP|PLLC|LLLP)$| LIMITED PARTNERSHIP$", n)
+}
+
+# Unit of government (municipal corporation, special district, school district,
+# housing/redevelopment authority, ...) -> soft: almost never a 501(c), but a few
+# "... authority" entities operate as exempt (e.g. a hospital authority), so route
+# to review rather than hard-rejecting.
+.np_rule_government <- function(df) {
+  x <- if (!is.null(df$name_raw_x)) df$name_raw_x else df$name_x
+  if (is.null(x)) return(logical(nrow(df)))
+  n <- .np_gate_clean(x)
+  grepl(paste0(
+    "(^| )(CITY|COUNTY|TOWN|VILLAGE|TOWNSHIP|BOROUGH) OF ",
+    "|HOUSING AUTHORITY|REDEVELOPMENT AUTHORITY|SCHOOL DISTRICT",
+    "|BOARD OF EDUCATION|PUBLIC LIBRARY|COUNCIL OF GOVERNMENTS|JOINT POWERS",
+    "|(WATER|SEWER|SEWERAGE|SANITATION|SANITARY|IRRIGATION|RECLAMATION|FIRE",
+    "|UTILITY|DRAINAGE|CONSERVANCY|IMPROVEMENT|METROPOLITAN) DISTRICT"), n)
+}
+
 #' Default veto rule set
 #'
 #' The do-not-match rules applied by [np_veto()]. Each is a predicate over the
@@ -77,10 +109,16 @@
 #'
 #' * **hard** forces the pair to NO regardless of similarity —
 #'   `number_conflict` ("Local 32" vs "Local 45"), `ordinal_conflict`
-#'   (FIRST vs SECOND), `direction_conflict` ("Southwest ..." vs "Southeast ...").
+#'   (FIRST vs SECOND), `direction_conflict` ("Southwest ..." vs "Southeast ..."),
+#'   `forprofit_form` (query legal name ends in LLC/LP/LLP/PLLC — a for-profit
+#'   form that no exempt org uses).
 #' * **soft** blocks auto-YES (caps at MAYBE for review) but does not reject —
 #'   `affiliate_suffix` (query "Rend Lake College" matched to "Rend Lake College
-#'   Foundation": only the affiliate arm is in the reference, so send to review).
+#'   Foundation": only the affiliate arm is in the reference, so send to review),
+#'   `government_entity` (query is a municipality / special district / authority —
+#'   almost never a 501(c), but a few "... authority" bodies file as exempt, so
+#'   route to review). The last two fold the Tier-1 legal-form/entity screen into
+#'   the cascade.
 #'
 #' `legal_form` (INC vs CORP vs LLC) ships **inactive**; add it with
 #' `rbind(np_default_rules(), np_rule_legal_form())`.
@@ -104,7 +142,13 @@ np_default_rules <- function() {
             .np_rule_direction, severity = "hard"),
     np_rule("affiliate_suffix",
             "Candidate carries a subordinate-affiliate suffix the query lacks (FOUNDATION/ENDOWMENT/AUXILIARY/BOOSTERS)",
-            .np_rule_affiliate_suffix, severity = "soft")
+            .np_rule_affiliate_suffix, severity = "soft"),
+    np_rule("forprofit_form",
+            "Query legal name ends in a for-profit form (LLC/LP/LLP/PLLC)",
+            .np_rule_forprofit, severity = "hard"),
+    np_rule("government_entity",
+            "Query is a unit of government (municipality / special district / authority)",
+            .np_rule_government, severity = "soft")
   )
   structure(rules, class = c("np_rules", "data.frame"))
 }

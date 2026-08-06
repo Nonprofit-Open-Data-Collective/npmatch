@@ -64,6 +64,27 @@ test_that("np_veto_audit collects vetoed pairs and auto-labels hard ones FALSE",
   expect_true(any(grepl("direction_conflict", aud$veto_rule)))
 })
 
+test_that("Tier-1 gate: for-profit form hard-vetoes, government soft-vetoes", {
+  mk <- function(nm) {
+    q <- np_normalize(np_query(data.frame(unique_entity_id = "1", name = nm,
+         state = "AK", stringsAsFactors = FALSE),
+         c(.id = "unique_entity_id", name = "name", state = "state")))
+    r <- np_normalize(np_reference(data.frame(ein = "1", name = nm,
+         state = "AK", stringsAsFactors = FALSE),
+         c(.ein = "ein", name = "name", state = "state")))
+    np_veto(np_score(np_compare(q, r, block = "state")))
+  }
+  fp <- mk("SUNRISE HOUSING PARTNERS LLC")
+  expect_true(fp$veto)                                  # for-profit form -> hard
+  expect_true(grepl("forprofit_form", fp$veto_reason))
+  gv <- mk("METRO REGIONAL HOUSING AUTHORITY")
+  expect_false(gv$veto)                                 # government -> soft, not hard
+  expect_true(gv$veto_soft)
+  expect_true(grepl("government_entity", gv$veto_soft_reason))
+  ok <- mk("ALASKA CONSERVATION FOUNDATION")            # ordinary nonprofit: neither
+  expect_false(ok$veto); expect_false(ok$veto_soft)
+})
+
 test_that("legal-form rule is off by default but can be enabled", {
   cfg <- np_config(rules = rbind(np_default_rules(), np_rule_legal_form()))
   q <- np_normalize(np_query(data.frame(unique_entity_id = "1", name = "ACME INC",
