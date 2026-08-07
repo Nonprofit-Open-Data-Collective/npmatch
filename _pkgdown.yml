@@ -16,6 +16,7 @@ articles:
   navbar: ~
   contents:
   - reviewer-guide
+  - training-dataset
   - candidate-evaluation-frame
 
 reference:

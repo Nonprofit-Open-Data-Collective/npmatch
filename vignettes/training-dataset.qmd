@@ -1,0 +1,257 @@
+---
+title: "npmatch: The Training & Evaluation Dataset"
+format:
+  html:
+    df-print: kable
+    highlight-style: tango
+    toc: true
+    toc-location: right
+    css: clean.css
+    embed-resources: true
+execute:
+  echo: false
+  warning: false
+vignette: >
+  %\VignetteIndexEntry{npmatch: The Training & Evaluation Dataset}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+---
+
+*A hand-labeled benchmark of 1,502 organizations linking the SAM/USASpending
+nonprofit registry to the IRS Business Master File — how it was built, how the
+matcher performs on it, and how to use it to train and benchmark Stage-1
+classifiers or drive an LLM review loop.*
+
+## 1. What this dataset is
+
+`npmatch` links organizations that appear as nonprofits in the SAM /
+USASpending registry (keyed by **UEI**) to the IRS Business Master File of
+exempt organizations (keyed by **EIN**). To measure and improve that process we
+hand-labeled a benchmark of **1,502 source organizations**:
+
+- **1,000 a true random sample** of SAM nonprofits — use these for *population*
+  performance and outcome-class prevalence.
+- **502 hard cases** — an oversample of the difficult residual (fuzzy names,
+  DBA/address divergence, ambiguous entities). Use these to probe failure modes
+  and train a classifier on the cases that actually matter; **do not** read
+  population rates off this stratum.
+
+The benchmark does triple duty: a **validation set** for the matcher, a
+**training set** for Stage-1 (name/address) classifier models, and a **demo
+corpus** for exploring the package.
+
+## 2. How the dataset was built
+
+```{mermaid}
+flowchart LR
+  A["SAM monthly extract<br/>(~165k flagged nonprofits)"] --> B["sample:<br/>1,000 random + 502 hard"]
+  B --> C["np_cascade()<br/>vs unified BMF (3.69M)"]
+  C --> D["YES / MAYBE / NO<br/>+ candidate scores"]
+  D --> E["ground truth:<br/>algo + human + LLM + web"]
+  E --> F["labeled benchmark<br/>(1,502 orgs)"]
+```
+
+1. **Source.** SAM's public monthly extract, filtered to nonprofit
+   business-type codes (`np_flag_nonprofits()`; codes A8/BZ/2U/A7) — roughly
+   165,000 organizations.
+2. **Sample.** A 1,000-org random draw plus a 502-org oversample of hard
+   residual cases, each tagged with `sample_type`.
+3. **Match.** The shipped cascade (`np_cascade()`) against the **unified** BMF
+   (active + inactive, 3.69M records), producing a YES/MAYBE/NO tier and scored
+   candidates for every org.
+4. **Ground truth.** Each case was adjudicated with a mix of algorithmic
+   agreement, human review, LLM judgment, and web verification — confirming that
+   accepted matches are correct, and (crucially) investigating whether
+   *non*-matches are truly not nonprofits or simply missing from the BMF.
+
+Each org is assigned one **outcome class**:
+
+```{r}
+data.frame(
+  `Outcome class` = c("in_bmf_match", "nonprofit_not_in_bmf", "not_a_nonprofit",
+                      "no_match_or_na", "cant_determine"),
+  Meaning = c(
+    "A correct BMF EIN exists (active or inactive).",
+    "A real nonprofit with no BMF record (many churches, lapsed orgs, state-only registrations).",
+    "Not actually a nonprofit — a SAM mislabel (for-profit, government unit).",
+    "No match and not clearly classifiable as the above.",
+    "Insufficient evidence to decide."),
+  check.names = FALSE)
+```
+
+### The inactive-BMF correction
+
+An important labeling subtlety: matching uses the **unified** BMF (active +
+inactive) on purpose. 30 organizations first tagged "not in BMF" — because
+labeling initially checked only the *active* file — turned out to be exact
+name + address matches to **inactive** BMF records (lapsed or recently-registered
+orgs). These were corrected to `in_bmf_match` with the inactive EIN (20 by an
+exact name+address rule, 10 confirmed on manual/web review). A further 6
+plausible-but-unconfirmed candidates were reviewed and rejected (affiliate
+siblings such as a hospital's *Foundation*, and cross-state name collisions).
+The `gt_notes` column records every such decision.
+
+## 3. Record-linkage performance
+
+The positive event is **a correct EIN link**. *Recall* = correct links ÷
+linkable orgs; *precision* = correct ÷ accepted; the MAYBE tier is a human/LLM
+review queue, not an error bucket.
+
+```{r}
+data.frame(
+  Metric = c("Linkable orgs", "Non-linkable orgs", "Recall — auto (YES only)",
+             "Recall — auto + review", "Precision (YES picks correct)",
+             "Auto-accept false positives"),
+  `Random (n=1,000)` = c("807", "193", "88.1%", "95.0%", "99.2%", "5"),
+  `Hard (n=502)`     = c("380", "122", "70.0%", "86.1%", "96.0%", "7"),
+  `All (n=1,502)`    = c("1,187", "315", "82.3%", "92.2%", "98.3%", "12"),
+  check.names = FALSE)
+```
+
+Read the **random** column as expected real-world performance: ~95% of linkable
+nonprofits are recovered once the review tier is worked, at ~99% precision on the
+auto-accepted matches. The hard column is the deliberately-difficult residual.
+
+**Algorithm-only tiering** (before any review):
+
+```{r}
+data.frame(
+  Tier = c("YES (auto-accept)", "MAYBE (review)", "NO (withhold)", "No candidates"),
+  Random = c("717", "123", "144", "16"),
+  Hard   = c("277", "136", "87", "2"),
+  Meaning = c("strong name + address, no veto", "surfaced for human/LLM confirmation",
+              "nothing cleared the review floor", "blocking found nothing"),
+  check.names = FALSE)
+```
+
+Because some organizations are legitimately unmatchable, the match rate must be
+read against how often a match *can* exist. From the representative random
+sample:
+
+```{r}
+data.frame(
+  `Outcome class` = c("in BMF (matchable)", "nonprofit, not in BMF",
+                      "not a nonprofit (SAM mislabel)", "no match / n.a.", "can't determine"),
+  Random = c("807", "85", "65", "22", "21"),
+  Share  = c("80.7%", "8.5%", "6.5%", "2.2%", "2.1%"),
+  check.names = FALSE)
+```
+
+So ~81% of SAM "nonprofit" registrations are matchable to the BMF; the ~19%
+remainder are correctly *not* matched — and a NO here can be a **true negative**
+(the record is not in fact a nonprofit), not a failed match. Two denominators
+therefore matter: **recall among the linkable ~81%** (~95%), and **yield over the
+whole population** (~77% of all source orgs receive a correct link).
+
+## 4. The dataset files
+
+```{r}
+data.frame(
+  File = c("EVAL-FRAME-1502-MERGED.csv", "GROUNDTRUTH-MASTER-1502.csv",
+           "TRAINING-PAIRS-1502.csv", "DATA-DICTIONARY-EVAL-FRAME.md / .csv"),
+  Grain = c("candidate pair", "source org", "candidate pair", "—"),
+  Rows = c("2,763", "1,502", "304,274", "150"),
+  Description = c("Reviewable evaluation frame (150 cols) + ground truth.",
+                  "One row per org: the archival label key.",
+                  "Model-training projection: features + label per scored pair.",
+                  "Column dictionary for the evaluation frame."),
+  check.names = FALSE)
+```
+
+The three data frames are three *views* of the same run: the **ground-truth
+master** is the label key; the **evaluation frame** joins those labels onto the
+reviewable top candidates; the **training pairs** are a projection of every
+scored candidate (features + a boolean `label`).
+
+## 5. Benchmarking Stage-1 classifiers
+
+`TRAINING-PAIRS-1502.csv` is one row per scored candidate pair with the
+similarity features and a boolean `label` (1 = this EIN is the true match). It is
+exactly the input to the package's model tools. Compare scoring methods with
+cross-validated AUC and precision/recall at tuned thresholds:
+
+```{r}
+#| echo: true
+#| eval: false
+library(npmatch)
+pairs <- read.csv("TRAINING-PAIRS-1502.csv")          # or data("npmatch_training_pairs")
+
+# cross-validated comparison of weighted / EM / model scorers
+np_benchmark(pairs, methods = c("weighted", "em", "model"),
+             target_precision = 0.98, min_recall = 0.95)
+
+# fit a single Stage-1 model on the name/address features
+fit   <- np_train(pairs, engine = "logit",
+                  features = c("name_sim", "addr_sim", "geo_state", "geo_zip5", "geo_stnum"))
+
+# score quality + a precision-first operating point
+np_auc(pairs$score, pairs$label)
+np_tune_thresholds(pairs$score, pairs$label,
+                   target_precision = 0.98, min_recall = 0.95)
+```
+
+On this benchmark the geography-adaptive **hier** scorer is the shipped default
+(it beat a cross-validated GLM at scale); the training pairs let you reproduce
+that comparison or fit your own Stage-1 classifier.
+
+## 6. What the evaluation dataframe looks like
+
+`EVAL-FRAME-1502-MERGED.csv` is **candidate-level**: one row per (source org ×
+BMF candidate). Group by `uei` to see an org's competing candidates. Two flags
+orient every group:
+
+- `is_top_candidate = 1` — the algorithm's chosen pick.
+- `is_gt_ein = 1` — the row whose EIN is the ground-truth correct match.
+
+Alongside the similarity features it carries the full evidence a reviewer needs:
+normalized name variants (`name_*_normalized`), IDF-annotated tokens
+(`name_*_tokenized`), geographic agreement flags (`geo_*`), the veto trail
+(`veto*`), and imported BMF context (`BMF_ntee_clean`, `BMF_subsection`,
+`BMF_form_990`, …) and SAM context (`SAM_bus_type_*`). All 150 columns are
+documented in `DATA-DICTIONARY-EVAL-FRAME.md`. This is the frame the
+[candidate-evaluation-frame](candidate-evaluation-frame.html) vignette describes
+field by field.
+
+## 7. From MAYBE to an LLM review loop
+
+The MAYBE tier is where the algorithm defers to judgment. `np_route()` turns a
+cascade result into a review packet, and `np_as_prompt()` / `np_as_prompts()`
+render each MAYBE case as a self-contained LLM adjudication prompt — the source
+org, its candidate BMF entities with fields and similarities, why it was flagged,
+and a JSON-output instruction:
+
+```{r}
+#| echo: true
+#| eval: false
+routing <- np_route(res, bmf = bmf_raw, sam = sam_raw)   # res = np_cascade() result
+prompts <- np_as_prompts(routing)                        # one prompt per review case
+
+# deploy: send each prompt to your LLM, collect {ein, decision, confidence, reason}
+for (id in names(prompts)) {
+  verdict <- my_llm(prompts[[id]])                       # your model call
+  # ...record verdict, promote confirmed matches, drop rejected ones
+}
+```
+
+The same packet drives a human reviewer or an LLM — the prompt is just formatted
+text, so the second-stage process is model-agnostic and easy to deploy. This is
+the two-stage philosophy in practice: the algorithm surfaces and sorts; a
+human or LLM confirms the uncertain middle.
+
+## 8. Loading the data
+
+Once the benchmark is added to the package it will lazy-load by name; until then,
+read the CSVs from the shared data bundle:
+
+```{r}
+#| echo: true
+#| eval: false
+# packaged (planned):
+data("npmatch_eval")            # candidate-level evaluation frame + ground truth
+data("npmatch_groundtruth")     # query-level labels
+data("npmatch_training_pairs")  # model-training projection
+
+# or from the shared bundle:
+eval  <- read.csv("EVAL-FRAME-1502-MERGED.csv")
+truth <- read.csv("GROUNDTRUTH-MASTER-1502.csv")
+```
