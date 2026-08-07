@@ -178,7 +178,7 @@ exactly the input to the package's model tools:
 #| echo: true
 #| eval: false
 library(npmatch)
-path  <- np_fetch("https://<archive>/TRAINING-PAIRS-1502.csv")   # fetch-only (too large to bundle)
+path  <- np_fetch(np_source_urls()$url[np_source_urls()$key == "training_pairs"])   # fetch-only (too large to bundle)
 pairs <- read.csv(path)
 
 # cross-validated comparison of weighted / EM (reclin2) / model scorers
@@ -199,6 +199,13 @@ np_tune_thresholds(pairs$score, pairs$label,
 On this benchmark the geography-adaptive **hier** scorer is the shipped default
 (it beat a cross-validated GLM at scale); the training pairs let you reproduce
 that comparison or fit your own Stage-1 classifier.
+
+For richer models (decision trees, gradient boosting) a **full-context variant**,
+`TRAINING-PAIRS-FULL`, carries the same 304k pairs with ~126 columns — every
+`BMF_*` classification/finance field, every `SAM_*` business-type flag, the name
+variants and per-field similarities from the evaluation frame — minus the
+ground-truth and algorithm-decision columns, plus the `label`. It is available in
+the shared archive (a ~15 MB compressed `.rds`, or a 290 MB CSV).
 
 ## 6. What the evaluation dataframe looks like
 
@@ -257,6 +264,6 @@ data("npmatch_eval")          # candidate-level evaluation frame + ground truth 
 data("npmatch_groundtruth")   # query-level labels (1,502 x 17)
 
 # full training pairs: fetch from the shared archive
-path  <- np_fetch("https://<archive>/TRAINING-PAIRS-1502.csv")
+path  <- np_fetch(np_source_urls()$url[np_source_urls()$key == "training_pairs"])
 pairs <- read.csv(path)
 ```
