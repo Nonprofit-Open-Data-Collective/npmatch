@@ -165,24 +165,30 @@ scored candidate (features + a boolean `label`).
 
 ## 5. Benchmarking Stage-1 classifiers
 
-`TRAINING-PAIRS-1502.csv` is one row per scored candidate pair with the
-similarity features and a boolean `label` (1 = this EIN is the true match). It is
-exactly the input to the package's model tools. Compare scoring methods with
-cross-validated AUC and precision/recall at tuned thresholds:
+`TRAINING-PAIRS-1502.csv` is one row per scored candidate pair with a boolean
+`label` (1 = this EIN is the true match) and the comparison features the scorers
+calibrate on: the continuous field similarities **`name_sim`**, **`street_sim`**,
+**`city_sim`**, **`zip_sim`** (Jaro-Winkler / agreement, 0–1), the binary
+geographic-agreement flags **`geo_stnum`/`geo_zip9`/`geo_zip5`/`geo_zip3`/
+`geo_state`/`geo_pobox`**, the categorical **`name_match_type`**, the name
+distinctiveness **`name_freq`**, and the current blended **`score`**. It is
+exactly the input to the package's model tools:
 
 ```{r}
 #| echo: true
 #| eval: false
 library(npmatch)
-pairs <- read.csv("TRAINING-PAIRS-1502.csv")          # or data("npmatch_training_pairs")
+path  <- np_fetch("https://<archive>/TRAINING-PAIRS-1502.csv")   # fetch-only (too large to bundle)
+pairs <- read.csv(path)
 
-# cross-validated comparison of weighted / EM / model scorers
+# cross-validated comparison of weighted / EM (reclin2) / model scorers
 np_benchmark(pairs, methods = c("weighted", "em", "model"),
              target_precision = 0.98, min_recall = 0.95)
 
-# fit a single Stage-1 model on the name/address features
-fit   <- np_train(pairs, engine = "logit",
-                  features = c("name_sim", "addr_sim", "geo_state", "geo_zip5", "geo_stnum"))
+# fit a single Stage-1 model on the field-similarity features
+fit <- np_train(pairs, engine = "logit",
+                features = c("name_sim", "street_sim", "city_sim", "zip_sim",
+                             "geo_stnum", "geo_zip9", "geo_zip5", "geo_state", "geo_pobox"))
 
 # score quality + a precision-first operating point
 np_auc(pairs$score, pairs$label)
