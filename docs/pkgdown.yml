@@ -2,10 +2,11 @@ pandoc: '3.2'
 pkgdown: 2.1.1
 pkgdown_sha: ~
 articles:
+  building-a-classifier: building-a-classifier.html
   candidate-evaluation-frame: candidate-evaluation-frame.html
   reviewer-guide: reviewer-guide.html
   training-dataset: training-dataset.html
-last_built: 2026-08-07T06:37Z
+last_built: 2026-08-07T21:21Z
 urls:
   reference: https://nonprofit-open-data-collective.github.io/npmatch/reference
   article: https://nonprofit-open-data-collective.github.io/npmatch/articles

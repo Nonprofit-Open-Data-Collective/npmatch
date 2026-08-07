@@ -17,6 +17,7 @@ articles:
   contents:
   - reviewer-guide
   - training-dataset
+  - building-a-classifier
   - candidate-evaluation-frame
 
 reference:

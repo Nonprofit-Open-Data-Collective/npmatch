@@ -18,16 +18,17 @@ np_source_urls <- function() {
   s3 <- function(f) file.path(.np_s3_base, f)
   data.frame(
     key  = c("bmf_processed", "bmf_unified", "bmf_dictionary", "sam_extract",
-             "training_pairs", "bmf_fresh", "sam_fresh"),
-    kind = c("archive", "archive", "archive", "archive", "archive", "source", "source"),
+             "training_pairs", "training_pairs_full", "bmf_fresh", "sam_fresh"),
+    kind = c("archive", "archive", "archive", "archive", "archive", "archive", "source", "source"),
     url  = c(s3("bmf_2026_01_processed.csv"), s3("bmf_unified_geocoded.csv"),
              s3("bmf_2026_01_data_dictionary.csv"), s3("SAM_PUBLIC_MONTHLY_V2_20251102.dat"),
-             s3("TRAINING-PAIRS-1502.csv"),
+             s3("TRAINING-PAIRS-1502.csv"), s3("TRAINING-PAIRS-FULL-1502.csv"),
              "https://nccs.urban.org/nccs/catalogs/catalog-bmf.html",
              "https://sam.gov/data-services/Entity%20Registration/Public%20-%20Historical?privacy=Public"),
     note = c("active BMF (2026-01), pinned", "unified active+inactive BMF, pinned",
              "BMF field dictionary", "SAM monthly public extract (2025-11), pinned; needs np_prepare_sam()",
-             "model-training projection: 304k scored pairs, features + label",
+             "model-training projection: 304k scored pairs, core features + label",
+             "full contextual training pairs: 304k pairs x ~126 cols (BMF_*/SAM_*/name/geo), + match_yn",
              "NCCS BMF catalog - pick a vintage, then np_fetch()",
              "SAM historical - download, then np_prepare_sam()"),
     stringsAsFactors = FALSE)

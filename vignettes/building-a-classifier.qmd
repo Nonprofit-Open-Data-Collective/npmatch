@@ -1,0 +1,239 @@
+---
+title: "npmatch: Building a Stage-1 Match Classifier"
+format:
+  html:
+    df-print: kable
+    highlight-style: tango
+    toc: true
+    toc-location: right
+    css: clean.css
+    embed-resources: true
+execute:
+  echo: true
+  eval: false
+  warning: false
+vignette: >
+  %\VignetteIndexEntry{npmatch: Building a Stage-1 Match Classifier}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+---
+
+*How to turn the labeled benchmark into a Stage-1 classifier that decides
+"is this candidate the right EIN?" — and, more usefully, how extending the
+training data with extra BMF/SAM fields and a few feature-engineering steps
+improves on the hand-tuned scoring weights. The lessons matter more than the
+model: **gate degeneracy, model gradation, and let a small tree tell you which
+is which.** All results below are from `TRAINING-PAIRS-FULL` (304,274 scored
+candidate pairs; 1,168 true matches).*
+
+## 1. The task, and the trap
+
+The classifier scores candidate pairs, but the real job is per **query**: for
+each source org (`uei`), pick the one correct `ein` — or none. Two facts shape
+everything:
+
+- **The pairs are already blocked candidates.** So evaluate *query-level*
+  (did we pick the right EIN?), not per-pair.
+- **The label is 0.38% positive** (1,168 / 304,274). At that base rate a model
+  that always predicts "no match" is 99.6% accurate. **Accuracy is a trap** —
+  lead with precision/recall and the query-level selection rate, and either
+  down-sample negatives or class-weight when fitting.
+
+```{r}
+library(data.table); library(rpart)
+pairs <- as.data.table(read.csv(
+  np_fetch(np_source_urls()$url[np_source_urls()$key == "training_pairs_full"])))
+# match_yn = 1 if this ein is the ground-truth match for the uei
+```
+
+## 2. Feature engineering
+
+The raw similarities are the backbone; a handful of engineered features attack
+the specific failure modes of pure string similarity.
+
+```{r}
+pairs[, name_exact    := as.integer(name_sim >= 0.999)]        # the jump at 1.0 is qualitative
+pairs[, log_name_freq := log1p(name_freq)]                     # distinctiveness (rare name = trustworthy)
+pairs[, subset_flag   := as.integer(name_match_type == "token_overlap")]  # one name inside the other
+pairs[, group_member  := as.integer(BMF_group_exemption_is_member %in% c("TRUE","1"))]
+# officer / contact-name agreement (continuous, not 0/1)
+pairs[, officer_sim := ifelse(nzchar(BMF_in_care_of) & nzchar(SAM_poc_last_name),
+        stringdist::stringsim(toupper(BMF_in_care_of), toupper(SAM_poc_last_name), "jw", p = .1), NA)]
+# name-token conflicts (a "Fund II" vs "Fund III" is a strong negative)
+conflict <- function(a, b) as.integer(nzchar(a) & nzchar(b) & a != b)
+pairs[, `:=`(num_conflict = conflict(name_nums_x, name_nums_y),
+             ord_conflict = conflict(name_ord_x,  name_ord_y),
+             dir_conflict = conflict(name_dir_x,  name_dir_y))]
+```
+
+Why these, and not others:
+
+| Feature | Rationale |
+|---|---|
+| `name_sim` **and** `name_exact` | the relationship is non-linear — an exact match is a different regime, and trees split on it cleanly |
+| `log_name_freq` | *distinctiveness*: an exact match on a unique name is trustworthy; on "First Baptist Church" it is nearly worthless. Interact it with `name_sim` |
+| `geo_stnum`, `geo_zip5`, `street_sim` | address agreement; `geo_stnum` (same street number) is the strongest single address signal |
+| `subset_flag` | catches truncation/expansion that Jaro-Winkler misses ("Lake Stewards" ⊂ "Lake Stewards of Maine") |
+| `group_member` | federated chapters (Habitat, Rotary, VFW) share names → inherently ambiguous → the model should down-weight confidence |
+| `officer_sim` | a matching director / point-of-contact name disambiguates small orgs with generic names |
+
+We deliberately **exclude** `score` (the current model's own output — including it
+just teaches "trust the old scorer"), `pass`, and `is_top_candidate` (the algo's
+pick — direct leakage). They are baselines to beat, not inputs.
+
+## 3. Vetoes vs. features — gate degeneracy, model gradation
+
+Before modeling, ask of each categorical region: *what does P(match) look like
+here?* If it is a near-deterministic **zero** with a mechanism, it is a **rule**
+(filter it out — this de-noises training and cuts the imbalance). If it merely
+shifts the probability, it is a **feature**. The test is the **upper confidence
+bound** on the region's match rate — not the point estimate — plus a mechanism
+and enough support:
+
+```{r}
+wilson_u <- function(pos, n, z = 1.96) { p <- pos/n
+  (p + z^2/(2*n) + z*sqrt((p*(1-p) + z^2/(4*n))/n)) / (1 + z^2/n) }
+pairs[, .(n = .N, matches = sum(match_yn), rate = mean(match_yn),
+          upper95 = wilson_u(sum(match_yn), .N)), by = .(SAM_bus_type_foreign_owned)]
+```
+
+Run over the candidate cells, this is what the benchmark shows:
+
+| Cell | n | matches | rate | **95% upper** | verdict |
+|---|---:|---:|---:|---:|---|
+| SAM `foreign_owned` | 3,643 | **0** | 0.00% | **0.11%** | **→ veto** (large, zero, mechanism) |
+| SAM `for_profit` | **3** | 0 | 0.00% | **56%** | **✗ not a veto** — n too small to conclude |
+| BMF group member | 38,577 | 63 | 0.16% | 0.21% | feature (down-weight) |
+| SAM struct `2L` (not tax-exempt) | 17,747 | 31 | 0.18% | 0.25% | feature |
+| SAM `nonprofit` | 264,032 | 1,135 | 0.43% | — | base rate |
+| name exact (`sim`=1) | 1,465 | 996 | 68% | 70% | dominant signal |
+
+**The lesson in one table.** `foreign_owned` and `for_profit` have the *same*
+point estimate (0%), but only `foreign_owned` is a veto: n = 3,643 gives an upper
+bound of 0.1%, and an international org cannot have a domestic BMF record (the
+mechanism guarantees it generalizes). `for_profit` has n = 3 and an upper bound
+of 56% — you cannot conclude anything, and promoting it to a rule would be
+overfitting. This is why small pure cells must never become rules on the point
+estimate alone, and why the mechanism check also guards against filtering on a
+blocking artifact (these are *already* candidate pairs).
+
+Promote only `foreign_owned` (and the existing hard vetoes) to the gate; leave
+`group_member`, structure, and business-type as features the model can grade.
+
+## 4. A small, interpretable tree
+
+Fit a shallow, pruned CART on a grouped, down-sampled training split (all
+positives + ~15× negatives; queries never split across folds):
+
+```{r}
+ueis <- unique(pairs$uei); tr_uei <- sample(ueis, floor(.7 * length(ueis)))
+tr <- pairs[uei %in% tr_uei]; te <- pairs[!uei %in% tr_uei]
+pos <- tr[match_yn == 1]; neg <- tr[match_yn == 0][sample(.N, 15 * nrow(pos))]
+fit <- rpart(match_yn ~ name_sim + name_exact + log_name_freq + geo_stnum + geo_zip5 +
+             geo_state + street_sim + city_sim + name_match_type + group_member +
+             subset_flag + officer_sim + num_conflict,
+             data = rbind(pos, neg), method = "class",
+             control = rpart.control(maxdepth = 4, cp = .004, minbucket = 40))
+fit <- prune(fit, cp = fit$cptable[which.min(fit$cptable[, "xerror"]), "CP"])
+print(fit)
+```
+
+The pruned tree is three leaves:
+
+```
+name_sim < 0.94 ?
+├─ yes → street_sim < 0.88 ?
+│        ├─ yes → NO   (0.2% match)   the clean-negative leaf
+│        └─ no  → YES  (77% match)    fuzzy name rescued by a matching street
+└─ no  → YES  (95% match)
+```
+
+A **two-variable story with an interaction**: a strong name is enough on its own;
+a weak name is rescued only when the street agrees (the address-anchored
+recovery); everything else is a non-match. Variable importance echoes it —
+`name_sim` (.29), `name_exact` (.26), `street_sim` (.17), `geo_stnum` (.16),
+`geo_zip5` (.12) — roughly five features carry all the signal. This is the
+tree-as-search idea in action: it *discovers* where the effect of `name_sim`
+varies (its threshold differs by branch), i.e. it gives you varying slopes
+without saturating a factor table.
+
+## 5. Does it work? Two lessons
+
+Pick the highest-scoring candidate per query and ask whether it is the true match,
+against the hand-tuned hier score as the baseline (queries split by `uei`,
+`foreign_owned` gated out):
+
+| Selector | ALL | RANDOM | **HARD** |
+|---|---:|---:|---:|
+| Hand-tuned hier score | 0.934 | 0.961 | 0.877 |
+| Small 3-leaf tree | 0.915 | 0.927 | 0.891 |
+| **Logistic regression (core features)** | **0.945** | 0.961 | **0.912** |
+
+**Lesson 1 — trees explain; smooth models select.** The three-leaf tree is a
+superb *summary* (two variables, one interaction, a clean veto) and lands close,
+but it *ranks* coarsely: a shallow tree assigns each candidate one of a few leaf
+probabilities, so many candidates in a query tie and the within-query argmax is
+arbitrary. That is why the tree sits below the continuous score. Use the tree for
+interpretation and veto discovery; use a smooth model for the actual selection.
+
+**Lesson 2 — a learned model beats the hand-tuned weights, most where it matters.**
+A plain logistic regression on the *same* core features tops the hand-tuned score
+overall (0.945 vs 0.934) and by **+3.5 points on the hard cases** (0.912 vs
+0.877). Learning the weights from the labeled data — rather than setting
+`0.6·name + 0.4·geo` by hand — is the improvement, and it concentrates exactly on
+the difficult residual.
+
+```{r}
+m <- glm(match_yn ~ name_sim + name_exact + geo_stnum + geo_zip5 + geo_state +
+         street_sim + city_sim, family = binomial, data = rbind(pos, neg))
+sort(round(coef(m), 2))
+```
+
+And the coefficients are legible — they *are* the story the tree told, quantified:
+
+```
+name_sim  +21.0   geo_stnum  +4.1   name_exact  +3.5   geo_state  +2.4   geo_zip5  +1.1
+                                                       (city/street positive; large negative intercept)
+```
+
+**The honest twist on feature engineering.** Adding the engineered features
+(`log_name_freq` interaction, `group_member`, `subset_flag`, `officer_sim`, the
+conflict flags) to the logistic model did **not** move top-1 selection on this
+benchmark — the core name+geo signal already carries it. Their value shows up
+elsewhere, and it is real: their **coefficients confirm every mechanism** —
+`num_conflict` ≈ −13 (a "Fund II" vs "Fund III" all but rules the pair out),
+`group_member` ≈ −2 (federated chapters are genuinely weaker, your #10),
+`name_sim:log_name_freq` ≈ −2 (an exact match on a *common* name is worth less —
+the distinctiveness interaction) — and they sharpen **precision on the ambiguous
+tail**, not the headline metric. The lesson is the discipline you asked for:
+**don't pile on features reflexively.** Learn the weights (that is the win), let a
+tree show you the few variables and where the slopes vary, gate the one
+mechanistic dead-zone (`foreign_owned`), and add engineered signals where a
+*mechanism* — not just a hoped-for lift — says they belong.
+
+## 6. From classifier to pipeline
+
+The gate-then-model split you just built is exactly the package's architecture:
+the veto layer (`np_veto`) removes mechanistically-impossible pairs; the scorer
+(`np_score`) grades the rest; `np_select` / `np_tier` turn per-pair scores into a
+per-query YES / MAYBE / NO. A learned Stage-1 model drops straight into the scorer
+slot, and the MAYBE tier still routes the uncertain middle to the LLM review loop
+(`np_as_prompts`). Retrain it as the benchmark grows — the training pairs are a
+projection of the evaluation frame, so every improvement is reproducible.
+
+## Appendix — model menu
+
+The main text uses one model on purpose. For accuracy or a second opinion:
+
+| Model | R package | Note |
+|---|---|---|
+| Pruned CART | `rpart` (+ `rpart.plot`) | the interpretable centerpiece used above |
+| C5.0 / cond-inference tree | `C50`, `partykit::ctree` | `ctree`'s significance-tested splits won't manufacture a spurious pure cell — good for veto mining |
+| Rule learner (RIPPER) | `RWeka::JRip` | targets "high-precision rule over a region" directly — the veto-mining objective as an algorithm |
+| Random forest | `ranger` | fast accuracy benchmark + variable importance |
+| Gradient boosting | `xgboost` | max accuracy; use `scale_pos_weight` for the imbalance |
+| Logistic regression | base `glm`, `npmatch::np_train` | a parametric baseline; add varying slopes only on the few factor×continuous cells the tree flags |
+| Optimal classification tree | `iai` (commercial) / `evtree` (open) | marginal gain over pruned CART here — not required |
+
+Wrap any of these in `tidymodels` (`recipes` for the engineering, `rsample` for
+**grouped** CV by `uei`, `yardstick` for PR-AUC) to keep the comparison honest.
