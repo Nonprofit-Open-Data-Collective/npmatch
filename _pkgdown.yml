@@ -93,6 +93,11 @@ reference:
   - np_prepare_sam
   - np_diff_unmatched
   - np_run_report
+- title: Datasets
+  desc: The hand-labeled 1,502-org training/evaluation benchmark.
+  contents:
+  - npmatch_eval
+  - npmatch_groundtruth
 - title: Geography helpers
   contents:
   - np_clean_geo

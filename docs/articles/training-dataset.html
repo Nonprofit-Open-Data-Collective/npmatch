@@ -397,17 +397,15 @@
 <p>The same packet drives a human reviewer or an LLM — the prompt is just formatted text, so the second-stage process is model-agnostic and easy to deploy. This is the two-stage philosophy in practice: the algorithm surfaces and sorts; a human or LLM confirms the uncertain middle.</p>
 </section><section class="level2"><h2 id="loading-the-data">8. Loading the data<a class="anchor" aria-label="anchor" href="#loading-the-data"></a>
 </h2>
-<p>Once the benchmark is added to the package it will lazy-load by name; until then, read the CSVs from the shared data bundle:</p>
+<p>The evaluation frame and the ground-truth master ship <strong>with the package</strong> and lazy-load by name. The full training pairs (304k rows) are too large to bundle, so they are fetched from the shared data archive on demand.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># packaged (planned):</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"npmatch_eval"</span><span class="op">)</span>            <span class="co"># candidate-level evaluation frame + ground truth</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"npmatch_groundtruth"</span><span class="op">)</span>     <span class="co"># query-level labels</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"npmatch_training_pairs"</span><span class="op">)</span>  <span class="co"># model-training projection</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"npmatch_eval"</span><span class="op">)</span>          <span class="co"># candidate-level evaluation frame + ground truth (2,763 x 150)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"npmatch_groundtruth"</span><span class="op">)</span>   <span class="co"># query-level labels (1,502 x 17)</span></span>
 <span></span>
-<span><span class="co"># or from the shared bundle:</span></span>
-<span><span class="va">eval</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span><span class="st">"EVAL-FRAME-1502-MERGED.csv"</span><span class="op">)</span></span>
-<span><span class="va">truth</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span><span class="st">"GROUNDTRUTH-MASTER-1502.csv"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co"># full training pairs: fetch from the shared archive</span></span>
+<span><span class="va">path</span>  <span class="op">&lt;-</span> <span class="fu"><a href="../reference/np_fetch.html">np_fetch</a></span><span class="op">(</span><span class="st">"https://&lt;archive&gt;/TRAINING-PAIRS-1502.csv"</span><span class="op">)</span></span>
+<span><span class="va">pairs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span><span class="va">path</span><span class="op">)</span></span></code></pre></div>
 </div>
 </section><script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {

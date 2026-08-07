@@ -240,18 +240,17 @@ human or LLM confirms the uncertain middle.
 
 ## 8. Loading the data
 
-Once the benchmark is added to the package it will lazy-load by name; until then,
-read the CSVs from the shared data bundle:
+The evaluation frame and the ground-truth master ship **with the package** and
+lazy-load by name. The full training pairs (304k rows) are too large to bundle,
+so they are fetched from the shared data archive on demand.
 
 ```{r}
 #| echo: true
 #| eval: false
-# packaged (planned):
-data("npmatch_eval")            # candidate-level evaluation frame + ground truth
-data("npmatch_groundtruth")     # query-level labels
-data("npmatch_training_pairs")  # model-training projection
+data("npmatch_eval")          # candidate-level evaluation frame + ground truth (2,763 x 150)
+data("npmatch_groundtruth")   # query-level labels (1,502 x 17)
 
-# or from the shared bundle:
-eval  <- read.csv("EVAL-FRAME-1502-MERGED.csv")
-truth <- read.csv("GROUNDTRUTH-MASTER-1502.csv")
+# full training pairs: fetch from the shared archive
+path  <- np_fetch("https://<archive>/TRAINING-PAIRS-1502.csv")
+pairs <- read.csv(path)
 ```
