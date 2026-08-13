@@ -1,0 +1,397 @@
+---
+title: "Match Review Report"
+subtitle: "Side-by-side candidate comparison for human review"
+format:
+  html:
+    theme: readable
+    toc: true
+    toc-location: right
+    toc-depth: 2
+    toc-title: "UEIs in this report"
+    embed-resources: true
+    page-layout: full
+execute:
+  echo: false
+  warning: false
+  message: false
+params:
+  data_path: "review.csv"     # CSV of an np_route()$review frame (written by np_review_report())
+  decision_filter: "MAYBE"    # "ALL" | "YES" | "NO" | "MAYBE" (comma-separate to combine)
+  only_missing_gt: false      # only meaningful when the frame carries ground-truth columns
+  max_ueis: 0                 # cap number of UEI sections rendered; 0 or NA = no cap
+  seed: 42                    # sampling seed when max_ueis truncates the pool
+---
+
+```{css, echo=FALSE}
+/* ---- Match Review Report styling ---------------------------------------- */
+body { margin-left: 4%; margin-right: 4%; }
+h1, h2 { color: sienna; }
+h3, h4, strong { color: teal; }
+
+.summary-grid { display:flex; flex-wrap:wrap; gap:14px; margin:18px 0 34px; }
+.summary-card { flex:1 1 150px; border:1px solid #e2e2e2; border-radius:10px;
+  padding:12px 16px; background:#fafafa; }
+.summary-card .n { font-size:1.9em; font-weight:700; color:#333; line-height:1; }
+.summary-card .lbl { font-size:.82em; color:#777; margin-top:4px; }
+
+/* UEI block */
+.uei-block { border:1px solid #e6e6e6; border-radius:12px; padding:4px 20px 20px;
+  margin:34px 0 46px; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+.uei-head { display:flex; align-items:baseline; flex-wrap:wrap; gap:10px 16px;
+  border-bottom:2px solid #f0e6dc; padding-bottom:8px; margin-bottom:6px; }
+.uei-head .uei-name { font-size:1.25em; font-weight:700; color:sienna; }
+.uei-head .uei-id { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.9em;
+  color:#666; }
+.uei-head .uei-conf { font-size:.82em; color:#777; }
+
+/* status banners */
+.banner { border-radius:8px; padding:9px 14px; margin:10px 0 4px; font-size:.92em;
+  border-left:5px solid; }
+.banner b { font-weight:700; }
+.banner.miss    { background:#fdecec; border-color:#c0392b; color:#7d211a; }
+.banner.expected{ background:#f3f4f6; border-color:#8a8f98; color:#454b54; }
+.banner.undet   { background:#fff7e6; border-color:#d99311; color:#8a5d09; }
+.banner.found   { background:#eaf7ee; border-color:#2e9e57; color:#1d6b3a; }
+
+/* candidate card */
+.cand { border:1px solid #e6e6e6; border-left:6px solid #d9d9d9; border-radius:8px;
+  margin:16px 0; padding:6px 16px 14px; background:#fcfcfc; }
+.cand.gt { border-left-color:#2e9e57; background:#f7fcf9; }
+.cand.pick { border-left-color:#2d6cdf; }
+.cand-head { display:flex; align-items:center; flex-wrap:wrap; gap:8px;
+  padding:8px 0 6px; border-bottom:1px dashed #e0e0e0; margin-bottom:8px; }
+.cand-head .ttl { font-weight:700; color:#444; }
+
+/* badges */
+.badge { display:inline-block; font-size:.72em; font-weight:700; letter-spacing:.02em;
+  padding:2px 8px; border-radius:20px; text-transform:uppercase; }
+.badge.gt      { background:#2e9e57; color:#fff; }
+.badge.pick    { background:#2d6cdf; color:#fff; }
+.badge.yes     { background:#2e9e57; color:#fff; }
+.badge.no      { background:#c0392b; color:#fff; }
+.badge.maybe   { background:#d99311; color:#fff; }
+.badge.flag    { background:#eef1f6; color:#3a4657; border:1px solid #d3d9e4; }
+.badge.veto    { background:#c0392b; color:#fff; }
+.badge.soft    { background:#e0872a; color:#fff; }
+.badge.neutral { background:#eee; color:#555; }
+
+/* the matching form */
+table.mf { width:100%; border-collapse:collapse; margin:0 0 4px; font-size:.9em; }
+table.mf th { text-align:left; color:#8a8f98; font-weight:600; font-size:.82em;
+  border-bottom:2px solid #ececec; padding:4px 10px; }
+table.mf td { vertical-align:top; padding:5px 10px; border-bottom:1px solid #f2f2f2; }
+table.mf td.sec { color:teal; font-weight:700; font-size:.82em; white-space:nowrap;
+  width:120px; text-transform:uppercase; letter-spacing:.02em; padding-top:8px; }
+
+.fld { display:flex; flex-direction:column; gap:1px; }
+.fld .fn { font-size:.68em; color:#adadad; font-family:ui-monospace,Menlo,Consolas,monospace; }
+.fld .fv { color:#222; }
+.fld .fv.empty { color:#c4c4c4; }
+.fld .fv.mono { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.92em; }
+
+/* similarity / score bars */
+.bar-wrap { display:flex; align-items:center; gap:6px; }
+.bar { flex:0 0 60px; height:7px; background:#ececec; border-radius:4px; overflow:hidden; }
+.bar > span { display:block; height:100%; }
+.bar-num { font-variant-numeric:tabular-nums; font-weight:600; font-size:.9em; }
+.sc-hi { background:#2e9e57; } .sc-mid { background:#d99311; } .sc-lo { background:#c0392b; }
+
+@media print {
+  .uei-block { break-inside:avoid; box-shadow:none; }
+  .cand { break-inside:avoid; }
+}
+```
+
+```{r setup}
+suppressPackageStartupMessages({
+  library(htmltools)
+})
+
+# ---- load -----------------------------------------------------------------
+d <- read.csv(params$data_path, stringsAsFactors = FALSE, check.names = FALSE)
+d <- d[, !duplicated(names(d)), drop = FALSE]   # drop repeated identical columns
+
+has_col <- function(nm) nm %in% names(d)
+istrue  <- function(x) x %in% c(TRUE, "TRUE", "True", "true", 1, "1")
+col_or  <- function(nm, default) if (has_col(nm)) d[[nm]] else rep(default, nrow(d))
+
+# ground-truth columns are optional (present only on an evaluation frame)
+HAS_GT <- has_col("is_gt_ein")
+
+# normalize a few types (guard optional columns)
+d$is_gt_ein_b   <- if (HAS_GT) istrue(d$is_gt_ein) else rep(FALSE, nrow(d))
+d$is_top_cand_b <- istrue(col_or("is_top_candidate", NA))
+d$veto_b        <- istrue(col_or("veto", NA))
+d$veto_soft_b   <- istrue(col_or("veto_soft", NA))
+
+# ---- filter to the review pool -------------------------------------------
+dec <- toupper(trimws(unlist(strsplit(params$decision_filter, ","))))
+if (!("ALL" %in% dec) && has_col("match_decision"))
+  d <- d[toupper(d$match_decision) %in% dec, , drop = FALSE]
+
+uei_order <- unique(d$uei)
+
+# per-UEI: does the ground-truth EIN appear among the surfaced candidates?
+has_gt_uei <- tapply(d$is_gt_ein_b, d$uei, any)
+if (isTRUE(params$only_missing_gt) && HAS_GT) {
+  keep <- names(has_gt_uei)[!has_gt_uei]
+  uei_order <- uei_order[uei_order %in% keep]
+}
+
+# cap (deterministic sample if truncating)
+cap <- suppressWarnings(as.integer(params$max_ueis))
+truncated <- FALSE
+if (!is.na(cap) && cap > 0 && length(uei_order) > cap) {
+  set.seed(params$seed)
+  uei_order <- sort(sample(uei_order, cap))
+  truncated <- TRUE
+}
+```
+
+```{r helpers}
+`%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || is.na(a)) b else a
+esc <- function(x) htmltools::htmlEscape(as.character(x))
+blank <- function(x) is.null(x) || length(x) == 0 || is.na(x) ||
+  trimws(as.character(x)) %in% c("", "NA", "none", "None")
+
+# a labelled value cell: field-name on top, value below
+cell <- function(fieldname, value_html, empty = FALSE) {
+  if (is.null(fieldname)) return("")
+  cls <- if (empty) "fv empty" else "fv"
+  sprintf('<div class="fld"><span class="fn">%s</span><span class="%s">%s</span></div>',
+          esc(fieldname), cls, value_html)
+}
+# helpers that return the inner value html (or a muted dash)
+v_txt <- function(x) if (blank(x)) '&mdash;' else esc(x)
+v_mono <- function(x) {
+  if (blank(x)) '<span class="empty">&mdash;</span>'
+  else sprintf('<span class="mono">%s</span>', esc(x))
+}
+v_money <- function(x) {
+  if (blank(x)) return('&mdash;')
+  n <- suppressWarnings(as.numeric(x))
+  if (is.na(n)) return(esc(x))
+  paste0("$", formatC(round(n), format = "d", big.mark = ","))
+}
+v_year <- function(x) if (blank(x)) '&mdash;' else esc(sub("\\..*$", "", as.character(x)))
+v_samdate <- function(x) {          # YYYYMMDD integer -> YYYY-MM-DD
+  if (blank(x)) return('&mdash;')
+  s <- gsub("[^0-9]", "", as.character(x))
+  if (nchar(s) == 8) sprintf("%s-%s-%s", substr(s,1,4), substr(s,5,6), substr(s,7,8)) else esc(x)
+}
+v_url <- function(x) {
+  if (blank(x)) return('&mdash;')
+  href <- as.character(x); if (!grepl("^https?://", href)) href <- paste0("http://", href)
+  sprintf('<a href="%s" target="_blank" rel="noopener">%s</a>', esc(href), esc(x))
+}
+v_bool <- function(x, yes = "Yes", no = "No") {
+  if (blank(x)) return('&mdash;')
+  if (istrue(x)) sprintf('<span class="badge yes">%s</span>', yes)
+  else sprintf('<span class="badge neutral">%s</span>', no)
+}
+v_flag <- function(x) {             # match_version_* etc. as a chip
+  if (blank(x)) return('<span class="badge neutral">none</span>')
+  sprintf('<span class="badge flag">%s</span>', esc(x))
+}
+v_conf <- function(x) {             # gt_confidence -> colored badge
+  if (blank(x)) return('&mdash;')
+  cls <- switch(tolower(as.character(x)), high = "yes", medium = "maybe", low = "no", "neutral")
+  sprintf('<span class="badge %s">%s</span>', cls, esc(x))
+}
+v_subsection <- function(x) {       # 3 -> 501C_3
+  if (blank(x)) return('&mdash;')
+  esc(paste0("501C_", sub("\\..*$", "", as.character(x))))
+}
+v_poc <- function(first, mid, last) {  # combine POC name parts, skipping blanks / "(" placeholder
+  parts <- c(first, mid, last)
+  keep <- !vapply(parts, function(p) blank(p) || trimws(as.character(p)) %in% c("(", ")"), logical(1))
+  parts <- trimws(as.character(parts[keep]))
+  if (length(parts) == 0) return('&mdash;')
+  esc(paste(parts, collapse = " "))
+}
+v_score <- function(x) {            # 0..1 with a colored bar
+  if (blank(x)) return('&mdash;')
+  n <- suppressWarnings(as.numeric(x)); if (is.na(n)) return(esc(x))
+  cls <- if (n >= .85) "sc-hi" else if (n >= .60) "sc-mid" else "sc-lo"
+  sprintf('<div class="bar-wrap"><span class="bar-num">%.2f</span><span class="bar"><span class="%s" style="width:%.0f%%"></span></span></div>',
+          n, cls, max(0, min(100, n*100)))
+}
+dec_badge <- function(x) {
+  cls <- switch(toupper(x %||% ""), YES="yes", NO="no", MAYBE="maybe", "neutral")
+  sprintf('<span class="badge %s">%s</span>', cls, esc(x %||% "—"))
+}
+```
+
+```{r render, results='asis'}
+pool_ueis <- uei_order
+n_ueis    <- length(pool_ueis)
+
+# -------- report-level summary --------
+cat('<div class="summary-grid">')
+cat(sprintf('<div class="summary-card"><div class="n">%d</div><div class="lbl">UEIs in report</div></div>', n_ueis))
+if (HAS_GT) {
+  n_missing <- sum(!has_gt_uei[names(has_gt_uei) %in% pool_ueis])
+  cat(sprintf('<div class="summary-card"><div class="n">%d</div><div class="lbl">Ground-truth EIN present</div></div>', n_ueis - n_missing))
+  cat(sprintf('<div class="summary-card"><div class="n">%d</div><div class="lbl">Ground-truth EIN missing / no match</div></div>', n_missing))
+}
+if (has_col("match_decision")) {
+  dec_tab <- table(toupper(tapply(d$match_decision, d$uei, `[`, 1)[pool_ueis]))
+  for (dnm in names(dec_tab))
+    cat(sprintf('<div class="summary-card"><div class="n">%d</div><div class="lbl">decision = %s</div></div>',
+                as.integer(dec_tab[[dnm]]), dnm))
+}
+cat('</div>')
+
+cat(sprintf('<p style="color:#777;font-size:.9em"><em>Filter: decision = <b>%s</b>%s.%s %s</em></p>',
+  esc(params$decision_filter),
+  if (isTRUE(params$only_missing_gt) && HAS_GT) ", only UEIs with a missing ground-truth EIN" else "",
+  if (truncated) sprintf(" Showing a random sample of %d UEIs (seed %s).", n_ueis, esc(params$seed)) else "",
+  if (HAS_GT) "Within each UEI the ground-truth candidate (<code>is_gt_ein</code>) is shown first, then the rest by descending <code>total_score</code>." else "Within each UEI the pipeline's selected candidate is shown first, then the rest by descending <code>total_score</code>."))
+
+# gt_outcome_class -> human-readable banner (evaluation frames only)
+banner_for <- function(cls, notes) {
+  cls <- tolower(cls %||% "")
+  msg <- switch(cls,
+    "in_bmf_match"        = list("miss",     "Correct EIN exists in the BMF but was <b>not surfaced</b> as a candidate. This is a recall miss — review the candidate generator."),
+    "nonprofit_not_in_bmf"= list("expected", "No candidate expected: the organization is a nonprofit that is <b>not in the BMF</b>."),
+    "not_a_nonprofit"     = list("expected", "No candidate expected: the entity is <b>not a nonprofit</b>."),
+    "no_match_or_na"      = list("expected", "No match recorded for this UEI."),
+    "cant_determine"      = list("undet",    "Ground truth could <b>not be determined</b> for this UEI."),
+    list("undet", sprintf("No ground-truth EIN among the candidates (outcome: <code>%s</code>).", esc(cls))))
+  extra <- if (!blank(notes)) sprintf(" <span style=\"opacity:.8\">Reviewer note: %s</span>", esc(notes)) else ""
+  sprintf('<div class="banner %s"><b>NO GROUND-TRUTH MATCH.</b> %s%s</div>', msg[[1]], msg[[2]], extra)
+}
+
+# ---- the matching form for a single candidate row ----
+render_form <- function(r) {
+  row <- function(sec, a, b, c = NULL, d2 = NULL) {
+    paste0("<tr>",
+      sprintf('<td class="sec">%s</td>', if (is.null(sec)) "" else esc(sec)),
+      sprintf('<td>%s</td>', a),
+      sprintf('<td>%s</td>', b),
+      sprintf('<td>%s</td>', c %||% ""),
+      sprintf('<td>%s</td>', d2 %||% ""),
+      "</tr>")
+  }
+  paste0(
+    '<table class="mf">',
+    '<tr><th></th><th>USA&nbsp;Spending&nbsp;/&nbsp;source</th><th>IRS&nbsp;BMF&nbsp;(EO)&nbsp;/&nbsp;SAM</th><th>compare&nbsp;/&nbsp;flags</th><th></th></tr>',
+
+    row("id",
+        cell("uei", v_mono(r$uei)),
+        cell("ein", v_mono(r$ein))),
+
+    row("name",
+        cell("name_uss_raw_main", v_txt(r$name_uss_raw_main)),
+        cell("name_bmf_raw_main", v_txt(r$name_bmf_raw_main))),
+    row(NULL,
+        cell("name_uss_raw_dba", v_txt(r$name_uss_raw_dba), empty = blank(r$name_uss_raw_dba)),
+        cell("name_bmf_raw_dba", v_txt(r$name_bmf_raw_dba), empty = blank(r$name_bmf_raw_dba)),
+        cell("match_version_bmf", v_flag(r$match_version_bmf))),
+    row(NULL,
+        cell("name_uss_raw_division", v_txt(r$name_uss_raw_division), empty = blank(r$name_uss_raw_division)),
+        "",
+        cell("match_version_uss", v_flag(r$match_version_uss))),
+
+    row("nonprofit type",
+        cell("BMF_subsection", v_subsection(r$BMF_subsection)),
+        cell("BMF_is_foundation", v_bool(r$BMF_is_foundation)),
+        cell("bmf_active", v_bool(r$bmf_active))),
+    row(NULL,
+        cell("SAM_entity_structure_label", v_txt(r$SAM_entity_structure_label)),
+        cell("SAM_entity_url", v_url(r$SAM_entity_url))),
+
+    row("age",
+        cell("BMF_rule_year", v_year(r$BMF_rule_year)),
+        cell("SAM_entity_start_date", v_samdate(r$SAM_entity_start_date))),
+
+    row("size",
+        cell("BMF_assets", v_money(r$BMF_assets)),
+        cell("BMF_revenue", v_money(r$BMF_revenue)),
+        cell("BMF_form_990", v_txt(r$BMF_form_990))),
+
+    row("affiliate",
+        cell("BMF_affiliation", v_txt(r$BMF_affiliation)),
+        cell("BMF_group_exemption_number", v_txt(r$BMF_group_exemption_number))),
+
+    row("address",
+        cell("street_uss", v_txt(r$street_uss)),
+        cell("street_bmf", v_txt(r$street_bmf))),
+    row(NULL, cell("city_uss", v_txt(r$city_uss)), cell("city_bmf", v_txt(r$city_bmf))),
+    row(NULL, cell("state_uss", v_txt(r$state_uss)), cell("state_bmf", v_txt(r$state_bmf))),
+    row(NULL, cell("zip5_uss", v_mono(r$zip5_uss)), cell("zip5_bmf", v_mono(r$zip5_bmf))),
+
+    row("point of contact",
+        cell("BMF_in_care_of", v_txt(r$BMF_in_care_of)),
+        cell("SAM_poc (first middle last)",
+             v_poc(r$SAM_poc_first_name, r$SAM_poc_middle_initial, r$SAM_poc_last_name))),
+
+    row("match score",
+        cell("total_score", v_score(r$total_score)),
+        cell("match_decision", dec_badge(r$match_decision)),
+        if (has_col("labeled_by")) cell("labeled_by", v_txt(r$labeled_by)) else ""),
+    row(NULL,
+        cell("name_similarity", v_score(r$name_similarity)),
+        cell("addr_similarity", v_score(r$addr_similarity))),
+    row(NULL,
+        cell("match_layer", v_flag(r$match_layer)),
+        cell("decision_reason", v_txt(r$decision_reason))),
+    row(NULL,
+        cell("veto", if (r$veto_b) '<span class="badge veto">vetoed</span>' else v_bool(FALSE, no="no")),
+        cell("veto_reason", v_txt(r$veto_reason), empty = blank(r$veto_reason))),
+    row(NULL,
+        cell("veto_soft", if (r$veto_soft_b) '<span class="badge soft">soft veto</span>' else v_bool(FALSE, no="no")),
+        cell("veto_soft_reason", v_txt(r$veto_soft_reason), empty = blank(r$veto_soft_reason))),
+    if (!blank(r$notes))
+      sprintf('<tr><td class="sec">notes</td><td colspan="4">%s</td></tr>', esc(r$notes))
+    else "",
+    '</table>')
+}
+
+# -------- per-UEI sections --------
+for (u in pool_ueis) {
+  sub <- d[d$uei == u, , drop = FALSE]
+  # order: ground truth first (if known), else pipeline pick first, then score desc
+  ord <- order(!sub$is_gt_ein_b, !sub$is_top_cand_b,
+               -suppressWarnings(as.numeric(sub$total_score)))
+  sub <- sub[ord, , drop = FALSE]
+  head1 <- sub[1, , drop = FALSE]
+
+  cat(sprintf('<div class="uei-block" data-uei="%s">', esc(u)))
+  cat('<div class="uei-head">')
+  cat(sprintf('<span class="uei-name">%s</span>', esc(head1$name_uss_raw_main %||% "(no name)")))
+  cat(sprintf('<span class="uei-id">UEI %s</span>', esc(u)))
+  if (HAS_GT && has_col("gt_confidence"))
+    cat(sprintf('&nbsp; <span class="uei-conf">gt_confidence:</span> %s', v_conf(head1$gt_confidence)))
+  else if (has_col("match_decision"))
+    cat(sprintf('&nbsp; %s', dec_badge(head1$match_decision)))
+  cat(sprintf('<span class="badge neutral">%d candidate%s</span>',
+              nrow(sub), if (nrow(sub) == 1) "" else "s"))
+  cat('</div>')
+
+  if (HAS_GT) {
+    if (any(sub$is_gt_ein_b)) {
+      cat('<div class="banner found"><b>GROUND-TRUTH MATCH PRESENT.</b> The correct EIN is among the candidates below (highlighted).</div>')
+    } else {
+      cat(banner_for(head1$gt_outcome_class, head1$gt_notes))
+    }
+  }
+
+  for (i in seq_len(nrow(sub))) {
+    r <- sub[i, , drop = FALSE]
+    is_gt   <- isTRUE(r$is_gt_ein_b)
+    is_pick <- isTRUE(r$is_top_cand_b)
+    klass <- if (is_gt) " gt" else if (is_pick) " pick" else ""
+    cat(sprintf('<div class="cand%s">', klass))
+    cat('<div class="cand-head">')
+    cat(sprintf('<span class="ttl">Candidate %d of %d</span>', i, nrow(sub)))
+    if (is_gt)   cat(' <span class="badge gt">ground truth</span>')
+    if (is_pick) cat(' <span class="badge pick">pipeline pick</span>')
+    cat(sprintf(' <span class="badge neutral">EIN %s</span>', esc(r$ein %||% "—")))
+    cat('</div>')
+    cat(render_form(r))
+    cat('</div>')  # .cand
+  }
+  cat('</div>')  # .uei-block
+}
+```
