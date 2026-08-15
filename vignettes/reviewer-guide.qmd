@@ -356,7 +356,46 @@ data.frame(
 Because YES is ~98% precise and NO is mostly correct, **the real work
 concentrates in MAYBE** — exactly where you want human judgment spent.
 
-## 8. Humans or LLMs — interchangeable at Stage 2
+## 8. The review report
+
+The MAYBE queue is where a reviewer's attention goes, and `np_review_report()`
+turns it into a self-contained HTML page built for exactly that. Each source
+organization gets its own section, and every candidate is laid out as a
+**side-by-side "matching form"**: the two names, nonprofit type, age, size,
+affiliation, address, and point of contact aligned row-for-row — source on the
+left, IRS BMF / SAM on the right — followed by the match-score block (score,
+decision, name and address similarity, the cascade layer that surfaced it, and
+any veto). The candidate the pipeline selected floats to the top of its section,
+so the reviewer starts from the algorithm's best guess and confirms or overrides
+it.
+
+It reads the `review` frame straight from [`np_route()`](../reference/np_route.html):
+
+```{r review-report, echo=TRUE, eval=FALSE}
+res     <- np_cascade(query, reference)
+routing <- np_route(res, bmf = bmf_raw, sam = sam_raw)  # $review carries BMF_/SAM_ context
+
+np_review_report(routing, output = "review.html")        # the MAYBE queue, by default
+```
+
+The page is read-only and needs no server — open the file locally or share it.
+Handy arguments:
+
+- **`decision`** — which tiers to include (`"MAYBE"` by default; also `"ALL"`,
+  `"YES"`, `"NO"`, or comma-combinations like `"MAYBE,NO"`).
+- **`max_ueis`** — cap the number of cases (a deterministic sample when it
+  truncates), for a quick look before rendering the whole queue.
+- **`output`** — where to write the HTML.
+
+If the frame also carries a labelled ground truth — the benchmarking columns
+`is_gt_ein`, `gt_confidence`, `gt_outcome_class` — the report highlights the
+correct EIN, floats it first, and flags cases where it was never surfaced, so the
+same tool doubles as an audit view for the evaluation set. On an ordinary
+`np_route()` frame those columns are simply absent and the report renders without
+them. Rendering uses Quarto (the `quarto` package plus a Quarto CLI installation,
+the same dependency these vignettes use).
+
+## 9. Humans or LLMs — interchangeable at Stage 2
 
 Stage 2 is the same task whether a person or a language model does it: *look at a
 surfaced organization, decide whether a candidate is the right EIN, and if not,
@@ -378,7 +417,7 @@ enumerator records, so the two mix freely (LLM triage first, humans on the
 residual). This is what lets the review stage scale from hundreds of cases to
 hundreds of thousands.
 
-## 9. Where things stand today
+## 10. Where things stand today
 
 - **Recovery (recall) ≈ 96.5%** of nonprofits with a findable EIN — 84% fully
   automatic, the rest confirmed in review.

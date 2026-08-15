@@ -1,0 +1,12 @@
+^dev$
+^data-dev$
+^data-raw$
+^docs$
+^_pkgdown\.yml$
+^\.claude$
+^\.github$
+^.*\.Rproj$
+^\.Rproj\.user$
+^\.gitignore$
+^LICENSE\.md$
+^cran-comments\.md$
