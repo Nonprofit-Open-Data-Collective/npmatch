@@ -12,7 +12,10 @@ np_cascade(
   passes = np_default_passes(),
   verbose = TRUE,
   query_map = np_map_sam(),
-  reference_map = np_map_bmf()
+  reference_map = np_map_bmf(),
+  name_freq = NULL,
+  token_idf = NULL,
+  ref_index = NULL
 )
 }
 \arguments{
@@ -27,6 +30,17 @@ np_cascade(
 \item{verbose}{Print the per-stage report. Default \code{TRUE}.}
 
 \item{query_map, reference_map}{Schema maps for raw inputs.}
+
+\item{name_freq, token_idf}{Optional pre-computed reference tables from
+\code{\link[=np_name_freq]{np_name_freq()}} / \code{\link[=np_token_idf]{np_token_idf()}}. Supply them (together with an
+already-normalized \code{reference}) to reuse a one-time normalization across many
+calls — e.g. from a batched driver (\code{\link[=np_run_batches]{np_run_batches()}}). Computed from the
+reference when \code{NULL}.}
+
+\item{ref_index}{Optional precomputed \code{\link[=np_ref_index]{np_ref_index()}} blocking index. Built
+once from the reference when \code{NULL} and reused across every pass (and, via
+\code{\link[=np_run_batches]{np_run_batches()}}, every batch), so a large reference is tokenized once
+rather than per pass.}
 }
 \value{
 An \code{np_tiered} result with a \code{pass} column recording which pass

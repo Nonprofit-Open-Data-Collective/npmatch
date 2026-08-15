@@ -16,7 +16,8 @@ np_block(
   min_token_len = 2L,
   max_ref_freq = NULL,
   min_pair_idf = NULL,
-  concat_adjacent = FALSE
+  concat_adjacent = FALSE,
+  ref_index = NULL
 )
 }
 \arguments{
@@ -56,6 +57,12 @@ differences symmetrically: "STEP FORWARD" emits the compound "STEPFORWARD"
 which matches a reference already spelled "STEPFORWARD", and vice versa. The
 compounds are rare (high IDF), so with \code{min_pair_idf} set they only justify a
 pair when genuinely shared. Default \code{FALSE}. Only used when \code{token}.}
+
+\item{ref_index}{Optional precomputed \code{\link[=np_ref_index]{np_ref_index()}} for the reference's
+token index + document frequency. When supplied (and compatible with
+\code{token_col} / \code{stopwords} / \code{min_token_len}), the reference is not
+re-tokenized — the same candidate pairs are produced far faster on repeated
+calls (across passes and batches). Only used when \code{token}.}
 }
 \value{
 A data frame of candidate pairs with integer columns \code{.x} (query row)

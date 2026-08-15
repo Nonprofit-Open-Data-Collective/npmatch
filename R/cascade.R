@@ -74,19 +74,33 @@ np_default_passes <- function() {
 #' @param passes A list of pass specs (see [np_default_passes()]).
 #' @param verbose Print the per-stage report. Default `TRUE`.
 #' @param query_map,reference_map Schema maps for raw inputs.
+#' @param name_freq,token_idf Optional pre-computed reference tables from
+#'   [np_name_freq()] / [np_token_idf()]. Supply them (together with an
+#'   already-normalized `reference`) to reuse a one-time normalization across many
+#'   calls — e.g. from a batched driver ([np_run_batches()]). Computed from the
+#'   reference when `NULL`.
+#' @param ref_index Optional precomputed [np_ref_index()] blocking index. Built
+#'   once from the reference when `NULL` and reused across every pass (and, via
+#'   [np_run_batches()], every batch), so a large reference is tokenized once
+#'   rather than per pass.
 #' @return An `np_tiered` result with a `pass` column recording which pass
 #'   produced each query's chosen match. A per-stage summary is attached as
 #'   `attr(result, "stages")`; the scored candidate union as `attr(result, "pairs")`.
 #' @export
 np_cascade <- function(query, reference, config = np_config(), method = "hier",
                        passes = np_default_passes(), verbose = TRUE,
-                       query_map = np_map_sam(), reference_map = np_map_bmf()) {
+                       query_map = np_map_sam(), reference_map = np_map_bmf(),
+                       name_freq = NULL, token_idf = NULL, ref_index = NULL) {
   if (!inherits(query, "np_query"))         query <- np_query(query, query_map)
   if (!inherits(reference, "np_reference")) reference <- np_reference(reference, reference_map)
-  q <- np_normalize(query); r <- np_normalize(reference)
+  q <- np_normalize(query)
+  # Reuse an already-normalized reference (skip the costly re-normalize) so a
+  # batched driver can normalize the BMF once and feed it to every batch.
+  r <- if (is.null(reference$name_key)) np_normalize(reference) else reference
   q$.id <- as.character(q$.id)
-  name_freq <- np_name_freq(r$name_key)          # distinctiveness reference
-  token_idf <- np_token_idf(r$name_key)          # per-token IDF for overlap recovery
+  if (is.null(name_freq)) name_freq <- np_name_freq(r$name_key)  # distinctiveness reference
+  if (is.null(token_idf)) token_idf <- np_token_idf(r$name_key)  # per-token IDF for overlap recovery
+  if (is.null(ref_index)) ref_index <- np_ref_index(r)           # tokenize reference ONCE, reuse across passes
 
   pending <- unique(q$.id)
   acc <- list(); stages <- list(); cmp_cols <- NULL; profile <- NULL
@@ -101,7 +115,7 @@ np_cascade <- function(query, reference, config = np_config(), method = "hier",
     q_sub <- q[q$.id %in% pending, , drop = FALSE]
     if (!nrow(q_sub)) break
 
-    blk <- do.call(np_block, c(list(q_sub, r), p$args))
+    blk <- do.call(np_block, c(list(q_sub, r), p$args, list(ref_index = ref_index)))
     if (!nrow(blk)) {
       say("  [%-16s] %-32s     0 candidates", p$name, p$desc); next
     }

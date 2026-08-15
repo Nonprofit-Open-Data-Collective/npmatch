@@ -11,6 +11,20 @@ test_that("np_source_urls lists archive + source entries", {
   expect_true(all(grepl("^https?://", u$url)))
 })
 
+test_that("np_read_sam skips BOF/EOF control lines and names the columns", {
+  tmp <- tempfile(fileext = ".dat")
+  on.exit(unlink(tmp), add = TRUE)
+  rec <- paste(c("U1", as.character(seq_len(141))), collapse = "|")   # 142 fields
+  writeLines(c("BOF PUBLIC V2 00000000 20260503 0000001 0000001",
+               rec,
+               "EOF PUBLIC V2 00000000 20260503 0000001 0000001"), tmp)
+  d <- np_read_sam(tmp)
+  expect_equal(nrow(d), 1L)                       # BOF + EOF dropped
+  expect_equal(ncol(d), 142L)
+  expect_equal(names(d)[1], "UNIQUE ENTITY ID")
+  expect_equal(d[[1]][1], "U1")
+})
+
 test_that("np_flag_nonprofits keeps only nonprofit business-type codes", {
   sam <- data.frame(
     `UNIQUE ENTITY ID` = c("u1", "u2", "u3", "u4", "u5"),

@@ -26,6 +26,57 @@ test_that("name-token blocking keeps the true matches but far fewer pairs", {
   }
 })
 
+norm_blk <- function(blk) {
+  d <- data.frame(.x = blk$.x, .y = blk$.y)
+  d[order(d$.x, d$.y), , drop = FALSE]
+}
+
+test_that("np_ref_index gives identical blocking to the inline path", {
+  f <- setup_frames()
+  idx <- np_ref_index(f$r)
+  expect_s3_class(idx, "np_ref_index")
+
+  # token-state pass params
+  a1 <- np_block(f$q, f$r, by = "state", token = TRUE,
+                 max_ref_freq = 25000, min_pair_idf = 8)
+  b1 <- np_block(f$q, f$r, by = "state", token = TRUE,
+                 max_ref_freq = 25000, min_pair_idf = 8, ref_index = idx)
+  expect_equal(norm_blk(a1), norm_blk(b1), ignore_attr = TRUE)
+
+  # concat pass params (index must serve concat_adjacent too)
+  a2 <- np_block(f$q, f$r, by = "state", token = TRUE, concat_adjacent = TRUE,
+                 max_ref_freq = 25000, min_pair_idf = 8)
+  b2 <- np_block(f$q, f$r, by = "state", token = TRUE, concat_adjacent = TRUE,
+                 max_ref_freq = 25000, min_pair_idf = 8, ref_index = idx)
+  expect_equal(norm_blk(a2), norm_blk(b2), ignore_attr = TRUE)
+
+  # cross-state pass params (by = NULL)
+  a3 <- np_block(f$q, f$r, by = NULL, token = TRUE, max_ref_freq = 5000, min_pair_idf = 8)
+  b3 <- np_block(f$q, f$r, by = NULL, token = TRUE, max_ref_freq = 5000,
+                 min_pair_idf = 8, ref_index = idx)
+  expect_equal(norm_blk(a3), norm_blk(b3), ignore_attr = TRUE)
+})
+
+test_that("an incompatible ref_index is ignored (falls back to inline)", {
+  f <- setup_frames()
+  idx <- np_ref_index(f$r, token_col = "dba_key")   # wrong token_col for a name block
+  a <- np_block(f$q, f$r, by = "state", token = TRUE, min_pair_idf = 8)
+  b <- np_block(f$q, f$r, by = "state", token = TRUE, min_pair_idf = 8, ref_index = idx)
+  expect_equal(norm_blk(a), norm_blk(b), ignore_attr = TRUE)
+})
+
+test_that("np_cascade with a prebuilt ref_index matches the default", {
+  q <- np_test_query(); rraw <- np_test_reference()
+  res1 <- np_cascade(q, rraw, query_map = np_test_map_q,
+                     reference_map = np_test_map_r, verbose = FALSE)
+  rnorm <- np_normalize(np_reference(rraw, np_test_map_r))
+  res2 <- np_cascade(q, rnorm, query_map = np_test_map_q, verbose = FALSE,
+                     ref_index = np_ref_index(rnorm))
+  m <- match(res1$.id, res2$.id)
+  expect_equal(res1$overall_ein, res2$overall_ein[m])
+  expect_equal(as.character(res1$tier), as.character(res2$tier)[m])
+})
+
 test_that("records sharing only a stopword are not blocked together", {
   q <- np_normalize(np_query(data.frame(unique_entity_id = "a",
         name = "THE FOUNDATION", state = "AK", stringsAsFactors = FALSE),

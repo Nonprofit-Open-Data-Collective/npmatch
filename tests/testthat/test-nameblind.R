@@ -40,10 +40,12 @@ test_that("an unrelated org at the same address is NOT recovered", {
   expect_lt(s, 0.65)
 })
 
-test_that("token-overlap recovery never auto-accepts, even same-state w/o address", {
-  # ungated to same-state now (recovers state-only false negatives into review),
-  # but still capped below YES since containment alone can't confirm the entity
+test_that("token-overlap recovery is address-gated: no address -> not recovered", {
+  # The name-blind recovery is gated on a confirmed address (same ZIP5 / street
+  # number / PO box), not merely same-state -- same-state alone made compare
+  # ~100x slower. Without an address match the pair is NOT recovered (stays
+  # name-blind) and certainly never auto-accepts.
   s <- nb_match("PORT MATILDA EMS", "PORT MATILDA EMERGENCY MEDICAL SERVICE",
                 same_addr = FALSE)
-  expect_lt(s, 0.78)
+  expect_lt(s, 0.65)    # not lifted into review without address confirmation
 })

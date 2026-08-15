@@ -28,6 +28,94 @@ np_stopwords <- function() {
   key
 }
 
+# Tokenize a frame's `token_col` into (row, token) pairs, applying the stopword /
+# min-length filter, and (optionally) the adjacent-token concatenation. Returns
+# base tokens and concat bigrams separately so a caller can use either. Shared by
+# np_block()'s per-side indexing and by np_ref_index() so the two never drift.
+.np_tokenize <- function(frame, token_col, stopwords, min_token_len, concat_adjacent) {
+  v <- as.character(frame[[token_col]]); v[is.na(v)] <- ""
+  toks <- strsplit(v, "\\s+")
+  n <- nrow(frame)
+  row_all <- rep(seq_len(n), lengths(toks))
+  tok_all <- unlist(toks, use.names = FALSE)
+  keep <- nchar(tok_all) >= min_token_len & !(tok_all %in% stopwords)
+  base <- list(row = row_all[keep], token = tok_all[keep])
+  concat <- list(row = integer(0), token = character(0))
+  if (isTRUE(concat_adjacent)) {
+    filt <- lapply(toks, function(t) t[nchar(t) >= min_token_len & !(t %in% stopwords)])
+    bg <- lapply(filt, function(t)
+      if (length(t) < 2L) character(0) else paste0(t[-length(t)], t[-1]))
+    nb <- lengths(bg)
+    concat <- list(row = rep(seq_len(n), nb), token = unlist(bg, use.names = FALSE))
+  }
+  list(base = base, concat = concat)
+}
+
+# Distinct-record document frequency per token. Same values as
+# tapply(row, token, function(v) length(unique(v))) but far faster at scale:
+# dedup (row, token) via unique.data.table (function dispatch, no `[` DSL), then a
+# single table() gives distinct rows per token.
+.np_doc_freq <- function(row, token) {
+  if (!length(token)) return(stats::setNames(numeric(0), character(0)))
+  d <- data.frame(row = row, token = token, stringsAsFactors = FALSE)
+  data.table::setDT(d)
+  d <- unique(d)
+  tb <- table(d$token)
+  stats::setNames(as.numeric(tb), names(tb))
+}
+
+# Is a precomputed np_ref_index compatible with these blocking parameters?
+.np_ref_index_ok <- function(ref_index, token_col, stopwords, min_token_len) {
+  inherits(ref_index, "np_ref_index") &&
+    identical(ref_index$token_col, token_col) &&
+    identical(ref_index$stopwords, stopwords) &&
+    isTRUE(ref_index$min_token_len == min_token_len)
+}
+
+#' Precompute the reference-side token index for blocking
+#'
+#' Tokenizes the reference `token_col` (default `name_key`) once — the inverted
+#' index plus per-token document frequency that [np_block()] otherwise rebuilds on
+#' every token pass. Pass the result to [np_block()] / [np_cascade()] /
+#' [np_run_batches()] via `ref_index =` to skip re-tokenizing a large reference on
+#' every pass and every batch. The blocking results are identical either way.
+#'
+#' Both base tokens and adjacent-token concatenations (the `concat_adjacent`
+#' bigrams) are indexed, so one index serves passes with or without
+#' `concat_adjacent`.
+#'
+#' @param reference A normalized `np_reference` (from [np_normalize()]).
+#' @param token_col Column to tokenize. Default `"name_key"`.
+#' @param stopwords Tokens to drop (see [np_stopwords()]).
+#' @param min_token_len Minimum token length to index. Default 2.
+#' @return An `np_ref_index` object. It is only reused by [np_block()] when
+#'   `token_col`, `stopwords`, and `min_token_len` match the block call.
+#' @export
+np_ref_index <- function(reference, token_col = "name_key",
+                         stopwords = np_stopwords(), min_token_len = 2L) {
+  stopifnot(is.data.frame(reference))
+  tk <- .np_tokenize(reference, token_col, stopwords, min_token_len,
+                     concat_adjacent = TRUE)
+  concat_all <- list(row = c(tk$base$row, tk$concat$row),
+                     token = c(tk$base$token, tk$concat$token))
+  df_base   <- .np_doc_freq(tk$base$row, tk$base$token)
+  df_concat <- .np_doc_freq(concat_all$row, concat_all$token)
+  structure(list(token_col = token_col, stopwords = stopwords,
+                 min_token_len = min_token_len, n_reference = nrow(reference),
+                 base = tk$base, concat_all = concat_all,
+                 df_base = df_base, df_concat = df_concat),
+            class = "np_ref_index")
+}
+
+#' @export
+print.np_ref_index <- function(x, ...) {
+  cat("<np_ref_index>", format(x$n_reference, big.mark = ","), "reference records\n")
+  cat(sprintf("  token_col = %s | %s base tokens (%s distinct)\n",
+              x$token_col, format(length(x$base$row), big.mark = ","),
+              format(length(x$df_base), big.mark = ",")))
+  invisible(x)
+}
+
 #' Generate candidate pairs by blocking
 #'
 #' Produces the (query, reference) candidate pairs worth comparing, so
@@ -73,6 +161,11 @@ np_stopwords <- function() {
 #'   kept only when the sum of its shared tokens' IDF is at least this value. One
 #'   rare token, or several moderately common ones, clears the bar; a lone common
 #'   token does not. `NULL` (default) disables this. Only used when `token`.
+#' @param ref_index Optional precomputed [np_ref_index()] for the reference's
+#'   token index + document frequency. When supplied (and compatible with
+#'   `token_col` / `stopwords` / `min_token_len`), the reference is not
+#'   re-tokenized — the same candidate pairs are produced far faster on repeated
+#'   calls (across passes and batches). Only used when `token`.
 #' @return A data frame of candidate pairs with integer columns `.x` (query row)
 #'   and `.y` (reference row), class `np_blocks`.
 #' @export
@@ -80,7 +173,7 @@ np_block <- function(query, reference, by = "state", by_x = NULL, by_y = NULL,
                      token = TRUE, token_col = "name_key",
                      stopwords = np_stopwords(), min_token_len = 2L,
                      max_ref_freq = NULL, min_pair_idf = NULL,
-                     concat_adjacent = FALSE) {
+                     concat_adjacent = FALSE, ref_index = NULL) {
   stopifnot(is.data.frame(query), is.data.frame(reference))
   if (is.null(by_x)) by_x <- by
   if (is.null(by_y)) by_y <- by
@@ -102,33 +195,26 @@ np_block <- function(query, reference, by = "state", by_x = NULL, by_y = NULL,
                         seq_len(nrow(reference)), .np_bykey(reference, by_y))
   } else {
     idx_of <- function(frame, byk) {
-      v <- as.character(frame[[token_col]]); v[is.na(v)] <- ""
-      toks <- strsplit(v, "\\s+")
+      tk <- .np_tokenize(frame, token_col, stopwords, min_token_len, concat_adjacent)
+      row <- c(tk$base$row, tk$concat$row)
       bk_all <- .np_bykey(frame, byk)
-      d <- data.frame(row = rep(seq_len(nrow(frame)), lengths(toks)),
-                      token = unlist(toks, use.names = FALSE),
-                      bk = rep(bk_all, lengths(toks)),
-                      stringsAsFactors = FALSE)
-      d <- d[nchar(d$token) >= min_token_len & !(d$token %in% stopwords), , drop = FALSE]
-      if (isTRUE(concat_adjacent)) {
-        # per-record: keep informative tokens in order, concatenate adjacent pairs
-        filt <- lapply(toks, function(t)
-          t[nchar(t) >= min_token_len & !(t %in% stopwords)])
-        bg <- lapply(filt, function(t)
-          if (length(t) < 2L) character(0) else paste0(t[-length(t)], t[-1]))
-        nb <- lengths(bg)
-        if (any(nb)) {
-          d2 <- data.frame(row = rep(seq_len(nrow(frame)), nb),
-                           token = unlist(bg, use.names = FALSE),
-                           bk = rep(bk_all, nb), stringsAsFactors = FALSE)
-          d <- rbind(d, d2)
-        }
-      }
-      d
+      data.frame(row = row, token = c(tk$base$token, tk$concat$token),
+                 bk = bk_all[row], stringsAsFactors = FALSE)
     }
-    qi <- idx_of(query, by_x); ri <- idx_of(reference, by_y)
-    # reference document frequency per token (distinct records), before pruning
-    ref_df <- tapply(ri$row, ri$token, function(v) length(unique(v)))
+    qi <- idx_of(query, by_x)
+    # Reference-side token index + document frequency. Reuse a precomputed
+    # np_ref_index() when supplied (skips re-tokenizing the whole reference on
+    # every pass / batch); otherwise build it inline. Results are identical.
+    if (!is.null(ref_index) && .np_ref_index_ok(ref_index, token_col, stopwords, min_token_len)) {
+      part   <- if (isTRUE(concat_adjacent)) ref_index$concat_all else ref_index$base
+      ref_df <- if (isTRUE(concat_adjacent)) ref_index$df_concat else ref_index$df_base
+      bk_all <- .np_bykey(reference, by_y)
+      ri <- data.frame(row = part$row, token = part$token,
+                       bk = bk_all[part$row], stringsAsFactors = FALSE)
+    } else {
+      ri <- idx_of(reference, by_y)
+      ref_df <- tapply(ri$row, ri$token, function(v) length(unique(v)))
+    }
     if (!is.null(max_ref_freq)) {
       common <- names(ref_df)[ref_df > max_ref_freq]
       qi <- qi[!qi$token %in% common, , drop = FALSE]

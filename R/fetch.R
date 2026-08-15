@@ -155,8 +155,19 @@ np_sam_layout <- function() {
 #' @return A `data.table`.
 #' @export
 np_read_sam <- function(path, layout = np_sam_layout()) {
+  # SAM monthly extracts wrap the pipe-delimited records in BOF/EOF control lines
+  # (e.g. "BOF PUBLIC V2 ..."). These have no pipes, so leaving the BOF line in
+  # place makes fread lock its column count onto that single field and error on
+  # the first real 142-field record. Skip a leading BOF line, and drop a trailing
+  # EOF row after reading.
+  first <- tryCatch(readLines(path, n = 1L, warn = FALSE), error = function(e) character(0))
+  skip  <- if (length(first) && grepl("^BOF", first)) 1L else 0L
   d <- data.table::fread(path, sep = "|", header = FALSE, fill = TRUE, quote = "",
-                         na.strings = c("", "NA"), showProgress = FALSE)
+                         na.strings = c("", "NA"), showProgress = FALSE, skip = skip)
+  if (nrow(d)) {
+    last1 <- as.character(d[[1]][nrow(d)])
+    if (length(last1) && !is.na(last1) && grepl("^EOF", last1)) d <- d[-nrow(d), ]
+  }
   data.table::setnames(d, layout[seq_len(ncol(d))])
   d
 }
