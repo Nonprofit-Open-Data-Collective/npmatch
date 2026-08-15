@@ -71,7 +71,10 @@ computed across all of a query's candidates).</p>
 <span>  passes <span class="op">=</span> <span class="fu"><a href="np_default_passes.html">np_default_passes</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  query_map <span class="op">=</span> <span class="fu"><a href="np_maps.html">np_map_sam</a></span><span class="op">(</span><span class="op">)</span>,</span>
-<span>  reference_map <span class="op">=</span> <span class="fu"><a href="np_maps.html">np_map_bmf</a></span><span class="op">(</span><span class="op">)</span></span>
+<span>  reference_map <span class="op">=</span> <span class="fu"><a href="np_maps.html">np_map_bmf</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  name_freq <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  token_idf <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  ref_index <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -102,6 +105,21 @@ computed across all of a query's candidates).</p>
 <dt id="arg-query-map-reference-map">query_map, reference_map<a class="anchor" aria-label="anchor" href="#arg-query-map-reference-map"></a></dt>
 <dd><p>Schema maps for raw inputs.</p></dd>
 
+
+<dt id="arg-name-freq-token-idf">name_freq, token_idf<a class="anchor" aria-label="anchor" href="#arg-name-freq-token-idf"></a></dt>
+<dd><p>Optional pre-computed reference tables from
+<code><a href="np_name_freq.html">np_name_freq()</a></code> / <code><a href="np_token_idf.html">np_token_idf()</a></code>. Supply them (together with an
+already-normalized <code>reference</code>) to reuse a one-time normalization across many
+calls — e.g. from a batched driver (<code><a href="np_run_batches.html">np_run_batches()</a></code>). Computed from the
+reference when <code>NULL</code>.</p></dd>
+
+
+<dt id="arg-ref-index">ref_index<a class="anchor" aria-label="anchor" href="#arg-ref-index"></a></dt>
+<dd><p>Optional precomputed <code><a href="np_ref_index.html">np_ref_index()</a></code> blocking index. Built
+once from the reference when <code>NULL</code> and reused across every pass (and, via
+<code><a href="np_run_batches.html">np_run_batches()</a></code>, every batch), so a large reference is tokenized once
+rather than per pass.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -125,7 +143,7 @@ were resolved, how many remain pending, and the median YES margin.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.1.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.3.</p>
 </div>
 
     </footer></div>

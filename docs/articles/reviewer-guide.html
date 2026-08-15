@@ -631,7 +631,28 @@ Figure 1
 </div>
 </div>
 <p>Because YES is ~98% precise and NO is mostly correct, <strong>the real work concentrates in MAYBE</strong> — exactly where you want human judgment spent.</p>
-</section><section class="level2"><h2 id="humans-or-llms-interchangeable-at-stage-2">8. Humans or LLMs — interchangeable at Stage 2<a class="anchor" aria-label="anchor" href="#humans-or-llms-interchangeable-at-stage-2"></a>
+</section><section class="level2"><h2 id="the-review-report">8. The review report<a class="anchor" aria-label="anchor" href="#the-review-report"></a>
+</h2>
+<p>The MAYBE queue is where a reviewer’s attention goes, and <code><a href="../reference/np_review_report.html">np_review_report()</a></code> turns it into a self-contained HTML page built for exactly that. Each source organization gets its own section, and every candidate is laid out as a <strong>side-by-side “matching form”</strong>: the two names, nonprofit type, age, size, affiliation, address, and point of contact aligned row-for-row — source on the left, IRS BMF / SAM on the right — followed by the match-score block (score, decision, name and address similarity, the cascade layer that surfaced it, and any veto). The candidate the pipeline selected floats to the top of its section, so the reviewer starts from the algorithm’s best guess and confirms or overrides it.</p>
+<p>It reads the <code>review</code> frame straight from <a href="../reference/np_route.html"><code>np_route()</code></a>:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">res</span>     <span class="op">&lt;-</span> <span class="fu"><a href="../reference/np_cascade.html">np_cascade</a></span><span class="op">(</span><span class="va">query</span>, <span class="va">reference</span><span class="op">)</span></span>
+<span><span class="va">routing</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/np_route.html">np_route</a></span><span class="op">(</span><span class="va">res</span>, bmf <span class="op">=</span> <span class="va">bmf_raw</span>, sam <span class="op">=</span> <span class="va">sam_raw</span><span class="op">)</span>  <span class="co"># $review carries BMF_/SAM_ context</span></span>
+<span></span>
+<span><span class="fu"><a href="../reference/np_review_report.html">np_review_report</a></span><span class="op">(</span><span class="va">routing</span>, output <span class="op">=</span> <span class="st">"review.html"</span><span class="op">)</span>        <span class="co"># the MAYBE queue, by default</span></span></code></pre></div>
+</div>
+<p>The page is read-only and needs no server — open the file locally or share it. Handy arguments:</p>
+<ul>
+<li>
+<strong><code>decision</code></strong> — which tiers to include (<code>"MAYBE"</code> by default; also <code>"ALL"</code>, <code>"YES"</code>, <code>"NO"</code>, or comma-combinations like <code>"MAYBE,NO"</code>).</li>
+<li>
+<strong><code>max_ueis</code></strong> — cap the number of cases (a deterministic sample when it truncates), for a quick look before rendering the whole queue.</li>
+<li>
+<strong><code>output</code></strong> — where to write the HTML.</li>
+</ul>
+<p>If the frame also carries a labelled ground truth — the benchmarking columns <code>is_gt_ein</code>, <code>gt_confidence</code>, <code>gt_outcome_class</code> — the report highlights the correct EIN, floats it first, and flags cases where it was never surfaced, so the same tool doubles as an audit view for the evaluation set. On an ordinary <code><a href="../reference/np_route.html">np_route()</a></code> frame those columns are simply absent and the report renders without them. Rendering uses Quarto (the <code>quarto</code> package plus a Quarto CLI installation, the same dependency these vignettes use).</p>
+</section><section class="level2"><h2 id="humans-or-llms-interchangeable-at-stage-2">9. Humans or LLMs — interchangeable at Stage 2<a class="anchor" aria-label="anchor" href="#humans-or-llms-interchangeable-at-stage-2"></a>
 </h2>
 <p>Stage 2 is the same task whether a person or a language model does it: <em>look at a surfaced organization, decide whether a candidate is the right EIN, and if not, find out what the organization actually is.</em> npmatch is built so the two are drop-in substitutes.</p>
 <p>To make the LLM path turnkey, the project ships a <strong>tiered research protocol with a reusable per-organization prompt</strong> (<code>dev/RESEARCH-PROTOCOL.md</code>) that escalates only as far as needed and is cost-aware:</p>
@@ -644,7 +665,7 @@ Figure 1
 <strong>Tier 3</strong> — open web search to establish what the org is when registries are silent.</li>
 </ul>
 <p>Each organization returns a determination, the EIN found (if any), the source, a confidence level, and a token/cost estimate — the same structured verdict a human enumerator records, so the two mix freely (LLM triage first, humans on the residual). This is what lets the review stage scale from hundreds of cases to hundreds of thousands.</p>
-</section><section class="level2"><h2 id="where-things-stand-today">9. Where things stand today<a class="anchor" aria-label="anchor" href="#where-things-stand-today"></a>
+</section><section class="level2"><h2 id="where-things-stand-today">10. Where things stand today<a class="anchor" aria-label="anchor" href="#where-things-stand-today"></a>
 </h2>
 <ul>
 <li>
@@ -726,107 +747,89 @@ Figure 1
 </div>
 </div>
 </section><script id="quarto-html-after-body" type="application/javascript">
-window.document.addEventListener("DOMContentLoaded", function (event) {
-  const toggleBodyColorMode = (bsSheetEl) => {
-    const mode = bsSheetEl.getAttribute("data-mode");
-    const bodyEl = window.document.querySelector("body");
-    if (mode === "dark") {
-      bodyEl.classList.add("quarto-dark");
-      bodyEl.classList.remove("quarto-light");
-    } else {
-      bodyEl.classList.add("quarto-light");
-      bodyEl.classList.remove("quarto-dark");
-    }
-  }
-  const toggleBodyColorPrimary = () => {
-    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
-    if (bsSheetEl) {
-      toggleBodyColorMode(bsSheetEl);
-    }
-  }
-  toggleBodyColorPrimary();
-    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
-    var mailtoRegex = new RegExp(/^mailto:/);
-      var filterRegex = new RegExp('/' + window.location.host + '/');
-    var isInternal = (href) => {
-        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
-    }
-    // Inspect non-navigation links and adorn them if external
- 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
-    for (var i=0; i<links.length; i++) {
-      const link = links[i];
-      if (!isInternal(link.href)) {
-        // undo the damage that might have been done by quarto-nav.js in the case of
-        // links that we want to consider external
-        if (link.dataset.originalHref !== undefined) {
-          link.href = link.dataset.originalHref;
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
         }
       }
-    }
-  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
-    const config = {
-      allowHTML: true,
-      maxWidth: 500,
-      delay: 100,
-      arrow: false,
-      appendTo: function(el) {
-          return el.parentElement;
-      },
-      interactive: true,
-      interactiveBorder: 10,
-      theme: 'light-border',
-      placement: 'bottom-start',
-    };
-    if (contentFn) {
-      config.content = contentFn;
-    }
-    if (onTriggerFn) {
-      config.onTrigger = onTriggerFn;
-    }
-    if (onUntriggerFn) {
-      config.onUntrigger = onUntriggerFn;
-    }
-    window.tippy(el, config);
-  }
-  const findCites = (el) => {
-    const parentEl = el.parentElement;
-    if (parentEl) {
-      const cites = parentEl.dataset.cites;
-      if (cites) {
-        return {
-          el,
-          cites: cites.split(' ')
-        };
-      } else {
-        return findCites(el.parentElement)
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'light-border',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
       }
-    } else {
-      return undefined;
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config);
     }
-  };
-  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
-  for (var i=0; i<bibliorefs.length; i++) {
-    const ref = bibliorefs[i];
-    const citeInfo = findCites(ref);
-    if (citeInfo) {
-      tippyHover(citeInfo.el, function() {
-        var popup = window.document.createElement('div');
-        citeInfo.cites.forEach(function(cite) {
-          var citeDiv = window.document.createElement('div');
-          citeDiv.classList.add('hanging-indent');
-          citeDiv.classList.add('csl-entry');
-          var biblioDiv = window.document.getElementById('ref-' + cite);
-          if (biblioDiv) {
-            citeDiv.innerHTML = biblioDiv.innerHTML;
-          }
-          popup.appendChild(citeDiv);
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
         });
-        return popup.innerHTML;
-      });
+      }
     }
-  }
-});
-</script></main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
+  });
+  </script></main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
 </div>
 
@@ -836,7 +839,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.1.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.3.</p>
 </div>
 
     </footer>

@@ -73,6 +73,22 @@ np_batch <- function(x, size = 2500L, n = NULL, shuffle = TRUE, seed = NULL) {
   structure(out, n_batches = nb)
 }
 
+# Split a review frame into LLM-sized shards by query id (all candidate rows of a
+# query stay together, ~review_size queries per shard). Returns the file paths.
+.np_write_review_shards <- function(review, base, review_size, id_col = "uei") {
+  if (!nrow(review) || !(id_col %in% names(review))) return(character(0))
+  ids <- unique(as.character(review[[id_col]]))
+  grp <- ceiling(seq_along(ids) / review_size)
+  files <- character(0)
+  for (g in unique(grp)) {
+    sub <- review[as.character(review[[id_col]]) %in% ids[grp == g], , drop = FALSE]
+    f <- sprintf("%s-part%02d.csv", base, g)
+    data.table::fwrite(sub, f)
+    files <- c(files, f)
+  }
+  files
+}
+
 #' Run stage-1 matching in batches against a shared reference
 #'
 #' Drives the full stage-1 cascade ([np_cascade()]) over a large source in
@@ -117,22 +133,6 @@ np_batch <- function(x, size = 2500L, n = NULL, shuffle = TRUE, seed = NULL) {
 #'   `NULL` uses all detected cores for the run and restores the prior setting on
 #'   exit; pass an integer to pin it, or `0` to leave the global setting untouched.
 #' @param verbose Print progress. Default `TRUE`.
-# Split a review frame into LLM-sized shards by query id (all candidate rows of a
-# query stay together, ~review_size queries per shard). Returns the file paths.
-.np_write_review_shards <- function(review, base, review_size, id_col = "uei") {
-  if (!nrow(review) || !(id_col %in% names(review))) return(character(0))
-  ids <- unique(as.character(review[[id_col]]))
-  grp <- ceiling(seq_along(ids) / review_size)
-  files <- character(0)
-  for (g in unique(grp)) {
-    sub <- review[as.character(review[[id_col]]) %in% ids[grp == g], , drop = FALSE]
-    f <- sprintf("%s-part%02d.csv", base, g)
-    data.table::fwrite(sub, f)
-    files <- c(files, f)
-  }
-  files
-}
-
 #' @return A data frame summarising each compute chunk (rows, YES/MAYBE/NO,
 #'   coverage, seconds, output paths, review-shard count), invisibly. Written to
 #'   `out_dir/run-summary.csv`.

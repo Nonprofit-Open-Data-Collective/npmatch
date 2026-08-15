@@ -28,12 +28,18 @@ reference:
   - np_match
   - np_block
   - np_block_union
+  - np_ref_index
   - np_compare
   - np_score
   - np_veto
   - np_select
   - np_tier
   - np_route
+- title: Batched matching
+  desc: Run the stage-1 cascade over a large source in evenly sized chunks.
+  contents:
+  - np_batch
+  - np_run_batches
 - title: Setup & normalization
   desc: Map raw datasets onto canonical fields and normalize names and addresses.
   contents:
@@ -76,6 +82,7 @@ reference:
   - np_sam_review_fields
   - np_as_prompt
   - np_as_prompts
+  - np_review_report
 - title: Data management, fetching & reporting
   desc: Resolve data assets, fetch/prepare source files, run incremental diffs, and report on a run.
   contents:
