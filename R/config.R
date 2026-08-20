@@ -63,6 +63,24 @@ np_geo_profiles <- function() {
 #'   (hier scoring): an exact name match on a name shared by at most
 #'   `distinct_name_maxfreq` reference records is trusted even without address
 #'   corroboration, its score floored up to `distinct_name_floor`.
+#' @param distinct_name_min_idf Minimum summed token IDF the reference name must
+#'   carry to be eligible for the distinctive-name promotion. Defaults to `0`,
+#'   i.e. **disabled**: it was added on the theory that `distinct_name_maxfreq`
+#'   measures lexical rarity rather than identifying power, but measured on
+#'   990-PF grants it moved only 2 matches, net zero. The theory was right and
+#'   the target was wrong -- the reference legal names behind the generic-name
+#'   errors are not generic at all (`FORT JONES COMMUNITY CHURCH`,
+#'   `CHRIST CHURCH OF BEAVER SPRINGS`); the matches had been made on those
+#'   records' short generic DBAs. `distinct_name_main_only` is the fix that
+#'   works. Retained because the mechanism is sound and may suit another
+#'   reference; has no effect unless `token_idf` was supplied to [np_compare()].
+#' @param distinct_name_main_only Restrict the distinctive-name promotion to
+#'   matches made on the reference's PRIMARY name. `name_freq` and
+#'   `name_idf` describe that primary name, but [np_compare()] keeps the best of
+#'   the name/DBA/division cross-product, so a match made on a DBA is justified
+#'   by statistics about a different string. A DBA is often a short generic trade
+#'   name whose rarity means nothing. Has no effect unless the pairs carry
+#'   `name_ver_y`.
 #' @param distinct_name_floor_xstate Lower promotion floor applied when the
 #'   distinctive-name match is *not* state-confirmed (query and candidate in
 #'   different states, or no state to compare). Cross-state exact-name-only
@@ -89,7 +107,9 @@ np_config <- function(weights    = np_default_weights(),
                       thresholds = c(yes = 0.78, maybe = 0.65),
                       min_margin = 0.05,
                       tie_band = 0.05, tie_high = 0.95, tiebreak = "name",
-                      distinct_name_maxfreq = 3, distinct_name_floor = 0.90,
+                      distinct_name_maxfreq = 3, distinct_name_min_idf = 0,
+                      distinct_name_main_only = TRUE,
+                      distinct_name_floor = 0.90,
                       distinct_name_floor_xstate = 0.72,
                       overlap_maybe_floor = 0.80,
                       name_comparator = "jaro_winkler",
@@ -108,6 +128,8 @@ np_config <- function(weights    = np_default_weights(),
       tie_high        = tie_high,
       tiebreak        = tiebreak,
       distinct_name_maxfreq = distinct_name_maxfreq,
+      distinct_name_min_idf = distinct_name_min_idf,
+      distinct_name_main_only = distinct_name_main_only,
       distinct_name_floor   = distinct_name_floor,
       distinct_name_floor_xstate = distinct_name_floor_xstate,
       overlap_maybe_floor = overlap_maybe_floor,

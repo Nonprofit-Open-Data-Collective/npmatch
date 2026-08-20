@@ -51,3 +51,41 @@ test_that("address normalization splits zip5 and strips the unit from the key", 
   expect_equal(d$street_key, "3406 GLACIER HWY")
   expect_equal(d$street_unit, "STE A")
 })
+
+test_that("possessive apostrophes are deleted, not spaced, so the query matches the BMF", {
+  # The IRS BMF holds "St. Luke's Hospital" as "ST LUKES HOSPITAL". Turning the
+  # apostrophe into a space would give "ST LUKE S HOSPITAL" on the query side
+  # only, and no possessive name could ever clear an exact-name pass.
+  q <- np_query(data.frame(unique_entity_id = as.character(1:4),
+        name = c("BO'S PLACE", "St Luke's Hospital",
+                 "The Children's Museum of NH", "L'Arche Mobile"),
+        state = "TX", stringsAsFactors = FALSE),
+        c(.id = "unique_entity_id", name = "name", state = "state"))
+  r <- np_reference(data.frame(ein = as.character(1:4),
+        name = c("BOS PLACE", "ST LUKES HOSPITAL",
+                 "CHILDRENS MUSEUM OF NH", "LARCHE MOBILE"),
+        state = "TX", stringsAsFactors = FALSE),
+        c(.ein = "ein", name = "name", state = "state"))
+  expect_equal(np_normalize(q)$name_key, np_normalize(r)$name_key)
+})
+
+test_that("periods join an initialism but still break words that were already apart", {
+  d <- np_query(data.frame(unique_entity_id = c("1", "2", "3"),
+        name = c("F.I.N.D.", "U.S.A. Today Fund", "Acme Inc. of America"),
+        state = "CA", stringsAsFactors = FALSE),
+        c(.id = "unique_entity_id", name = "name", state = "state"))
+  d <- np_normalize(d)
+  expect_equal(d$name_full, c("FIND", "USA TODAY FUND", "ACME INC OF AMERICA"))
+})
+
+test_that("hyphens, ampersands, and slashes still separate tokens", {
+  # These survive in the BMF on both sides, so they must keep the old behaviour.
+  d <- np_query(data.frame(unique_entity_id = c("1", "2", "3"),
+        name = c("MID-ATLANTIC MINISTRIES", "Smith & Jones Fund", "Vedic Society C/O Ed"),
+        state = "MD", stringsAsFactors = FALSE),
+        c(.id = "unique_entity_id", name = "name", state = "state"))
+  d <- np_normalize(d)
+  expect_equal(d$name_full,
+               c("MID ATLANTIC MINISTRIES", "SMITH AND JONES FUND",
+                 "VEDIC SOCIETY C O ED"))
+})

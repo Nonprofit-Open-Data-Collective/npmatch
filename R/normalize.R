@@ -88,11 +88,36 @@
   }, character(1))
 }
 
+# Intra-word punctuation that must be DELETED rather than turned into a space.
+#
+# The IRS BMF contains no apostrophes or periods at all -- they are stripped
+# upstream, and stripped by deletion: "St. Luke's Hospital" is held as
+# "ST LUKES HOSPITAL", not "ST LUKE S HOSPITAL". Source datasets keep them
+# (3.5% of 990-PF grantee names carry an apostrophe). Turning them into a space
+# therefore splits the possessive on the query side only, and no possessive name
+# can ever clear an exact-name pass:
+#
+#   query "BO'S PLACE" -> "BO S PLACE"   vs   BMF "BOS PLACE"   -> no match
+#
+# Apostrophes are deleted unconditionally. Periods are deleted only between two
+# alphanumerics ("F.I.N.D." -> "FIND"), so a period that already separates words
+# ("ST. LUKES") still falls through to the space rule below and keeps its break.
+#
+# The quote class is written with \u escapes rather than literal glyphs so this
+# file stays pure ASCII. De-accenting runs before this in .np_basic_clean() and
+# already folds the curly forms to a plain apostrophe; the rest are belt and
+# braces for any caller that cleans a string directly.
+.np_strip_joiners <- function(x) {
+  x <- gsub("['\u2018\u2019\u02BC\u00B4`]", "", x, perl = TRUE)
+  gsub("(?<=[A-Za-z0-9])\\.(?=[A-Za-z0-9])", "", x, perl = TRUE)
+}
+
 .np_basic_clean <- function(x) {
   x <- toupper(as.character(x))
   x <- stringi::stri_trans_general(x, "Latin-ASCII") # de-accent
   x <- gsub("&", " AND ", x, fixed = TRUE)
-  x <- gsub("[[:punct:]]", " ", x)
+  x <- .np_strip_joiners(x)          # delete, do not space -- see above
+  x <- gsub("[[:punct:]]", " ", x)   # every other mark separates tokens
   x <- gsub("[^A-Z0-9 ]", " ", x)
   stringr::str_squish(x)
 }

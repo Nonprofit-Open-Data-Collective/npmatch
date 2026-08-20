@@ -12,6 +12,8 @@ np_config(
   tie_high = 0.95,
   tiebreak = "name",
   distinct_name_maxfreq = 3,
+  distinct_name_min_idf = 0,
+  distinct_name_main_only = TRUE,
   distinct_name_floor = 0.9,
   distinct_name_floor_xstate = 0.72,
   overlap_maybe_floor = 0.8,
@@ -47,6 +49,26 @@ strong candidates exist); \code{"none"} keeps the combined-score pick.}
 (hier scoring): an exact name match on a name shared by at most
 \code{distinct_name_maxfreq} reference records is trusted even without address
 corroboration, its score floored up to \code{distinct_name_floor}.}
+
+\item{distinct_name_min_idf}{Minimum summed token IDF the reference name must
+carry to be eligible for the distinctive-name promotion. Defaults to \code{0},
+i.e. \strong{disabled}: it was added on the theory that \code{distinct_name_maxfreq}
+measures lexical rarity rather than identifying power, but measured on
+990-PF grants it moved only 2 matches, net zero. The theory was right and
+the target was wrong -- the reference legal names behind the generic-name
+errors are not generic at all (\verb{FORT JONES COMMUNITY CHURCH},
+\verb{CHRIST CHURCH OF BEAVER SPRINGS}); the matches had been made on those
+records' short generic DBAs. \code{distinct_name_main_only} is the fix that
+works. Retained because the mechanism is sound and may suit another
+reference; has no effect unless \code{token_idf} was supplied to \code{\link[=np_compare]{np_compare()}}.}
+
+\item{distinct_name_main_only}{Restrict the distinctive-name promotion to
+matches made on the reference's PRIMARY name. \code{name_freq} and
+\code{name_idf} describe that primary name, but \code{\link[=np_compare]{np_compare()}} keeps the best of
+the name/DBA/division cross-product, so a match made on a DBA is justified
+by statistics about a different string. A DBA is often a short generic trade
+name whose rarity means nothing. Has no effect unless the pairs carry
+\code{name_ver_y}.}
 
 \item{distinct_name_floor_xstate}{Lower promotion floor applied when the
 distinctive-name match is \emph{not} state-confirmed (query and candidate in

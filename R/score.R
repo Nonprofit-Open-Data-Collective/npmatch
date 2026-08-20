@@ -20,6 +20,24 @@
   geo_zip3  <- g0("geo_zip3");  geo_state <- g0("geo_state")
   geo_stnum <- g0("geo_stnum"); geo_pobox <- g0("geo_pobox")
 
+  # A shared city NAME across two different states is a coincidence of naming,
+  # not evidence of a shared location: Patterson LA vs Patterson NC, Bristow OK
+  # vs Bristow IN, Hardy AZ vs Hardy AR. Ungated, such a pair scored
+  # 0.6*name(1.0) + 0.4*city(0.5) = 0.80 and auto-accepted -- this was the whole
+  # remaining cross-state false-positive channel in the 990-PF benchmark.
+  #
+  # The same argument applies to ZIP3: a 3-digit prefix is an SCF region that
+  # sits inside one state, so a ZIP3 "match" across states means one side is
+  # simply wrong.
+  #
+  # The gate fires only on a KNOWN conflict -- both states present and different
+  # -- so a record with a missing state still earns city credit as before.
+  sx <- if (!is.null(pairs$state_x)) as.character(pairs$state_x) else rep(NA_character_, n)
+  sy <- if (!is.null(pairs$state_y)) as.character(pairs$state_y) else rep(NA_character_, n)
+  state_conflict <- !is.na(sx) & !is.na(sy) & nzchar(sx) & nzchar(sy) & sx != sy
+  city_sim[state_conflict] <- 0
+  geo_zip3[state_conflict] <- 0
+
   # same physical building: matching street number AND a close street body,
   # for non-PO-box addresses
   street_hit <- as.numeric(geo_stnum == 1 & street_sim >= 0.9 & geo_pobox == 0)
@@ -46,8 +64,37 @@
   # (~97% on the training set); cross-state exact-name-only matches are near a
   # coin flip (~40%), so they get a lower floor that lands in MAYBE for review
   # rather than being auto-accepted. A missing xstate floor keeps prior behaviour.
+  #
+  # The promotion's whole justification is "this exact LEGAL name is rare in the
+  # reference, so an exact match on it is trustworthy". `name_freq` and
+  # `name_idf` are therefore computed from the reference's primary `name_key` --
+  # but np_compare() scores the full name/DBA/division cross-product and keeps
+  # the best, so the match may have been made on a *different* string entirely.
+  # When it was, those statistics describe a name that had nothing to do with it:
+  #
+  #   query "COMMUNITY CHURCH" matched the DBA "Community Church" of an org whose
+  #   legal name is FORT JONES COMMUNITY CHURCH -- rare and informative, hence
+  #   promoted, hence auto-accepted to a congregation 700 miles from the grant.
+  #   Likewise "CHRIST CHURCH" (legal: CHRIST CHURCH OF BEAVER SPRINGS) and a
+  #   recipient literally named "1" (legal: SLOVAK GYMNASTIC UNION SOKOL).
+  #
+  # `distinct_name_main_only` restricts promotion to matches actually made on the
+  # primary name. A DBA is frequently a short generic trade name whose rarity
+  # says nothing, and it is not what `name_freq` measured. Pairs with no
+  # `name_ver_y` column are not gated, so existing callers are unaffected.
   nf <- if (!is.null(pairs$name_freq)) as.numeric(pairs$name_freq) else rep(NA, n)
-  promote <- !is.na(nf) & name_score >= 0.95 & nf <= config$distinct_name_maxfreq
+  ni <- if (!is.null(pairs$name_idf)) as.numeric(pairs$name_idf) else rep(NA, n)
+  min_idf <- config$distinct_name_min_idf
+  if (is.null(min_idf)) min_idf <- 0
+  informative <- is.na(ni) | ni >= min_idf
+
+  vy <- if (!is.null(pairs$name_ver_y)) toupper(as.character(pairs$name_ver_y)) else rep(NA_character_, n)
+  vx <- if (!is.null(pairs$name_ver_x)) toupper(as.character(pairs$name_ver_x)) else rep(NA_character_, n)
+  main_only <- !isFALSE(config$distinct_name_main_only)
+  on_primary <- !main_only | (is.na(vy) | vy == "MAIN") & (is.na(vx) | vx == "MAIN")
+
+  promote <- !is.na(nf) & name_score >= 0.95 &
+             nf <= config$distinct_name_maxfreq & informative & on_primary
   fx <- config$distinct_name_floor_xstate
   if (is.null(fx)) fx <- config$distinct_name_floor
   floor_val <- ifelse(geo_state == 1, config$distinct_name_floor, fx)

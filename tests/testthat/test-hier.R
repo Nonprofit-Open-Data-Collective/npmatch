@@ -52,3 +52,84 @@ test_that("np_score exposes the hier method end to end via np_match", {
   expect_s3_class(res, "np_tiered")
   expect_true(all(res$overall_score >= 0 & res$overall_score <= 1, na.rm = TRUE))
 })
+
+test_that("a shared city name across different states earns no location credit", {
+  # Patterson LA vs Patterson NC are different places. Ungated this scored
+  # 0.6*name + 0.4*city = 0.80 and auto-accepted.
+  cfg <- np_config()
+  same <- data.frame(name_key = 1, city = 1, state_x = "LA", state_y = "LA",
+                     geo_state = 1, stringsAsFactors = FALSE)
+  diff <- data.frame(name_key = 1, city = 1, state_x = "LA", state_y = "NC",
+                     geo_state = 0, stringsAsFactors = FALSE)
+  s_same <- npmatch:::.np_hier_score(same, cfg)
+  s_diff <- npmatch:::.np_hier_score(diff, cfg)
+  expect_gt(s_same, s_diff)
+  expect_lt(s_diff, cfg$thresholds[["yes"]])   # must not auto-accept
+})
+
+test_that("a missing state still earns city credit", {
+  cfg <- np_config()
+  miss <- data.frame(name_key = 1, city = 1, state_x = NA_character_,
+                     state_y = "NC", geo_state = 0, stringsAsFactors = FALSE)
+  none <- data.frame(name_key = 1, city = 0, state_x = NA_character_,
+                     state_y = "NC", geo_state = 0, stringsAsFactors = FALSE)
+  expect_gt(npmatch:::.np_hier_score(miss, cfg), npmatch:::.np_hier_score(none, cfg))
+})
+
+test_that("the distinctive-name promotion requires an informative name, not just a rare one", {
+  # name_freq measures lexical rarity. "COMMUNITY CHURCH" is unique in the BMF as
+  # a literal string yet identifies nothing; a low name_idf must block promotion.
+  cfg <- np_config(distinct_name_min_idf = 10)
+  base <- data.frame(name_key = 1, name_freq = 1, geo_state = 1,
+                     state_x = "CA", state_y = "CA", stringsAsFactors = FALSE)
+  informative <- transform(base, name_idf = 20)
+  generic     <- transform(base, name_idf = 6)
+  expect_gte(npmatch:::.np_hier_score(informative, cfg), cfg$distinct_name_floor)
+  expect_lt(npmatch:::.np_hier_score(generic, cfg), cfg$distinct_name_floor)
+})
+
+test_that("callers that supply no token_idf keep the previous promotion behaviour", {
+  cfg <- np_config(distinct_name_min_idf = 10)
+  no_idf <- data.frame(name_key = 1, name_freq = 1, geo_state = 1,
+                       state_x = "CA", state_y = "CA", name_idf = NA_real_,
+                       stringsAsFactors = FALSE)
+  expect_gte(npmatch:::.np_hier_score(no_idf, cfg), cfg$distinct_name_floor)
+})
+
+test_that("setting distinct_name_min_idf to 0 disables the gate", {
+  cfg <- np_config(distinct_name_min_idf = 0)
+  generic <- data.frame(name_key = 1, name_freq = 1, geo_state = 1,
+                        state_x = "CA", state_y = "CA", name_idf = 0,
+                        stringsAsFactors = FALSE)
+  expect_gte(npmatch:::.np_hier_score(generic, cfg), cfg$distinct_name_floor)
+})
+
+test_that("the distinctive-name promotion only fires on a primary-name match", {
+  # name_freq / name_idf describe the reference's PRIMARY name. If the match was
+  # made on a short generic DBA, those statistics justify a different string:
+  # "COMMUNITY CHURCH" matched the DBA of FORT JONES COMMUNITY CHURCH and was
+  # auto-accepted to a congregation 700 miles from the grant.
+  cfg <- np_config(distinct_name_main_only = TRUE)
+  base <- data.frame(name_key = 1, name_freq = 1, geo_state = 1,
+                     state_x = "CA", state_y = "CA", name_ver_x = "MAIN",
+                     stringsAsFactors = FALSE)
+  on_main <- transform(base, name_ver_y = "MAIN")
+  on_dba  <- transform(base, name_ver_y = "DBA")
+  expect_gte(npmatch:::.np_hier_score(on_main, cfg), cfg$distinct_name_floor)
+  expect_lt(npmatch:::.np_hier_score(on_dba, cfg), cfg$distinct_name_floor)
+})
+
+test_that("distinct_name_main_only = FALSE restores the old behaviour", {
+  cfg <- np_config(distinct_name_main_only = FALSE)
+  on_dba <- data.frame(name_key = 1, name_freq = 1, geo_state = 1,
+                       state_x = "CA", state_y = "CA", name_ver_x = "MAIN",
+                       name_ver_y = "DBA", stringsAsFactors = FALSE)
+  expect_gte(npmatch:::.np_hier_score(on_dba, cfg), cfg$distinct_name_floor)
+})
+
+test_that("pairs without a name_ver column are not gated", {
+  cfg <- np_config(distinct_name_main_only = TRUE)
+  no_ver <- data.frame(name_key = 1, name_freq = 1, geo_state = 1,
+                       state_x = "CA", state_y = "CA", stringsAsFactors = FALSE)
+  expect_gte(npmatch:::.np_hier_score(no_ver, cfg), cfg$distinct_name_floor)
+})

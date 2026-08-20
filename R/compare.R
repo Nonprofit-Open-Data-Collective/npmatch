@@ -208,6 +208,25 @@ np_compare <- function(query, reference, config = np_config(),
       f <- name_freq[toupper(reference$name_key[iy])]; f[is.na(f)] <- 1L
       df$name_freq <- as.integer(f)
     } else df$name_freq <- NA_integer_
+
+    # How much information the name actually carries, as the summed IDF of its
+    # content tokens. `name_freq` counts how many reference records share the
+    # exact string, which is LEXICAL rarity and not the same thing: "COMMUNITY
+    # CHURCH" is unique in the BMF as a literal string (every other one is
+    # "<Place> Community Church") yet identifies nothing, while "KOINONIA
+    # ACADEMY" is equally unique and identifies precisely. Used by the
+    # distinctive-name promotion in np_score(method = "hier").
+    if (!is.null(token_idf)) {
+      rk <- toupper(ifelse(is.na(reference$name_key[iy]), "", reference$name_key[iy]))
+      mx <- suppressWarnings(max(token_idf, na.rm = TRUE))
+      if (!is.finite(mx)) mx <- 0
+      df$name_idf <- vapply(strsplit(rk, " ", fixed = TRUE), function(t) {
+        t <- t[nchar(t) >= 2L & !(t %in% np_stopwords())]
+        if (!length(t)) return(0)
+        w <- token_idf[t]; w[is.na(w)] <- mx
+        sum(w)
+      }, numeric(1))
+    } else df$name_idf <- NA_real_
   }
 
   # carry veto features for both sides
