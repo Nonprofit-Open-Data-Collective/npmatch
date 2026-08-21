@@ -1,0 +1,19 @@
+﻿commits touching R/normalize.R + R/block.R: 8 
+============================================================================== 
+commit    signature              moved?   components changed 
+============================================================================== 
+03154a2   v1-3640281e31574260    -        (baseline, 32 components) 
+e410cab   v1-458dd16b6854f054    YES      +np_token_idf 
+c35f034   v1-128dce484fda0b52    YES      np_normalize 
+4ce9ab3   v1-128dce484fda0b52    no       - 
+7224b0a   v1-128dce484fda0b52    no       - 
+e68353d   v1-ac951fa8f9d85949    YES      +.np_doc_freq, +.np_tokenize 
+5e23269   v1-421e1e2a6afb024e    YES      .np_basic_clean, +.np_strip_joiners 
+407f48f   v1-421e1e2a6afb024e    no       - 
+============================================================================== 
+natural experiment 
+============================================================================== 
+  5e23269 apostrophe fix moves it                PASS   changed: .np_basic_clean 
+  407f48f comment-only leaves it alone           PASS   no component moved 
+============================================================================== 
+Signature tracks the normalizer's real history. 
