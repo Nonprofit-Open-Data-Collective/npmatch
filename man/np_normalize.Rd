@@ -24,8 +24,12 @@ layer needs. Adds columns alongside the canonical ones:
 \item \code{dba_key}      the DBA name under the same normalization (for cross-matching)
 \item \code{name_full}    cleaned name \emph{with} suffix retained
 \item \code{name_form}    detected legal form (INC / LLC / CORP / ...), or \code{NA}
-\item \code{name_gen}     generation marker (JR/SR/II/III/...), or \code{NA}
-\item \code{name_gen_rank} numeric rank of the generation marker, for conflict tests
+\item \code{name_gen}, \code{name_gen_rank} \strong{vestigial} — a person-name generation marker
+(\code{JR} / \code{SR}, ranked \code{SR} = 1, \code{JR} = 2) inherited from npmatch's
+person-matching lineage. Organisations do not have generations; nothing in
+the package consumes these and they are not useful features. Retained only
+for column compatibility with existing labeled extracts. See
+\code{\link[=np_default_rules]{np_default_rules()}}.
 \item \code{name_nums}    space-joined embedded digit tokens (chapter/local numbers)
 \item \code{name_ord}     canonical ordinal rank(s) found in the name
 \item \code{street_key}   USPS-standardized street with unit stripped

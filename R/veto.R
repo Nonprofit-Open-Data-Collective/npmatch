@@ -6,14 +6,21 @@
 .np_present <- function(a) !is.na(a) & nzchar(a)
 .np_both_present <- function(a, b) .np_present(a) & .np_present(b)
 
-# generation markers disagree AND both are present: JR vs SR, II vs III -> hard.
+# VESTIGIAL -- do not wire these in, and do not cite them as examples of what
+# the veto layer does. Jr vs Sr separates two *people*; nothing about it
+# separates two organisations. They came over from npmatch's SAM / USASpending
+# person-matching lineage on a misreading of the veto layer's purpose. The
+# organisation-level equivalents are the rules that actually ship below:
+# ordinal_conflict (First vs Second Presbyterian), direction_conflict (regional),
+# number_conflict (chapter/local), affiliate_suffix and forprofit_form (legal
+# form / affiliation). Kept only until name_gen can be dropped from the pair
+# features without breaking existing labeled extracts. See ?np_default_rules.
 .np_rule_generation <- function(df) {
   a <- df$name_gen_rank_x; b <- df$name_gen_rank_y
   .np_both_present(a, b) & a != b
 }
 
-# one side carries a generation marker, the other none -> soft (e.g. "... JR
-# Center" vs "... Center" may or may not be the same org).
+# also vestigial: one side carries the marker, the other none.
 .np_rule_generation_asym <- function(df) {
   a <- df$name_gen_rank_x; b <- df$name_gen_rank_y
   xor(.np_present(a), .np_present(b))
@@ -107,30 +114,107 @@
 
 #' Default veto rule set
 #'
-#' The do-not-match rules applied by [np_veto()]. Each is a predicate over the
-#' candidate-pair frame with a `severity`:
+#' The do-not-match rules applied by [np_veto()]. A rule is a predicate over the
+#' candidate-pair frame — both-sided features are suffixed `_x` (query) and `_y`
+#' (reference) — plus a `severity` that decides what a hit costs the pair.
 #'
-#' * **hard** forces the pair to NO regardless of similarity —
-#'   `number_conflict` ("Local 32" vs "Local 45"), `ordinal_conflict`
-#'   (FIRST vs SECOND), `direction_conflict` ("Southwest ..." vs "Southeast ..."),
-#'   `forprofit_form` (query legal name ends in LLC/LP/LLP/PLLC — a for-profit
-#'   form that no exempt org uses).
-#' * **soft** blocks auto-YES (caps at MAYBE for review) but does not reject —
-#'   `affiliate_suffix` (query "Rend Lake College" matched to "Rend Lake College
-#'   Foundation": only the affiliate arm is in the reference, so send to review),
-#'   `government_entity` (query is a municipality / special district / authority —
-#'   almost never a 501(c), but a few "... authority" bodies file as exempt, so
-#'   route to review). The last two fold the Tier-1 legal-form/entity screen into
-#'   the cascade.
+#' The layer exists because fuzzy string similarity is at its worst exactly
+#' where organization names differ by one short, decisive token. "First
+#' Presbyterian Church" and "Second Presbyterian Church" are ~95% similar as
+#' strings and are two different congregations; so are "Southwest Community
+#' Center" and "Southeast Community Center", "UAW Local 32" and "UAW Local 45",
+#' and an organization versus its fundraising foundation. No amount of scorer
+#' tuning separates those — the one differing token is drowned out by the
+#' agreeing ones. The rules below encode the token as a constraint on identity
+#' instead, and are applied *after* scoring so they can override a strong match.
 #'
-#' `legal_form` (INC vs CORP vs LLC) ships **inactive**; add it with
-#' `rbind(np_default_rules(), np_rule_legal_form())`.
-#' A generation veto (JR vs SR) was removed: the abbreviated markers are rare and
-#' the spelled-out / roman variants caused heavy false positives (see
-#' [np_veto_audit()]).
+#' @section Severities:
+#' * **hard** — the pair is impossible, whatever the similarity. [np_veto()]
+#'   sets `veto` / `veto_reason`, and [np_select()] drops the pair before
+#'   choosing a best candidate, so that reference record is out of contention
+#'   for the query. (Pass `include_vetoed = TRUE` to keep it and inspect why.)
+#' * **soft** — the pair is plausible but wants a human. [np_veto()] sets
+#'   `veto_soft` / `veto_soft_reason`, the pair stays eligible, and if it *is*
+#'   the selected match [np_tier()] caps it at MAYBE instead of auto-accepting.
+#'   A soft veto never turns a MAYBE into a NO, and one on a pair that was not
+#'   selected has no effect.
+#'
+#' Both flags are accumulated independently and `;`-separated when several rules
+#' of the same severity fire, so `veto_reason` is the full list of hard hits,
+#' not just the first.
+#'
+#' @section The shipped rules:
+#' \describe{
+#'   \item{`number_conflict` (hard)}{Both names carry embedded digit tokens and
+#'     the two sets are disjoint — "Local 32" vs "Local 45", VFW Post 1234 vs
+#'     Post 5678. Chapter/local/post/district numbers are identifiers, so a
+#'     disjoint pair is a different unit of the same parent, not a typo.}
+#'   \item{`ordinal_conflict` (hard)}{Ordinal markers present on both sides and
+#'     disagreeing — "First Baptist" vs "Second Baptist". Matched on canonical
+#'     rank, so FIRST and 1ST are the same marker.}
+#'   \item{`direction_conflict` (hard)}{Directional markers present on both
+#'     sides and disagreeing — "Southwest Community Center" vs "Southeast
+#'     Community Center". Word forms only; bare N/S/E/W are usually initials or
+#'     street directionals and are not extracted.}
+#'   \item{`forprofit_form` (hard)}{The **query's raw** legal name ends in a
+#'     for-profit form — LLC, LP, LLP, PLLC, LLLP, "limited partnership". These
+#'     forms are not used by exempt organizations, so the query is not the BMF
+#'     record it resembles. Reads `name_raw_x` because normalization strips the
+#'     legal suffix out of `name_key`.}
+#'   \item{`affiliate_suffix` (soft)}{The candidate's last token is a
+#'     subordinate-affiliate word — FOUNDATION, ENDOWMENT, AUXILIARY, BOOSTERS,
+#'     BOOSTER — that the query name does not carry, on an otherwise strong name
+#'     match (`name_key >= 0.95`). Query "Rend Lake College" matched to "Rend
+#'     Lake College Foundation": the parent is absent from the reference and its
+#'     fundraising arm absorbed the match. Often the right EIN in practice, so
+#'     it is routed to review rather than rejected. If the query itself carries
+#'     the token there is no conflict and the rule does not fire.}
+#'   \item{`government_entity` (soft)}{The query's raw name matches a unit-of-
+#'     government pattern: a leading "City/County/Town/Village/Township/Borough
+#'     of ...", or a housing/redevelopment authority, school district, board of
+#'     education, public library, council of governments, joint powers agency,
+#'     or a water/sewer/fire/utility/conservancy-type special district. Almost
+#'     never a 501(c) — but a few authorities (hospital authorities in
+#'     particular) do file as exempt, so this is soft. The leading-anchor on the
+#'     municipal pattern matters: "Columbia University in the City of New York"
+#'     carries the phrase without being a municipality.}
+#' }
+#'
+#' `forprofit_form` and `government_entity` fold what was a separate Tier-1
+#' legal-form / entity screen into the cascade, so the decision is recorded on
+#' the pair with a reason instead of silently removing the query up front.
+#'
+#' @section The optional rule:
+#' `legal_form_conflict` (INC vs CORP vs LLC) is exported as
+#' [np_rule_legal_form()] and ships **inactive** — the same organization is
+#' routinely written both ways across sources, so enabling it costs recall.
+#' Add it with `rbind(np_default_rules(), np_rule_legal_form())`.
+#'
+#' @section The generation predicates are vestigial:
+#' `.np_rule_generation()` and `.np_rule_generation_asym()` are internal, unwired,
+#' and **not useful for this package**. They test person-name generational
+#' suffixes — Jr vs Sr — which distinguish two *people*, not two organizations.
+#' They are an artifact of npmatch's SAM / USASpending person-matching lineage,
+#' carried over on a misreading of what the veto layer is for, and they are the
+#' wrong thing to reach for when explaining it.
+#'
+#' The organization-level equivalents are the rules that actually ship:
+#' `ordinal_conflict` is the real "First Presbyterian vs Second Presbyterian"
+#' case, `direction_conflict` the regional one, `number_conflict` the
+#' chapter/local one, and `affiliate_suffix` / `forprofit_form` the
+#' legal-form-and-affiliation one. Cite those.
+#'
+#' `np_normalize()` still emits `name_gen` / `name_gen_rank` (JR/SR only) and
+#' [np_compare()] still carries them through as pair features, so they appear in
+#' the training frames and data dictionaries. Nothing consumes them, and they are
+#' retained only so existing labeled extracts keep their column layout.
+#'
 #'
 #' @return A data frame (class `np_rules`) with columns `id`, `description`,
 #'   `severity`, and a list-column `test`.
+#' @seealso [np_veto()] to apply a rule set, [np_rule()] to write one,
+#'   [np_veto_audit()] to check a rule's hits against labels, and [np_tier()]
+#'   for how severity translates into a tier.
 #' @export
 np_default_rules <- function() {
   rules <- rbind(
@@ -183,13 +267,33 @@ np_rule_legal_form <- function() {
 
 #' Apply veto rules to candidate pairs
 #'
-#' Flags pairs that violate a do-not-match rule. Runs after scoring so it can
-#' override a strong fuzzy match. Adds `veto` / `veto_reason` (hard) and
-#' `veto_soft` / `veto_soft_reason` (soft).
+#' Flags pairs that violate a do-not-match rule. Runs *after* scoring, so a rule
+#' can override a strong fuzzy match: the rules encode facts about identity that
+#' string similarity cannot see (a chapter number, a for-profit legal form),
+#' rather than adjusting the score. Every rule in `config$rules` is evaluated on
+#' every pair — there is no short-circuit — and the hits are accumulated by
+#' severity into four new columns:
+#'
+#' * `veto` (logical) / `veto_reason` (character) — any **hard** rule fired.
+#' * `veto_soft` / `veto_soft_reason` — any **soft** rule fired.
+#'
+#' The two are independent: a pair can carry both. When several rules of the
+#' same severity fire, their ids are joined with `;` in the reason column;
+#' `NA` means no rule of that severity fired. A rule that errors is caught and
+#' treated as no-hit for every row, so a malformed custom rule degrades rather
+#' than aborting the run. Rules with a missing `severity` are treated as hard.
+#'
+#' What each severity costs the pair happens downstream, not here — [np_select()]
+#' drops hard-vetoed pairs from candidate selection, and [np_tier()] caps a
+#' soft-vetoed selected pair at MAYBE. See [np_default_rules()] for the shipped
+#' rules and the reasoning behind each.
 #'
 #' @param pairs An `np_pairs` frame (typically already scored).
-#' @param config An [np_config()] whose `rules` are applied.
+#' @param config An [np_config()] whose `rules` are applied. Defaults to
+#'   [np_default_rules()]; supply your own with
+#'   `np_config(rules = rbind(np_default_rules(), np_rule(...)))`.
 #' @return `pairs` with the four veto columns.
+#' @seealso [np_default_rules()], [np_rule()], [np_veto_audit()].
 #' @export
 np_veto <- function(pairs, config = np_config()) {
   rules <- config$rules

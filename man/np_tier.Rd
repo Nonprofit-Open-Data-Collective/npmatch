@@ -16,11 +16,55 @@ np_tier(selection, config = np_config())
 \code{decision_score} used, of class \code{np_tiered}.
 }
 \description{
-Applies the \code{config} thresholds to each query's overall match. Two conditions
-hold a high-scoring match back at MAYBE rather than auto-accepting it:
-a \strong{near-tie} with the runner-up (\code{overall_margin < min_margin} — genuine
-ambiguity that a reviewer must resolve), and a \strong{soft veto} (e.g. a
-generation marker on one side only). View disagreement is \emph{not} a gate: it is
-a signal that expands the review candidate list (see \code{\link[=np_route]{np_route()}}), not a
-reason to demote a clear, well-separated match.
+Applies the \code{config} thresholds to each query's overall match, then holds
+back the high-scoring matches that are not safe to auto-accept.
+}
+\details{
+The base tier is the score alone: \code{overall_score >= thresholds["yes"]} ->
+YES, \verb{>= thresholds["maybe"]} -> MAYBE, else NO. Two conditions then demote a
+YES to MAYBE:
+\itemize{
+\item a \strong{near-tie} with the runner-up (\code{overall_margin < min_margin}) — genuine
+ambiguity between two reference records that a reviewer must resolve;
+\item a \strong{soft veto} — \code{\link[=np_veto]{np_veto()}} flagged the selected pair with a rule whose
+severity is \code{"soft"}.
+}
+
+View disagreement is \emph{not} a gate: it is a signal that expands the review
+candidate list (see \code{\link[=np_route]{np_route()}}), not a reason to demote a clear,
+well-separated match.
+}
+\section{How vetoes reach this stage}{
+
+Vetoes are evaluated once, per candidate pair, by \code{\link[=np_veto]{np_veto()}}, and reach
+\code{np_tier()} through \code{\link[=np_select]{np_select()}} in two different ways:
+\itemize{
+\item \strong{hard} vetoes (\code{veto} / \code{veto_reason}) never get here. \code{\link[=np_select]{np_select()}}
+drops hard-vetoed pairs before picking the best candidate (unless it was
+called with \code{include_vetoed = TRUE}), so a hard veto removes that reference
+record from contention entirely. The query still gets a tier — computed
+from whatever candidate survives, which may be a weaker one, or NO if none
+does.
+\item \strong{soft} vetoes (\code{veto_soft} / \code{veto_soft_reason}) stay eligible and are
+carried onto the selected row as \code{overall_veto_soft} /
+\code{overall_veto_reason}. \code{np_tier()} reads those two columns: a soft veto on
+the \emph{selected} pair caps it at MAYBE. It never pushes a MAYBE down to NO,
+and a soft veto on a pair that was not selected has no effect.
+}
+
+The soft rules in the shipped rule set are \code{affiliate_suffix} (the candidate
+ends in a subordinate-affiliate token — FOUNDATION / ENDOWMENT / AUXILIARY /
+BOOSTERS — that the query name does not carry, on an otherwise strong name
+match) and \code{government_entity} (the query is a municipality, school district,
+or special district). Both mean "plausible, but a human should look". See
+\code{\link[=np_default_rules]{np_default_rules()}} for the full set and the hard rules, and \code{\link[=np_route]{np_route()}}
+for how the reason text is surfaced to reviewers.
+
+Note that the rule set is configurable, so which vetoes can fire depends on
+\code{config$rules}; the description above is of \code{\link[=np_default_rules]{np_default_rules()}}.
+}
+
+\seealso{
+\code{\link[=np_veto]{np_veto()}} and \code{\link[=np_default_rules]{np_default_rules()}} for the rules themselves;
+\code{\link[=np_route]{np_route()}} for what happens to each tier.
 }
