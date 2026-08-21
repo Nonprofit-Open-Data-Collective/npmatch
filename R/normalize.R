@@ -29,11 +29,19 @@
   "EAST" = "E", "WEST" = "W"
 )
 
-# Generation tokens (Ken Griffey vs Ken Griffey Jr): the abbreviated JR/SR only.
-# Spelled-out "JUNIOR"/"SENIOR" are demographic/org words ("Junior League",
-# "Senior Care"); roman II-V are usually series/phase numbers ("Fund II",
-# "Phase III") not generations -- both caused the veto to over-fire massively
-# (found via np_veto_audit). Ordinals (FIRST/SECOND) have their own extractor.
+# VESTIGIAL. Generation tokens are a person-name concept (Ken Griffey vs Ken
+# Griffey Jr) inherited from npmatch's SAM / USASpending person-matching
+# lineage. Organisations do not have generations, no veto rule consumes
+# name_gen, and it is not a useful feature here -- see ?np_default_rules. The
+# extraction is retained only so existing labeled training extracts keep their
+# column layout; drop it and name_gen/name_gen_rank together when those are
+# regenerated.
+#
+# Narrowed to abbreviated JR/SR when it was still wired to a veto: spelled-out
+# "JUNIOR"/"SENIOR" are ordinary org words ("Junior League", "Senior Care") and
+# roman II-V are series/phase numbers ("Fund II", "Phase III"), and both made
+# the rule over-fire massively (found via np_veto_audit). The genuinely useful
+# organisation-level analogue is the ordinal extractor below (FIRST/SECOND).
 .np_generation <- c("JR", "SR")
 
 # Ordinal words <-> a canonical rank, so "FIRST" != "SECOND" can be vetoed.
@@ -132,8 +140,12 @@
 #' * `dba_key`      the DBA name under the same normalization (for cross-matching)
 #' * `name_full`    cleaned name *with* suffix retained
 #' * `name_form`    detected legal form (INC / LLC / CORP / ...), or `NA`
-#' * `name_gen`     generation marker (JR/SR/II/III/...), or `NA`
-#' * `name_gen_rank` numeric rank of the generation marker, for conflict tests
+#' * `name_gen`, `name_gen_rank` **vestigial** — a person-name generation marker
+#'   (`JR` / `SR`, ranked `SR` = 1, `JR` = 2) inherited from npmatch's
+#'   person-matching lineage. Organisations do not have generations; nothing in
+#'   the package consumes these and they are not useful features. Retained only
+#'   for column compatibility with existing labeled extracts. See
+#'   [np_default_rules()].
 #' * `name_nums`    space-joined embedded digit tokens (chapter/local numbers)
 #' * `name_ord`     canonical ordinal rank(s) found in the name
 #' * `street_key`   USPS-standardized street with unit stripped

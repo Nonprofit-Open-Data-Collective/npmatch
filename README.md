@@ -56,7 +56,7 @@ features the veto layer needs. Adds `name_key`, `dba_key`, `division_key`, `name
 - `.np_strip_lead_the()` :: drop a single leading `THE`
 - `.np_strip_suffix()` :: strip trailing legal suffixes to form the match key
 - `.np_extract_form()` / `.np_canon_form()` :: detect and canonicalize the legal form
-- `.np_extract_generation()` :: JR / SR marker
+- `.np_extract_generation()` :: JR / SR marker — **vestigial**, a person-name concept from the SAM/USASpending lineage; nothing consumes it
 - `.np_extract_numbers()` :: embedded digit tokens (chapter / local numbers)
 - `.np_extract_ordinals()` :: FIRST / SECOND / ... -> canonical rank
 - `.np_extract_direction()` :: NORTH / SOUTHWEST / ... -> N / SW
@@ -79,7 +79,7 @@ features the veto layer needs. Adds `name_key`, `dba_key`, `division_key`, `name
 8. strip trailing legal suffixes (`INC`, `CORP`, `LLC`, `FOUNDATION`, `TRUST`, ...) :: `.np_strip_suffix()` -> **`name_key`** (the match key)
 9. apply the same normalization to the DBA name -> **`dba_key`** and to the division name -> **`division_key`**
 10. detect and record the legal form (`INC` / `LLC` / `CORP` / ...) — stripped but held for the veto layer :: `.np_extract_form()`
-11. record generation (JR/SR), embedded numbers, ordinals, and directional markers for veto tests :: `.np_extract_generation()`, `.np_extract_numbers()`, `.np_extract_ordinals()`, `.np_extract_direction()`
+11. record embedded numbers, ordinals, and directional markers for veto tests :: `.np_extract_numbers()`, `.np_extract_ordinals()`, `.np_extract_direction()` (`.np_extract_generation()` also runs, but `name_gen` is vestigial — see below)
 
 **process (address):**
 
@@ -149,16 +149,22 @@ query out of later (looser, costlier) passes once it is resolved (**residual pru
 
 **subroutines**
 
-- `.np_rule_number()` / `.np_rule_ordinal()` / `.np_rule_direction()` :: hard predicates
-- `.np_rule_affiliate_suffix()` :: soft predicate
+- `.np_rule_number()` / `.np_rule_ordinal()` / `.np_rule_direction()` / `.np_rule_forprofit()` :: hard predicates
+- `.np_rule_affiliate_suffix()` / `.np_rule_government()` :: soft predicates
 
-**process:**
+**process:** every rule in `config$rules` runs on every pair; hits accumulate by severity (`;`-separated when more than one fires). A **hard** hit means impossible — `np_select()` drops the pair, so that EIN is out of contention. A **soft** hit means plausible-but-review — the pair stays eligible, and if it is the selected match `np_tier()` caps it at MAYBE.
 
-1. number conflict — disjoint embedded numbers (`Local 32` vs `Local 45`) -> **hard** (force NO) :: `.np_rule_number()`
+1. number conflict — disjoint embedded numbers (`Local 32` vs `Local 45`) -> **hard** :: `.np_rule_number()`
 2. ordinal conflict — `FIRST` vs `SECOND` -> **hard** :: `.np_rule_ordinal()`
 3. direction conflict — `SOUTHWEST` vs `SOUTHEAST` -> **hard** :: `.np_rule_direction()`
-4. affiliate-suffix mismatch — query `X` matched to candidate `X FOUNDATION` -> **soft** (cap at MAYBE) :: `.np_rule_affiliate_suffix()`
-5. add `veto` / `veto_reason` (hard) and `veto_soft` / `veto_soft_reason` (soft)
+4. for-profit form — query's raw name ends in `LLC` / `LP` / `LLP` / `PLLC` -> **hard** (no exempt org uses these) :: `.np_rule_forprofit()`
+5. affiliate-suffix mismatch — query `X` matched to candidate `X FOUNDATION` on a strong name match -> **soft** (cap at MAYBE) :: `.np_rule_affiliate_suffix()`
+6. government entity — query is a municipality / school district / special district / authority -> **soft** :: `.np_rule_government()`
+7. add `veto` / `veto_reason` (hard) and `veto_soft` / `veto_soft_reason` (soft)
+
+Why the layer exists: fuzzy similarity is worst exactly where org names differ by one short decisive token. `First Presbyterian Church` and `Second Presbyterian Church` are ~95% similar as strings and are two different congregations — likewise `Southwest` vs `Southeast Community Center`, `Local 32` vs `Local 45`, and an org vs its fundraising foundation. Scorer tuning cannot separate those; the rules encode the token as a constraint instead.
+
+Steps 4 and 6 fold the old Tier-1 legal-form / entity screen into the cascade. `legal_form_conflict` (INC vs CORP) ships **inactive** — enable with `rbind(np_default_rules(), np_rule_legal_form())`. The internal generation predicates (`.np_rule_generation*`, Jr vs Sr) are **vestigial and must not be wired in or cited as examples**: generational suffixes distinguish two *people*, not two organisations, and are an artifact of the SAM / USASpending person-matching lineage. Rules 1–6 are the organisation-level equivalents.
 
 ### `np_select(pairs)` — best candidate per query
 
@@ -182,7 +188,7 @@ query out of later (looser, costlier) passes once it is resolved (**residual pru
 
 1. `score >= yes` -> **YES**; `>= maybe` -> **MAYBE**; else **NO**
 2. demote YES -> MAYBE on a near-tie (`overall_margin < min_margin`) — genuine ambiguity
-3. demote YES -> MAYBE on a soft veto
+3. demote YES -> MAYBE on a soft veto on the selected pair (`affiliate_suffix`, `government_entity`) — never demotes MAYBE to NO
 
 ### `np_route(tiered)` — hand-off products
 

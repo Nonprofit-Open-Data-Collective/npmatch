@@ -9,13 +9,38 @@ np_veto(pairs, config = np_config())
 \arguments{
 \item{pairs}{An \code{np_pairs} frame (typically already scored).}
 
-\item{config}{An \code{\link[=np_config]{np_config()}} whose \code{rules} are applied.}
+\item{config}{An \code{\link[=np_config]{np_config()}} whose \code{rules} are applied. Defaults to
+\code{\link[=np_default_rules]{np_default_rules()}}; supply your own with
+\code{np_config(rules = rbind(np_default_rules(), np_rule(...)))}.}
 }
 \value{
 \code{pairs} with the four veto columns.
 }
 \description{
-Flags pairs that violate a do-not-match rule. Runs after scoring so it can
-override a strong fuzzy match. Adds \code{veto} / \code{veto_reason} (hard) and
-\code{veto_soft} / \code{veto_soft_reason} (soft).
+Flags pairs that violate a do-not-match rule. Runs \emph{after} scoring, so a rule
+can override a strong fuzzy match: the rules encode facts about identity that
+string similarity cannot see (a chapter number, a for-profit legal form),
+rather than adjusting the score. Every rule in \code{config$rules} is evaluated on
+every pair — there is no short-circuit — and the hits are accumulated by
+severity into four new columns:
+}
+\details{
+\itemize{
+\item \code{veto} (logical) / \code{veto_reason} (character) — any \strong{hard} rule fired.
+\item \code{veto_soft} / \code{veto_soft_reason} — any \strong{soft} rule fired.
+}
+
+The two are independent: a pair can carry both. When several rules of the
+same severity fire, their ids are joined with \verb{;} in the reason column;
+\code{NA} means no rule of that severity fired. A rule that errors is caught and
+treated as no-hit for every row, so a malformed custom rule degrades rather
+than aborting the run. Rules with a missing \code{severity} are treated as hard.
+
+What each severity costs the pair happens downstream, not here — \code{\link[=np_select]{np_select()}}
+drops hard-vetoed pairs from candidate selection, and \code{\link[=np_tier]{np_tier()}} caps a
+soft-vetoed selected pair at MAYBE. See \code{\link[=np_default_rules]{np_default_rules()}} for the shipped
+rules and the reasoning behind each.
+}
+\seealso{
+\code{\link[=np_default_rules]{np_default_rules()}}, \code{\link[=np_rule]{np_rule()}}, \code{\link[=np_veto_audit]{np_veto_audit()}}.
 }
