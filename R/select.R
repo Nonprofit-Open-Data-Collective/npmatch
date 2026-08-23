@@ -2,9 +2,21 @@
   intersect(cmp_cols, c("street_key", "city", "county", "zip5", "street_unit"))
 }
 
-# argmax row per group; ties broken by first. Returns integer row indices.
-.np_argmax_by <- function(score, group) {
-  ord <- order(group, -score, na.last = TRUE)
+# argmax row per group. Returns integer row indices.
+#
+# `tiebreak` makes equal scores resolve by a stated key instead of by row
+# position. Without it the winner among tied candidates is whichever the pair
+# frame happened to list first, which is a property of how the pair set was
+# assembled rather than of the data: reorder the reference, or generate the same
+# pairs from a partitioned reference, and a different EIN is reported for the
+# same query at the same score.
+#
+# Measured (pfmatch/dev/STATE-PARTITION-FINDINGS.md): a CA state slice against
+# the full reference disagreed on the reported EIN for 25 identities, and 20 of
+# them -- 80% -- had *identical* scores. Those 20 were decided by row order.
+.np_argmax_by <- function(score, group, tiebreak = NULL) {
+  ord <- if (is.null(tiebreak)) order(group, -score, na.last = TRUE)
+         else order(group, -score, tiebreak, na.last = TRUE)
   keep <- !duplicated(group[ord])
   ord[keep]
 }
@@ -30,7 +42,11 @@
   if (nrow(df) == 0)
     return(data.frame(.id = character(0), ov_row = integer(0),
                       n_close = integer(0), stringsAsFactors = FALSE))
-  ord <- order(df$.id, -df$score)
+  # `.ein` is the last sort key so that `ix[1]` -- the overall pick, and the one
+  # that becomes the reported EIN -- is decided by a stated rule rather than by
+  # where the pair happened to sit in the frame. See .np_argmax_by().
+  ord <- if (is.null(df$.ein)) order(df$.id, -df$score)
+         else order(df$.id, -df$score, df$.ein)
   grp <- split(ord, df$.id[ord])
   rows <- lapply(names(grp), function(id) {
     ix <- grp[[id]]                       # df rows for this id, score desc
@@ -64,7 +80,7 @@
   top <- d[rk <= k, , drop = FALSE]; top$candidate_type <- paste0("top", rk[rk <= k])
 
   best_of <- function(col, tag) {
-    idx <- .np_argmax_by(df[[col]], df$.id); b <- df[idx, , drop = FALSE]
+    idx <- .np_argmax_by(df[[col]], df$.id, df$.ein); b <- df[idx, , drop = FALSE]
     b$candidate_type <- tag; b
   }
   nm <- best_of("name_sim", "best_name")
@@ -117,7 +133,7 @@ np_select <- function(pairs, config = np_config(), include_vetoed = FALSE) {
   ids <- unique(as.data.frame(pairs)$.id)
   pick <- function(score_col) {
     if (nrow(df) == 0) return(df[0, , drop = FALSE])
-    idx <- .np_argmax_by(df[[score_col]], df$.id)
+    idx <- .np_argmax_by(df[[score_col]], df$.id, df$.ein)
     df[idx, , drop = FALSE]
   }
   # overall pick, with near-tie flagging and the high-tie tiebreak rule
