@@ -226,7 +226,22 @@ np_block <- function(query, reference, by = "state", by_x = NULL, by_y = NULL,
     } else {
       # IDF-weighted: retain the shared token through the join, then keep a pair
       # only if its shared tokens' summed IDF clears min_pair_idf.
-      n_ref <- nrow(reference)
+      # Corpus size for IDF comes from the INDEX when one is supplied, not from
+      # the frame. For every ordinary caller these are the same number, because
+      # the index was built from this very reference -- so this is a no-op.
+      #
+      # It differs only when the reference has been deliberately partitioned and
+      # the index carries whole-corpus statistics: blocking a CA slice should
+      # gate tokens by how common they are NATIONALLY, not by how common they
+      # are within California. Without this, idf = log(n_ref / ref_df) shifts by
+      # log(N_full / N_slice) for every token -- 2.25 on a 10.6% slice -- and
+      # min_pair_idf then prunes a different candidate set, so a partitioned run
+      # cannot reproduce an unpartitioned one.
+      # See pfmatch/dev/STATE-PARTITION-FINDINGS.md.
+      n_ref <- if (!is.null(ref_index) &&
+                   .np_ref_index_ok(ref_index, token_col, stopwords, min_token_len) &&
+                   !is.null(ref_index$n_reference)) ref_index$n_reference
+               else nrow(reference)
       idf <- log(n_ref / pmax(as.numeric(ref_df), 1)); names(idf) <- names(ref_df)
       # A globally unique shared token (idf = log(N)) is the strongest possible
       # block signal and must always clear the bar; cap the effective threshold
