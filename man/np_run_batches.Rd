@@ -19,6 +19,9 @@ np_run_batches(
   seed = 1L,
   cache = NULL,
   sam_context = NULL,
+  bmf_context = NULL,
+  review_tiers = "MAYBE",
+  save_interim = NULL,
   threads = NULL,
   verbose = TRUE
 )
@@ -60,6 +63,20 @@ its \code{name_freq}/\code{token_idf} tables and blocking \code{ref_index}.}
 
 \item{sam_context}{Optional raw SAM frame passed to \code{\link[=np_route]{np_route()}} (\verb{sam =}) to
 add \code{SAM_}-prefixed context columns to the review queue.}
+
+\item{bmf_context}{Optional raw processed BMF passed to \code{\link[=np_route]{np_route()}}
+(\verb{bmf =}) to add \code{BMF_}-prefixed context columns (NTEE, subsection, ruling
+year, assets, revenue) to the review queue.}
+
+\item{review_tiers}{Tiers to include in the per-chunk review frame, passed to
+\code{\link[=np_route]{np_route()}}. Default \code{"MAYBE"} — the human/LLM hand-off only. Pass
+\code{c("YES","MAYBE","NO")} for a candidate-level frame spanning every outcome,
+which is what an evaluation frame needs.}
+
+\item{save_interim}{Optional directory in which to persist, per chunk, the
+cascade result (\code{res-NN.rds}) and its scored candidate pairs
+(\code{pairs-NN.rds}). Without this they are discarded when the chunk ends, and
+the candidate sets cannot be rebuilt except by re-running the match.}
 
 \item{threads}{data.table thread count for the blocking joins / reads. Default
 \code{NULL} uses all detected cores for the run and restores the prior setting on

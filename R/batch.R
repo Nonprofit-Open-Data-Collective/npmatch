@@ -129,6 +129,17 @@ np_batch <- function(x, size = 2500L, n = NULL, shuffle = TRUE, seed = NULL) {
 #'   its `name_freq`/`token_idf` tables and blocking `ref_index`.
 #' @param sam_context Optional raw SAM frame passed to [np_route()] (`sam =`) to
 #'   add `SAM_`-prefixed context columns to the review queue.
+#' @param bmf_context Optional raw processed BMF passed to [np_route()]
+#'   (`bmf =`) to add `BMF_`-prefixed context columns (NTEE, subsection, ruling
+#'   year, assets, revenue) to the review queue.
+#' @param review_tiers Tiers to include in the per-chunk review frame, passed to
+#'   [np_route()]. Default `"MAYBE"` — the human/LLM hand-off only. Pass
+#'   `c("YES","MAYBE","NO")` for a candidate-level frame spanning every outcome,
+#'   which is what an evaluation frame needs.
+#' @param save_interim Optional directory in which to persist, per chunk, the
+#'   cascade result (`res-NN.rds`) and its scored candidate pairs
+#'   (`pairs-NN.rds`). Without this they are discarded when the chunk ends, and
+#'   the candidate sets cannot be rebuilt except by re-running the match.
 #' @param threads data.table thread count for the blocking joins / reads. Default
 #'   `NULL` uses all detected cores for the run and restores the prior setting on
 #'   exit; pass an integer to pin it, or `0` to leave the global setting untouched.
@@ -143,7 +154,8 @@ np_run_batches <- function(query, reference,
                            config = np_config(), method = "hier",
                            query_map = np_map_sam(), reference_map = np_map_bmf(),
                            seed = 1L, cache = NULL, sam_context = NULL,
-                           threads = NULL, verbose = TRUE) {
+                           bmf_context = NULL, review_tiers = "MAYBE",
+                           save_interim = NULL, threads = NULL, verbose = TRUE) {
   say <- function(...) if (verbose) message(sprintf(...))
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -223,16 +235,27 @@ np_run_batches <- function(query, reference,
     res <- np_cascade(chunks[[b]], ref_norm, config = config, method = method,
                       query_map = query_map, name_freq = name_freq,
                       token_idf = token_idf, ref_index = ref_index, verbose = verbose)
-    routing <- np_route(res, review_tiers = "MAYBE", token_idf = token_idf,
-                        sam = sam_context)
+    routing <- np_route(res, review_tiers = review_tiers, token_idf = token_idf,
+                        sam = sam_context, bmf = bmf_context)
     secs <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
 
     tt <- table(factor(as.character(res$tier), c("YES", "MAYBE", "NO")))
     xwalk_path  <- file.path(out_dir, sprintf("crosswalk-%02d.csv", b))
     review_path <- file.path(out_dir, sprintf("review-%02d.csv", b))
+    unmat_path  <- file.path(out_dir, sprintf("unmatched-%02d.csv", b))
     report_path <- file.path(out_dir, sprintf("report-%02d.md", b))
-    data.table::fwrite(routing$accepted, xwalk_path)
-    data.table::fwrite(routing$review,   review_path)          # canonical (whole chunk)
+    data.table::fwrite(routing$accepted,  xwalk_path)
+    data.table::fwrite(routing$review,    review_path)         # canonical (whole chunk)
+    data.table::fwrite(routing$unmatched, unmat_path)          # the NO tier + near-miss
+
+    # The scored pairs are the only record of what blocking actually surfaced.
+    # Discarding them means a later evaluation frame cannot be built without a
+    # full re-match -- under changed code, against a different candidate set.
+    if (!is.null(save_interim)) {
+      dir.create(save_interim, recursive = TRUE, showWarnings = FALSE)
+      saveRDS(res, file.path(save_interim, sprintf("res-%02d.rds", b)))
+      saveRDS(attr(res, "pairs"), file.path(save_interim, sprintf("pairs-%02d.rds", b)))
+    }
     # LLM-sized review shards (match big, review small)
     shard_files <- .np_write_review_shards(
       routing$review, file.path(out_dir, sprintf("review-%02d", b)), review_size)
@@ -265,7 +288,7 @@ np_run_batches <- function(query, reference,
       batch = b, rows = nrow(chunks[[b]]),
       yes = tt[["YES"]], maybe = tt[["MAYBE"]], no = tt[["NO"]],
       coverage = nrow(res), secs = round(secs, 1),
-      crosswalk = xwalk_path, review = review_path,
+      crosswalk = xwalk_path, review = review_path, unmatched = unmat_path,
       review_files = length(shard_files),
       stringsAsFactors = FALSE)
     say("chunk %d: %d YES | %d MAYBE (%d shard) | %d NO in %.1f min -> %s",
@@ -277,7 +300,8 @@ np_run_batches <- function(query, reference,
     data.frame(batch = integer(), rows = integer(), yes = integer(),
                maybe = integer(), no = integer(), coverage = integer(),
                secs = numeric(), crosswalk = character(), review = character(),
-               review_files = integer(), stringsAsFactors = FALSE)
+               unmatched = character(), review_files = integer(),
+               stringsAsFactors = FALSE)
   data.table::fwrite(summary_df, file.path(out_dir, "run-summary.csv"))
   invisible(summary_df)
 }
