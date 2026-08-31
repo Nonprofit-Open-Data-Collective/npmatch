@@ -47,8 +47,33 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 
-# Large local data (BMF/SAM reference + dev datasets & caches) — kept locally, not committed
+# Large local data (BMF/SAM reference + dev datasets & caches) — kept locally,
+# not committed.
 /data-raw/
-/data-dev/
+
+# data-dev holds the run pipeline. The SCRIPTS and hand-written methodology docs
+# ARE tracked — they are the only record of how a run was produced. The data
+# they operate on is not: reference extracts and caches run to gigabytes, and
+# the agent packets and per-chunk outputs number in the thousands and are
+# rebuildable.
+/data-dev/**
+!/data-dev/**/
+!/data-dev/**/*.R
+!/data-dev/**/*.sh
+!/data-dev/**/*.qmd
+
+# methodology, operator and provenance docs
+!/data-dev/**/*BRIEF*.md
+!/data-dev/**/*PLAN*.md
+!/data-dev/**/README.md
+!/data-dev/**/*-GUIDE.md
+!/data-dev/**/DATA-DICTIONARY-*.md
+!/data-dev/**/*REPORT*.md
+
+# ...but not the generated per-chunk reports, the agent packet batches, or
+# project run directories — rebuildable, and thousands of files.
+/data-dev/**/report-[0-9]*.md
+/data-dev/**/*-batches/
+/data-dev/runs/
 /vignettes/*_files/
 /vignettes/*.err
