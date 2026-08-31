@@ -194,3 +194,21 @@ test_that("stage runners refuse to guess without a project or an input", {
   expect_error(np_stage1_run(), "source query not found")
   expect_error(np_stage2_run(), "stage 1 has not produced")
 })
+
+test_that("raw SAM headers still resolve the id column for the zero-candidate backfill", {
+  p <- tmp_stage_project(); on.exit({ unlink(p, recursive = TRUE)
+                                      options(npmatch.project = NULL) })
+  f <- stage_fixture()
+  q <- f$query
+  # raw SAM-style headers, as they arrive from the monthly extract
+  names(q)[names(q) == "unique_entity_id"] <- "UNIQUE ENTITY ID"
+  map <- np_test_map_q; map[[".id"]] <- "unique_entity_id"
+
+  out <- np_stage1_run(query = q, reference = f$reference, compute_size = 10L,
+                       query_map = map, reference_map = np_test_map_r,
+                       verbose = FALSE)
+  # every source id is accounted for, including the one with no candidate
+  expect_equal(nrow(out), nrow(q))
+  expect_true("U3" %in% out$uei)
+  expect_equal(out$outcome[out$uei == "U3"], "NO")
+})

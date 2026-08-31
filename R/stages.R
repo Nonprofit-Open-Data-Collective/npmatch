@@ -135,6 +135,12 @@ np_stage1_run <- function(query = NULL, reference = NULL,
     query <- as.data.frame(data.table::fread(query, colClasses = "character",
                                              showProgress = FALSE))
   }
+  # Normalize raw headers here, the same way np_run_batches() does internally.
+  # Without this the id column is looked up on raw SAM names ("UNIQUE ENTITY ID")
+  # while the cascade sees the normalized ones, the lookup silently misses, and
+  # zero-candidate queries are dropped from the outputs instead of recorded.
+  if (!inherits(query, "np_query"))
+    names(query) <- .np_norm_headers(names(query))
 
   batches <- np_project_path("01_stage1", "batches", create = TRUE, project = project)
   interim <- np_project_path("01_stage1", "interim", create = TRUE, project = project)
@@ -177,6 +183,13 @@ np_stage1_run <- function(query = NULL, reference = NULL,
   }
   frame <- frame[!duplicated(frame$uei), , drop = FALSE]
   rownames(frame) <- NULL
+  # Every source id must appear exactly once across the three outcome files. A
+  # silent shortfall here is how a query disappears from the run entirely.
+  if (!is.na(id_col) && nrow(frame) != length(unique(as.character(query[[id_col]]))))
+    warning(sprintf(
+      "stage 1 wrote %d row(s) for %d source id(s); %d unaccounted for.",
+      nrow(frame), length(unique(as.character(query[[id_col]]))),
+      length(unique(as.character(query[[id_col]]))) - nrow(frame)), call. = FALSE)
 
   .np_write_outcomes(frame, "01_stage1", "stage1", project)
 
