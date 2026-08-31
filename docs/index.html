@@ -31,11 +31,13 @@
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto">
+<li class="nav-item"><a class="nav-link" href="articles/workflow.html">Workflow</a></li>
 <li class="nav-item"><a class="nav-link" href="reference/index.html">Reference</a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
-<li><a class="dropdown-item" href="articles/reviewer-guide.html">npmatch: A Reviewer's Guide</a></li>
+<li><a class="dropdown-item" href="articles/workflow.html">npmatch: Workflow &amp; Project Structure</a></li>
+    <li><a class="dropdown-item" href="articles/reviewer-guide.html">npmatch: A Reviewer's Guide</a></li>
     <li><a class="dropdown-item" href="articles/training-dataset.html">npmatch: The Training &amp; Evaluation Dataset</a></li>
     <li><a class="dropdown-item" href="articles/building-a-classifier.html">npmatch: Building a Stage-1 Match Classifier</a></li>
     <li><a class="dropdown-item" href="articles/candidate-evaluation-frame.html">The Candidate Evaluation Frame — Fields &amp; Methods</a></li>
@@ -111,7 +113,7 @@
 <li>
 <code>.np_extract_form()</code> / <code>.np_canon_form()</code> :: detect and canonicalize the legal form</li>
 <li>
-<code>.np_extract_generation()</code> :: JR / SR marker</li>
+<code>.np_extract_generation()</code> :: JR / SR marker — <strong>vestigial</strong>, a person-name concept from the SAM/USASpending lineage; nothing consumes it</li>
 <li>
 <code>.np_extract_numbers()</code> :: embedded digit tokens (chapter / local numbers)</li>
 <li>
@@ -152,8 +154,7 @@
 </li>
 <li>detect and record the legal form (<code>INC</code> / <code>LLC</code> / <code>CORP</code> / …) — stripped but held for the veto layer :: <code>.np_extract_form()</code>
 </li>
-<li>record generation (JR/SR), embedded numbers, ordinals, and directional markers for veto tests :: <code>.np_extract_generation()</code>, <code>.np_extract_numbers()</code>, <code>.np_extract_ordinals()</code>, <code>.np_extract_direction()</code>
-</li>
+<li>record embedded numbers, ordinals, and directional markers for veto tests :: <code>.np_extract_numbers()</code>, <code>.np_extract_ordinals()</code>, <code>.np_extract_direction()</code> (<code>.np_extract_generation()</code> also runs, but <code>name_gen</code> is vestigial — see below)</li>
 </ol>
 <p><strong>process (address):</strong></p>
 <ol style="list-style-type: decimal">
@@ -258,22 +259,28 @@
 <p><strong>subroutines</strong></p>
 <ul>
 <li>
-<code>.np_rule_number()</code> / <code>.np_rule_ordinal()</code> / <code>.np_rule_direction()</code> :: hard predicates</li>
+<code>.np_rule_number()</code> / <code>.np_rule_ordinal()</code> / <code>.np_rule_direction()</code> / <code>.np_rule_forprofit()</code> :: hard predicates</li>
 <li>
-<code>.np_rule_affiliate_suffix()</code> :: soft predicate</li>
+<code>.np_rule_affiliate_suffix()</code> / <code>.np_rule_government()</code> :: soft predicates</li>
 </ul>
-<p><strong>process:</strong></p>
+<p><strong>process:</strong> every rule in <code>config$rules</code> runs on every pair; hits accumulate by severity (<code>;</code>-separated when more than one fires). A <strong>hard</strong> hit means impossible — <code><a href="reference/np_select.html">np_select()</a></code> drops the pair, so that EIN is out of contention. A <strong>soft</strong> hit means plausible-but-review — the pair stays eligible, and if it is the selected match <code><a href="reference/np_tier.html">np_tier()</a></code> caps it at MAYBE.</p>
 <ol style="list-style-type: decimal">
-<li>number conflict — disjoint embedded numbers (<code>Local 32</code> vs <code>Local 45</code>) -&gt; <strong>hard</strong> (force NO) :: <code>.np_rule_number()</code>
+<li>number conflict — disjoint embedded numbers (<code>Local 32</code> vs <code>Local 45</code>) -&gt; <strong>hard</strong> :: <code>.np_rule_number()</code>
 </li>
 <li>ordinal conflict — <code>FIRST</code> vs <code>SECOND</code> -&gt; <strong>hard</strong> :: <code>.np_rule_ordinal()</code>
 </li>
 <li>direction conflict — <code>SOUTHWEST</code> vs <code>SOUTHEAST</code> -&gt; <strong>hard</strong> :: <code>.np_rule_direction()</code>
 </li>
-<li>affiliate-suffix mismatch — query <code>X</code> matched to candidate <code>X FOUNDATION</code> -&gt; <strong>soft</strong> (cap at MAYBE) :: <code>.np_rule_affiliate_suffix()</code>
+<li>for-profit form — query’s raw name ends in <code>LLC</code> / <code>LP</code> / <code>LLP</code> / <code>PLLC</code> -&gt; <strong>hard</strong> (no exempt org uses these) :: <code>.np_rule_forprofit()</code>
+</li>
+<li>affiliate-suffix mismatch — query <code>X</code> matched to candidate <code>X FOUNDATION</code> on a strong name match -&gt; <strong>soft</strong> (cap at MAYBE) :: <code>.np_rule_affiliate_suffix()</code>
+</li>
+<li>government entity — query is a municipality / school district / special district / authority -&gt; <strong>soft</strong> :: <code>.np_rule_government()</code>
 </li>
 <li>add <code>veto</code> / <code>veto_reason</code> (hard) and <code>veto_soft</code> / <code>veto_soft_reason</code> (soft)</li>
 </ol>
+<p>Why the layer exists: fuzzy similarity is worst exactly where org names differ by one short decisive token. <code>First Presbyterian Church</code> and <code>Second Presbyterian Church</code> are ~95% similar as strings and are two different congregations — likewise <code>Southwest</code> vs <code>Southeast Community Center</code>, <code>Local 32</code> vs <code>Local 45</code>, and an org vs its fundraising foundation. Scorer tuning cannot separate those; the rules encode the token as a constraint instead.</p>
+<p>Steps 4 and 6 fold the old Tier-1 legal-form / entity screen into the cascade. <code>legal_form_conflict</code> (INC vs CORP) ships <strong>inactive</strong> — enable with <code>rbind(np_default_rules(), np_rule_legal_form())</code>. The internal generation predicates (<code>.np_rule_generation*</code>, Jr vs Sr) are <strong>vestigial and must not be wired in or cited as examples</strong>: generational suffixes distinguish two <em>people</em>, not two organisations, and are an artifact of the SAM / USASpending person-matching lineage. Rules 1–6 are the organisation-level equivalents.</p>
 </div>
 <div class="section level3">
 <h3 id="np_selectpairs--best-candidate-per-query">
@@ -309,7 +316,7 @@
 <code>score &gt;= yes</code> -&gt; <strong>YES</strong>; <code>&gt;= maybe</code> -&gt; <strong>MAYBE</strong>; else <strong>NO</strong>
 </li>
 <li>demote YES -&gt; MAYBE on a near-tie (<code>overall_margin &lt; min_margin</code>) — genuine ambiguity</li>
-<li>demote YES -&gt; MAYBE on a soft veto</li>
+<li>demote YES -&gt; MAYBE on a soft veto on the selected pair (<code>affiliate_suffix</code>, <code>government_entity</code>) — never demotes MAYBE to NO</li>
 </ol>
 </div>
 <div class="section level3">
@@ -367,7 +374,7 @@
 <div class="developers">
 <h2 data-toc-skip>Developers</h2>
 <ul class="list-unstyled">
-<li>Jesse Lecy <br><small class="roles"> Author, maintainer </small>  </li>
+<li>Jesse Lecy <br><small class="roles"> Author, maintainer </small>   </li>
 </ul>
 </div>
 
@@ -382,7 +389,7 @@
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.1.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

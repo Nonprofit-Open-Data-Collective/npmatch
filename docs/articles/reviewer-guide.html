@@ -33,11 +33,13 @@
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto">
+<li class="nav-item"><a class="nav-link" href="../articles/workflow.html">Workflow</a></li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
-<li><a class="dropdown-item" href="../articles/reviewer-guide.html">npmatch: A Reviewer's Guide</a></li>
+<li><a class="dropdown-item" href="../articles/workflow.html">npmatch: Workflow &amp; Project Structure</a></li>
+    <li><a class="dropdown-item" href="../articles/reviewer-guide.html">npmatch: A Reviewer's Guide</a></li>
     <li><a class="dropdown-item" href="../articles/training-dataset.html">npmatch: The Training &amp; Evaluation Dataset</a></li>
     <li><a class="dropdown-item" href="../articles/building-a-classifier.html">npmatch: Building a Stage-1 Match Classifier</a></li>
     <li><a class="dropdown-item" href="../articles/candidate-evaluation-frame.html">The Candidate Evaluation Frame — Fields &amp; Methods</a></li>
@@ -88,14 +90,15 @@
 </section><section class="level2"><h2 id="how-names-and-addresses-are-normalized">2. How names and addresses are normalized<a class="anchor" aria-label="anchor" href="#how-names-and-addresses-are-normalized"></a>
 </h2>
 <p>Before anything can be compared, “The Smith Family Foundation, Inc.” and “Smith Family Fdn” have to be made to look alike. npmatch cleans each name to a <strong>match key</strong>, then splits it into <strong>tokens</strong> (the words the matcher actually compares). Legal suffixes (Inc, Foundation), a leading “The”, and punctuation are dropped; abbreviations are standardized (St → Saint, &amp; → and, Ctr → Center).</p>
+<p>Punctuation <em>inside</em> a word is deleted rather than turned into a space, which is why “Y.W.C.A.” collapses to the single token <code>YWCA</code> and “Mary’s” to <code>MARYS</code>. This matches how the IRS file itself stores names — it holds <code>ST LUKES</code>, not <code>ST LUKE S</code> — so a possessive or an initialism can still clear an exact-name match. A period that already separates words (“St. Mary’s”) keeps its break.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div class="kable-table">
 <table class="table caption-top">
 <colgroup>
-<col style="width: 28%">
+<col style="width: 29%">
 <col style="width: 30%">
-<col style="width: 40%">
+<col style="width: 39%">
 </colgroup>
 <thead><tr class="header">
 <th style="text-align: left;">Original name</th>
@@ -110,18 +113,18 @@
 </tr>
 <tr class="even">
 <td style="text-align: left;">St. Mary’s Hosp. &amp; Health Ctr</td>
-<td style="text-align: left;">SAINT MARY S HOSP AND HEALTH CENTER</td>
-<td style="text-align: left;">SAINT · MARY · S · HOSP · AND · HEALTH · CENTER</td>
+<td style="text-align: left;">SAINT MARYS HOSP AND HEALTH CENTER</td>
+<td style="text-align: left;">SAINT · MARYS · HOSP · AND · HEALTH · CENTER</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Boys &amp; Girls Club of N.E. Texas</td>
-<td style="text-align: left;">BOYS AND GIRLS CLUB OF N E TEXAS</td>
-<td style="text-align: left;">BOYS · AND · GIRLS · CLUB · OF · N · E · TEXAS</td>
+<td style="text-align: left;">BOYS AND GIRLS CLUB OF NE TEXAS</td>
+<td style="text-align: left;">BOYS · AND · GIRLS · CLUB · OF · NE · TEXAS</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Y.W.C.A. of Helena</td>
-<td style="text-align: left;">Y W C A OF HELENA</td>
-<td style="text-align: left;">Y · W · C · A · OF · HELENA</td>
+<td style="text-align: left;">YWCA OF HELENA</td>
+<td style="text-align: left;">YWCA · OF · HELENA</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">StepForward</td>
@@ -404,20 +407,25 @@
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">Linkable nonprofit — a findable IRS record exists</td>
-<td style="text-align: right;">1161</td>
-<td style="text-align: left;">77%</td>
+<td style="text-align: right;">1187</td>
+<td style="text-align: left;">79%</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Nonprofit, but not in the active IRS file</td>
-<td style="text-align: right;">158</td>
-<td style="text-align: left;">11%</td>
+<td style="text-align: right;">113</td>
+<td style="text-align: left;">8%</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Not a nonprofit (government / for-profit / person)</td>
-<td style="text-align: right;">139</td>
+<td style="text-align: right;">136</td>
 <td style="text-align: left;">9%</td>
 </tr>
 <tr class="even">
+<td style="text-align: left;">No match, not otherwise classifiable</td>
+<td style="text-align: right;">22</td>
+<td style="text-align: left;">1%</td>
+</tr>
+<tr class="odd">
 <td style="text-align: left;">Undetermined</td>
 <td style="text-align: right;">44</td>
 <td style="text-align: left;">3%</td>
@@ -533,14 +541,14 @@ Figure 1
 <tr class="odd">
 <td style="text-align: left;">Achievable — matcher performance</td>
 <td style="text-align: left;">96.5%</td>
-<td style="text-align: left;">nonprofits with a findable IRS record (1,161)</td>
+<td style="text-align: left;">nonprofits with a findable IRS record (1,187)</td>
 <td style="text-align: left;">measures the algorithm itself</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Population yield — practical</td>
 <td style="text-align: left;">~85%</td>
-<td style="text-align: left;">all nonprofits, incl. those absent from the file (1,319)</td>
-<td style="text-align: left;">~1 in 8 nonprofits has no active IRS record; the inactive-file option recovers ~6%</td>
+<td style="text-align: left;">all nonprofits, incl. those absent from the file (1,300)</td>
+<td style="text-align: left;">~1 in 11 nonprofits has no active IRS record; the inactive-file option recovers ~6%</td>
 </tr>
 </tbody>
 </table>
@@ -548,7 +556,7 @@ Figure 1
 </div>
 </div>
 <blockquote>
-<p>Of the nonprofits in the source data that have a matchable IRS record, the package recovers the correct EIN for <strong>96.5%</strong> (84% fully automatic, the rest confirmed in review), and when it assigns an EIN it is right <strong>~99%</strong> of the time. It correctly declines to link <strong>99%</strong> of the organizations that are not nonprofits or are absent from the file. The main ceiling on total recovery is IRS coverage itself — about <strong>1 in 8</strong> nonprofits has no active record — which the inactive-file option partially recovers.</p>
+<p>Of the nonprofits in the source data that have a matchable IRS record, the package recovers the correct EIN for <strong>96.5%</strong> (84% fully automatic, the rest confirmed in review), and when it assigns an EIN it is right <strong>~99%</strong> of the time. It correctly declines to link <strong>99%</strong> of the organizations that are not nonprofits or are absent from the file. The main ceiling on total recovery is IRS coverage itself — about <strong>1 in 11</strong> nonprofits has no active record — which the inactive-file option partially recovers.</p>
 </blockquote>
 <p>Operationally, every source org lands in one of three tiers. Here is what each means and where its errors come from.</p>
 <section class="level3"><h3 id="yes-accept-this-match-99-correct-a-wrong-ein-1-of-the-time">
@@ -747,89 +755,107 @@ Figure 1
 </div>
 </div>
 </section><script id="quarto-html-after-body" type="application/javascript">
-  window.document.addEventListener("DOMContentLoaded", function (event) {
-      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
-      var mailtoRegex = new RegExp(/^mailto:/);
-        var filterRegex = new RegExp('/' + window.location.host + '/');
-      var isInternal = (href) => {
-          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
-      }
-      // Inspect non-navigation links and adorn them if external
-     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
-      for (var i=0; i<links.length; i++) {
-        const link = links[i];
-        if (!isInternal(link.href)) {
-          // undo the damage that might have been done by quarto-nav.js in the case of
-          // links that we want to consider external
-          if (link.dataset.originalHref !== undefined) {
-            link.href = link.dataset.originalHref;
-          }
-        }
-      }
-    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
-      const config = {
-        allowHTML: true,
-        maxWidth: 500,
-        delay: 100,
-        arrow: false,
-        appendTo: function(el) {
-            return el.parentElement;
-        },
-        interactive: true,
-        interactiveBorder: 10,
-        theme: 'light-border',
-        placement: 'bottom-start',
-      };
-      if (contentFn) {
-        config.content = contentFn;
-      }
-      if (onTriggerFn) {
-        config.onTrigger = onTriggerFn;
-      }
-      if (onUntriggerFn) {
-        config.onUntrigger = onUntriggerFn;
-      }
-      window.tippy(el, config);
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
     }
-    const findCites = (el) => {
-      const parentEl = el.parentElement;
-      if (parentEl) {
-        const cites = parentEl.dataset.cites;
-        if (cites) {
-          return {
-            el,
-            cites: cites.split(' ')
-          };
-        } else {
-          return findCites(el.parentElement)
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp('/' + window.location.host + '/');
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
         }
-      } else {
-        return undefined;
       }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'light-border',
+      placement: 'bottom-start',
     };
-    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
-    for (var i=0; i<bibliorefs.length; i++) {
-      const ref = bibliorefs[i];
-      const citeInfo = findCites(ref);
-      if (citeInfo) {
-        tippyHover(citeInfo.el, function() {
-          var popup = window.document.createElement('div');
-          citeInfo.cites.forEach(function(cite) {
-            var citeDiv = window.document.createElement('div');
-            citeDiv.classList.add('hanging-indent');
-            citeDiv.classList.add('csl-entry');
-            var biblioDiv = window.document.getElementById('ref-' + cite);
-            if (biblioDiv) {
-              citeDiv.innerHTML = biblioDiv.innerHTML;
-            }
-            popup.appendChild(citeDiv);
-          });
-          return popup.innerHTML;
-        });
-      }
+    if (contentFn) {
+      config.content = contentFn;
     }
-  });
-  </script></main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config);
+  }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script></main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
 </div>
 
@@ -839,7 +865,7 @@ Figure 1
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.3.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

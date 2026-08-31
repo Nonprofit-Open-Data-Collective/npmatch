@@ -27,10 +27,12 @@ run summary across batches."></head><body>
     </button>
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
-      <ul class="navbar-nav me-auto"><li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
+      <ul class="navbar-nav me-auto"><li class="nav-item"><a class="nav-link" href="../articles/workflow.html">Workflow</a></li>
+<li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
-  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/reviewer-guide.html">npmatch: A Reviewer's Guide</a></li>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/workflow.html">npmatch: Workflow &amp; Project Structure</a></li>
+    <li><a class="dropdown-item" href="../articles/reviewer-guide.html">npmatch: A Reviewer's Guide</a></li>
     <li><a class="dropdown-item" href="../articles/training-dataset.html">npmatch: The Training &amp; Evaluation Dataset</a></li>
     <li><a class="dropdown-item" href="../articles/building-a-classifier.html">npmatch: Building a Stage-1 Match Classifier</a></li>
     <li><a class="dropdown-item" href="../articles/candidate-evaluation-frame.html">The Candidate Evaluation Frame — Fields &amp; Methods</a></li>
@@ -78,6 +80,9 @@ run summary across batches.</p>
 <span>  seed <span class="op">=</span> <span class="fl">1L</span>,</span>
 <span>  cache <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  sam_context <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  bmf_context <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  review_tiers <span class="op">=</span> <span class="st">"MAYBE"</span>,</span>
+<span>  save_interim <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  threads <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -148,6 +153,26 @@ its <code>name_freq</code>/<code>token_idf</code> tables and blocking <code>ref_
 add <code>SAM_</code>-prefixed context columns to the review queue.</p></dd>
 
 
+<dt id="arg-bmf-context">bmf_context<a class="anchor" aria-label="anchor" href="#arg-bmf-context"></a></dt>
+<dd><p>Optional raw processed BMF passed to <code><a href="np_route.html">np_route()</a></code>
+(<code>bmf =</code>) to add <code>BMF_</code>-prefixed context columns (NTEE, subsection, ruling
+year, assets, revenue) to the review queue.</p></dd>
+
+
+<dt id="arg-review-tiers">review_tiers<a class="anchor" aria-label="anchor" href="#arg-review-tiers"></a></dt>
+<dd><p>Tiers to include in the per-chunk review frame, passed to
+<code><a href="np_route.html">np_route()</a></code>. Default <code>"MAYBE"</code> — the human/LLM hand-off only. Pass
+<code>c("YES","MAYBE","NO")</code> for a candidate-level frame spanning every outcome,
+which is what an evaluation frame needs.</p></dd>
+
+
+<dt id="arg-save-interim">save_interim<a class="anchor" aria-label="anchor" href="#arg-save-interim"></a></dt>
+<dd><p>Optional directory in which to persist, per chunk, the
+cascade result (<code>res-NN.rds</code>) and its scored candidate pairs
+(<code>pairs-NN.rds</code>). Without this they are discarded when the chunk ends, and
+the candidate sets cannot be rebuilt except by re-running the match.</p></dd>
+
+
 <dt id="arg-threads">threads<a class="anchor" aria-label="anchor" href="#arg-threads"></a></dt>
 <dd><p>data.table thread count for the blocking joins / reads. Default
 <code>NULL</code> uses all detected cores for the run and restores the prior setting on
@@ -181,7 +206,7 @@ on the next run, so a resumed or re-run job skips normalization entirely.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.3.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

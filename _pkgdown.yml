@@ -8,19 +8,42 @@ template:
 
 navbar:
   structure:
-    left:  [reference, articles]
+    left:  [workflow, reference, articles]
     right: [search, github]
+  components:
+    workflow:
+      text: Workflow
+      href: articles/workflow.html
 
 articles:
 - title: Guides
   navbar: ~
   contents:
+  - workflow
   - reviewer-guide
   - training-dataset
   - building-a-classifier
   - candidate-evaluation-frame
 
 reference:
+- title: Run projects & stage drivers
+  desc: >
+    Scaffold a run directory, address files inside it, drive each stage, and
+    report on progress. See the Workflow article for the layout these produce.
+  contents:
+  - np_project_init
+  - np_project_use
+  - np_project_root
+  - np_project_path
+  - np_project_status
+  - np_stage_schema
+  - np_stage1_run
+  - np_stage2_run
+  - np_stage3_run
+  - np_final_run
+  - np_gate_rules
+  - np_entity_gate
+  - np_merge_decisions
 - title: Match pipeline
   desc: Block, compare, score, veto, select, and tier candidate pairs.
   contents:
@@ -48,6 +71,7 @@ reference:
   - np_query
   - np_reference
   - np_normalize
+  - np_normalize_signature
   - np_map_bmf
   - np_map_sam
   - np_flag_active

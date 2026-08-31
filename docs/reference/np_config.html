@@ -23,10 +23,12 @@ normalised internally."></head><body>
     </button>
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
-      <ul class="navbar-nav me-auto"><li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
+      <ul class="navbar-nav me-auto"><li class="nav-item"><a class="nav-link" href="../articles/workflow.html">Workflow</a></li>
+<li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
-  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/reviewer-guide.html">npmatch: A Reviewer's Guide</a></li>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/workflow.html">npmatch: Workflow &amp; Project Structure</a></li>
+    <li><a class="dropdown-item" href="../articles/reviewer-guide.html">npmatch: A Reviewer's Guide</a></li>
     <li><a class="dropdown-item" href="../articles/training-dataset.html">npmatch: The Training &amp; Evaluation Dataset</a></li>
     <li><a class="dropdown-item" href="../articles/building-a-classifier.html">npmatch: Building a Stage-1 Match Classifier</a></li>
     <li><a class="dropdown-item" href="../articles/candidate-evaluation-frame.html">The Candidate Evaluation Frame — Fields &amp; Methods</a></li>
@@ -65,6 +67,8 @@ normalised internally.</p>
 <span>  tie_high <span class="op">=</span> <span class="fl">0.95</span>,</span>
 <span>  tiebreak <span class="op">=</span> <span class="st">"name"</span>,</span>
 <span>  distinct_name_maxfreq <span class="op">=</span> <span class="fl">3</span>,</span>
+<span>  distinct_name_min_idf <span class="op">=</span> <span class="fl">0</span>,</span>
+<span>  distinct_name_main_only <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  distinct_name_floor <span class="op">=</span> <span class="fl">0.9</span>,</span>
 <span>  distinct_name_floor_xstate <span class="op">=</span> <span class="fl">0.72</span>,</span>
 <span>  overlap_maybe_floor <span class="op">=</span> <span class="fl">0.8</span>,</span>
@@ -117,6 +121,30 @@ strong candidates exist); <code>"none"</code> keeps the combined-score pick.</p>
 (hier scoring): an exact name match on a name shared by at most
 <code>distinct_name_maxfreq</code> reference records is trusted even without address
 corroboration, its score floored up to <code>distinct_name_floor</code>.</p></dd>
+
+
+<dt id="arg-distinct-name-min-idf">distinct_name_min_idf<a class="anchor" aria-label="anchor" href="#arg-distinct-name-min-idf"></a></dt>
+<dd><p>Minimum summed token IDF the reference name must
+carry to be eligible for the distinctive-name promotion. Defaults to <code>0</code>,
+i.e. <strong>disabled</strong>: it was added on the theory that <code>distinct_name_maxfreq</code>
+measures lexical rarity rather than identifying power, but measured on
+990-PF grants it moved only 2 matches, net zero. The theory was right and
+the target was wrong – the reference legal names behind the generic-name
+errors are not generic at all (<code>FORT JONES COMMUNITY CHURCH</code>,
+<code>CHRIST CHURCH OF BEAVER SPRINGS</code>); the matches had been made on those
+records' short generic DBAs. <code>distinct_name_main_only</code> is the fix that
+works. Retained because the mechanism is sound and may suit another
+reference; has no effect unless <code>token_idf</code> was supplied to <code><a href="np_compare.html">np_compare()</a></code>.</p></dd>
+
+
+<dt id="arg-distinct-name-main-only">distinct_name_main_only<a class="anchor" aria-label="anchor" href="#arg-distinct-name-main-only"></a></dt>
+<dd><p>Restrict the distinctive-name promotion to
+matches made on the reference's PRIMARY name. <code>name_freq</code> and
+<code>name_idf</code> describe that primary name, but <code><a href="np_compare.html">np_compare()</a></code> keeps the best of
+the name/DBA/division cross-product, so a match made on a DBA is justified
+by statistics about a different string. A DBA is often a short generic trade
+name whose rarity means nothing. Has no effect unless the pairs carry
+<code>name_ver_y</code>.</p></dd>
 
 
 <dt id="arg-distinct-name-floor-xstate">distinct_name_floor_xstate<a class="anchor" aria-label="anchor" href="#arg-distinct-name-floor-xstate"></a></dt>
@@ -174,7 +202,7 @@ score between the name and the geo sub-score. Should sum to 1.</p></dd>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.3.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

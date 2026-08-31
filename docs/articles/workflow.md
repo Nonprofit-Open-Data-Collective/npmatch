@@ -1,0 +1,779 @@
+# npmatch: Workflow & Project Structure
+
+*How a matching run is organized on disk, and the order of operations
+that turns a raw source extract into a finished crosswalk. This is the
+operational companion to the [Reviewer’s
+Guide](https://nonprofit-open-data-collective.github.io/npmatch/articles/reviewer-guide.md):
+that article explains what the matcher decides, this one explains where
+everything lives and which function to call next.*
+
+## 1. The workflow at a glance
+
+A run is **one directory**, scaffolded up front and filled in as you go.
+Six numbered stage folders, each producing files with the same shape,
+ending in a crosswalk.
+
+### 1.1 One directory per run
+
+``` r
+run <- file.path(tempdir(), "2026MAY")
+np_project_init(run, run_id = "2026MAY", quiet = TRUE, use = TRUE)
+```
+
+That single call creates every folder below. The files marked **`*`**
+are the ones it *doesn’t* create — those arrive later, as each stage
+runs. An empty-looking project is the normal starting state:
+
+    runs/2026MAY/
+    ├── README.md · AGENTS.md · config.yml · manifest.csv · RUN-STATUS.md
+    │
+    ├── 00_bmf/        SOURCE.md            *   pointer to the reference vintage
+    ├── 00_sams/       sam_query.csv        *   the source, filtered to nonprofits
+    │
+    ├── 01_stage1/     stage1_yes.csv       *
+    │                  stage1_maybe.csv     *   ──▶ 02_stage2
+    │                  stage1_no.csv        *   ──▶ 03_stage3
+    │
+    ├── 02_stage2/     stage2_yes.csv       *
+    │                  stage2_no.csv        *   ──▶ 03_stage3
+    │
+    ├── 03_stage3/     stage3_yes.csv       *
+    │                  stage3_no.csv        *
+    │
+    └── 04_final/      crosswalk.csv        *   the deliverable
+                       eval_frame.csv       *
+
+Each stage folder also carries a `README.md`, a stats report, and three
+subdirectories — `batches/`, `interim/`, `logs/` — expanded in the
+sections below. All six folders are created unconditionally. **Deploying
+a stage is optional**: one that never runs simply leaves its outputs
+absent, which
+[`np_project_status()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_project_status.md)
+reports as *not run* rather than as an error. A stage-1-only run is a
+legitimate run.
+
+### 1.2 Order of operations
+
+Everything flows down. Each stage takes one tier from the stage above
+it, and every branch eventually lands in `04_final`.
+
+``` mermaid
+flowchart TD
+    BMF["<b>00_bmf</b><br/>reference pointer"]
+    SAM["<b>00_sams</b><br/>sam_query.csv"]
+    S1["<b>01_stage1</b> · np_stage1_run()<br/>block → compare → score → veto → select → tier"]
+    BMF --> S1
+    SAM --> S1
+    S1 --> Y1["🟢 <b>YES</b><br/>stage1_yes"]
+    S1 --> M1["🟡 <b>MAYBE</b><br/>stage1_maybe"]
+    S1 --> N1["🔴 <b>NO</b><br/>stage1_no"]
+    M1 --> S2["<b>02_stage2</b> · np_stage2_run()<br/>LLM adjudication"]
+    S2 --> Y2["🟢 <b>YES</b><br/>stage2_yes"]
+    S2 --> N2["🔴 <b>NO</b><br/>stage2_no"]
+    N1 --> S3["<b>03_stage3</b> · np_stage3_run()<br/>entity gate → LLM research"]
+    N2 --> S3
+    S3 --> Y3["🟢 <b>YES</b><br/>stage3_yes"]
+    S3 --> N3["🔴 <b>NO</b><br/>stage3_no"]
+    Y1 --> F["<b>04_final</b> · np_final_run()<br/>crosswalk.csv · eval_frame.csv"]
+    Y2 --> F
+    Y3 --> F
+    N3 -.->|"unmatched — eval_frame only"| F
+    classDef yes fill:#c7e9c0,stroke:#31a354,color:#111;
+    classDef maybe fill:#fee391,stroke:#d95f0e,color:#111;
+    classDef no fill:#fdcfcf,stroke:#d73027,color:#111;
+    classDef stage fill:#eeeeee,stroke:#777,color:#111;
+    class Y1,Y2,Y3 yes;
+    class M1 maybe;
+    class N1,N2,N3 no;
+    class S1,S2,S3,F,BMF,SAM stage;
+```
+
+Figure 1
+
+Three things the picture is meant to make obvious.
+
+**The stages are a funnel of decreasing automation and increasing
+cost.** Stage 1 decides everything it can from string similarity and
+geography alone, at essentially no marginal cost per record. Stage 2
+spends an LLM call on the cases that similarity genuinely cannot
+separate. Stage 3 spends an LLM call *and* a web search on the cases the
+matcher rejected. You pay for judgment only where arithmetic ran out.
+
+**A NO is not the end.** Stage 1’s rejections and stage 2’s rejections
+pool together and get researched. That is where recall the matcher
+missed comes back — either because the right EIN was never surfaced by
+blocking, or because the organization genuinely is not a nonprofit and
+should be recorded as such.
+
+**`04_final` sees everything**, not just the matches. Unmatched ids
+still land in `eval_frame.csv` carrying their final answer, which is
+what makes the run measurable rather than merely finished.
+
+### 1.3 The functions
+
+Seven calls cover an entire run:
+
+| call | what it does | writes |
+|----|----|----|
+| [`np_project_init()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_project_init.md) | scaffolds the run directory | the tree above |
+| [`np_prepare_sam()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_prepare_sam.md) | filters the raw extract to nonprofits | `00_sams/sam_query.csv` |
+| [`np_stage1_run()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_stage1_run.md) | blocks, compares, scores, vetoes, selects, tiers | `stage1_yes` / `_maybe` / `_no`, `stage1_k_candidates` |
+| [`np_stage2_run()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_stage2_run.md) | **called twice** — LLM adjudicates the MAYBEs | `stage2_yes`, `stage2_no` |
+| [`np_stage3_run()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_stage3_run.md) | **called twice** — LLM researches the NOs | `stage3_yes`, `stage3_no`, `stage3_research_findings` |
+| [`np_final_run()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_final_run.md) | binds the stages together | `crosswalk.csv`, `eval_frame.csv` |
+| [`np_project_status()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_project_status.md) | scans the directory, reports what has run | `RUN-STATUS.md` |
+
+They fit together through three conventions, and once you have these
+three the rest of this article is detail.
+
+**Every stage function defaults its paths into the active project.**
+[`np_project_init()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_project_init.md)
+sets `options(npmatch.project=)`, so
+[`np_stage2_run()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_stage2_run.md)
+with no arguments already knows where `stage1_maybe.csv` is and where to
+put its own output. You name paths only when you deliberately want
+something outside the run.
+
+**Stages 2 and 3 are called twice** because a reviewer sits in the
+middle. The first call writes the work out for an agent and stops; the
+second collects what came back. Between those two calls the run is idle
+on disk, in a state you can inspect, hand to someone else, or resume
+tomorrow.
+
+**Every stage writes the same columns.** `stage1_yes`, `stage2_no` and
+`stage3_yes` are the same shape, so
+[`np_final_run()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_final_run.md)
+is a plain [`rbind()`](https://rdrr.io/r/base/cbind.html) and any stage
+can be skipped without the rollup noticing. See [§4](#sec-schema).
+
+## 2. Building the data assets
+
+Before any of that runs, the reference data has to exist. npmatch keeps
+data out of the package, in **two separate places** that are easy to
+confuse:
+
+|  | shared asset store | run project |
+|----|----|----|
+| **managed by** | `np_data_*()` | `np_project_*()` |
+| **holds** | reference vintages and expensive derived tables | one run’s inputs, stage outputs, reports, logs |
+| **how many** | one per machine | one per run |
+| **default location** | `~/npmatch-data` | wherever you put it |
+
+The BMF is roughly 3.5 GB raw plus a ~470 MB normalized bundle, and it
+is reused by every run. Copying it per run is not an option, so the two
+are joined **by pointers, not copies**. Build the store first, then
+point a run at it.
+
+### 2.1 Create the store
+
+``` r
+np_data_init()          # creates raw/ normalized/ results/ + MANIFEST.csv
+np_data_root()          # where it landed
+```
+
+Three tiers, and the distinction is about how expensive each is to lose:
+
+- **`raw/`** — immutable source downloads (BMF, SAM extracts), one file
+  per vintage. Re-downloadable, but slowly.
+- **`normalized/`** — derived assets built once per vintage: the
+  normalized reference bundle, the token-IDF table, the name-frequency
+  table. Cheap to rebuild in principle, expensive in wall-clock.
+- **`results/`** — outputs that outlive a single run.
+
+`MANIFEST.csv` at the root is what makes a run reproducible: one row per
+asset recording where it came from, when it was fetched, its MD5 and its
+row count. Record every input as you fetch it.
+
+``` r
+np_fetch_bmf("unified", dest = np_data_path("raw", create = TRUE))
+np_manifest_add("bmf-unified-2026-01", tier = "raw",
+                source = "NCCS BMF catalog",
+                path   = np_data_path("raw", "bmf_unified_2026-01.csv"))
+np_manifest()
+```
+
+The store’s location resolves from `getOption("npmatch.data")`, then the
+`NPMATCH_DATA` environment variable, then the `~/npmatch-data` default.
+
+### 2.2 What normalization actually does
+
+The expensive asset in `normalized/` is the reference put through
+[`np_normalize()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_normalize.md).
+This is where most of the matching leverage comes from: the scorer only
+sees fields this step produced, so anything not fixed here has to be
+recovered later by a human or an LLM.
+
+**Cleaned onto a common form** — the goal is parity with the BMF’s own
+`org_name_join` field, so both sides are damaged identically:
+
+- uppercased and de-accented (`Latin-ASCII`), so `Muñoz` and `Munoz`
+  agree
+- `&` expanded to `AND`
+- **apostrophes deleted, not spaced.** The BMF holds
+  `ST LUKES HOSPITAL`, having stripped the apostrophe by deletion.
+  Turning it into a space on the query side only gives
+  `ST LUKE S HOSPITAL`, and no possessive name can then clear an
+  exact-name pass. This single decision is worth real recall: 3.5% of
+  990-PF grantee names carry an apostrophe.
+- **periods deleted between alphanumerics** (`F.I.N.D.` → `FIND`,
+  `Y.W.C.A.` → `YWCA`) but kept as a word break after a word
+  (`ST. LUKES` stays two tokens)
+- every other punctuation mark becomes a token separator
+- abbreviations standardized whole-word: `ASSOC`/`ASSN` → `ASSOCIATION`,
+  `NATL` → `NATIONAL`, `INTL` → `INTERNATIONAL`, `CTR` → `CENTER`,
+  `UNIV` → `UNIVERSITY`, `SVCS` → `SERVICES`, `ST` → `SAINT`, `MT` →
+  `MOUNT`
+- legal suffixes detected, recorded, then **stripped from the match
+  key** — `INC`, `CORP`, `LLC`, `FOUNDATION`, `TRUST`, `SOCIETY`,
+  `INSTITUTE` and the rest inflate similarity between unrelated
+  organizations
+- street types USPS-standardized (`STREET` → `ST`, `AVENUE` → `AVE`,
+  `NORTH` → `N`)
+- full state names mapped to two-letter codes; ZIP leading zeros
+  restored
+
+**Added as features** — the columns the scorer and the veto layer read:
+
+- `name_key` (the match key), `dba_key`, `name_full` (suffix retained),
+  `name_form` (the detected legal form: INC / LLC / CORP / …)
+- `name_nums` — embedded digit tokens. Chapter, local, post and lodge
+  numbers are *identifiers*, not noise: `UAW Local 32` and
+  `UAW Local 45` are two entities.
+- `name_ord` — ordinals folded to a canonical rank, so `FIRST` and `1ST`
+  are the same marker and `First Baptist` ≠ `Second Baptist` is
+  detectable
+- `name_dir` — directional words canonicalized (`SOUTHWEST` → `SW`).
+  Word forms only: a bare `N`/`S`/`E`/`W` is usually an initial or a
+  street directional.
+- `street_num`, `street_name`, `street_type`, `street_unit`, `is_po_box`
+  — the address split into parts that can be compared independently
+- `zip5`, `zip3`, `zip9` — a **nested prefix family** (`zip3` ⊂ `zip5` ⊂
+  `zip9`), so geographic agreement has granularity rather than being a
+  coin flip
+- `state_abb`
+
+**Corpus statistics** built alongside, because distinctiveness is a
+property of the reference, not of a pair:
+
+- [`np_name_freq()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_name_freq.md)
+  — how many reference records share each exact `name_key`. An exact
+  match to a name held by one organization is trustworthy without any
+  address corroboration; an exact match to `FIRST BAPTIST CHURCH` is
+  not.
+- [`np_token_idf()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_token_idf.md)
+  — per-token `log(N / df)`. Rare tokens are what the name-token
+  blocking leverages; corpus-common tokens are not.
+
+One caveat when reading the data dictionary: `name_gen` /
+`name_gen_rank` (a `JR`/`SR` person-name generation marker) are
+**vestigial**, inherited from npmatch’s person-matching lineage.
+Organizations do not have generations, nothing consumes these columns,
+and they are retained only so existing labeled extracts keep their
+layout. The organization-level equivalents are `name_nums`, `name_ord`
+and `name_dir` above.
+
+### 2.3 Index the assets into the run
+
+The run does not take a copy of the reference — it records *which*
+vintage it used and reads the bytes from the store. The SAM extract is
+genuinely per-run, so that one does live inside the project:
+
+    runs/2026MAY/
+    ├── 00_bmf/                       the reference — pointed at, never copied
+    │   ├── README.md
+    │   ├── SOURCE.md              *  vintage, resolved path, md5, row count
+    │   ├── SIGNATURE.txt          *  np_normalize_signature() hash of the cache
+    │   └── logs/
+    │
+    └── 00_sams/                      the source extract — genuinely per-run
+        ├── README.md
+        ├── raw/                   *  SAM_PUBLIC_MONTHLY.dat (you put this here)
+        ├── sam_query.csv          *  np_prepare_sam(); what stage 1 reads
+        ├── interim/
+        └── logs/
+
+``` r
+np_project_init("runs/2026MAY", run_id = "2026MAY",
+                bmf = np_data_path("normalized", "bmf-unified-2026-01.rds"))
+
+np_fetch_sam(dest = np_project_path("00_sams", "raw", create = TRUE))
+
+np_prepare_sam(np_project_path("00_sams", "raw/SAM_PUBLIC_MONTHLY.dat"),
+               out = np_project_path("00_sams", "sam_query.csv"))
+#> SAM: 787,412 records -> 61,204 nonprofits (7.8%)
+```
+
+[`np_prepare_sam()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_prepare_sam.md)
+reads the headerless pipe-delimited extract, names its 142 columns,
+keeps the nonprofit business-type codes, and writes `sam_query.csv` —
+the file every later stage reads.
+
+### Reference drift is a stop condition
+
+A normalized bundle is only valid for the normalization code that
+produced it.
+[`np_normalize_signature()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_normalize_signature.md)
+hashes that code path, and the run stores the hash it saw in
+`00_bmf/SIGNATURE.txt`. If the signature stops matching the cached
+bundle, the cache has drifted from the current rules — everything in
+[§2.2](#sec-normalize) may have changed underneath it. Rebuild before
+matching, or the run is not reproducible. Stop; do not work around it.
+
+## 3. Inside a run project
+
+Every stage folder repeats the same three subdirectories, and the
+distinction between them is the one operational rule worth memorizing:
+
+``` r
+list.files(file.path(run, "01_stage1"), recursive = TRUE, include.dirs = TRUE)
+```
+
+    #> [1] "batches"        "batches/shards" "interim"        "logs"
+    #> [5] "README.md"
+
+- **`batches/`** — sharded work handed out and collected back. Entirely
+  derived; safe to delete and rebuild.
+- **`interim/`** — expensive but not deliverable: the cascade result and
+  scored pairs (`res-NN.rds`, `pairs-NN.rds`). **Do not delete these
+  until `04_final` is complete.** They are the only record of what
+  blocking actually surfaced; without them the candidate sets cannot be
+  rebuilt except by re-running the match against a possibly-changed
+  reference.
+- **`logs/`** — per-run logs. Write to the file, not only to the
+  console.
+
+[`np_project_path()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_project_path.md)
+takes a stage name — canonical (`"01_stage1"`), short alias (`"stage1"`,
+`"bmf"`, `"final"`), or a bare number — plus an optional file below it,
+so paths never have to be assembled by hand.
+
+``` r
+old <- options(npmatch.project = "runs/2026MAY")
+
+np_project_path("stage1", "stage1_yes.csv")
+```
+
+    #> [1] "runs/2026MAY/01_stage1/stage1_yes.csv"
+
+``` r
+np_project_path("final",  "crosswalk.csv")
+```
+
+    #> [1] "runs/2026MAY/04_final/crosswalk.csv"
+
+``` r
+np_project_path("03_stage3", "batches/packets")
+```
+
+    #> [1] "runs/2026MAY/03_stage3/batches/packets"
+
+``` r
+options(old)
+```
+
+Pointing a later session back at a run is
+`np_project_use("runs/2026MAY")`, which sets the same option
+[`np_project_init()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_project_init.md)
+did.
+
+## 4. One schema across every stage
+
+Every `stage*_yes` / `stage*_maybe` / `stage*_no` file carries the same
+columns, in the same order, with **exactly one row per source id**:
+
+``` r
+np_stage_schema()
+```
+
+    #>  [1] "uei"            "run_id"         "stage"          "outcome"
+    #>  [5] "ein"            "name_source"    "name_reference" "score"
+    #>  [9] "decided_by"     "confidence"     "reason"
+
+That uniformity is the point: the final rollup is a plain
+[`rbind()`](https://rdrr.io/r/base/cbind.html). The files differ only in
+`outcome` (`YES` / `MAYBE` / `NO`) and in who decided — `decided_by` is
+`algorithm` for stage 1, `llm_review` for stage 2 and `llm_research` for
+stage 3, so a downstream consumer can always tell an auto-accepted match
+from an adjudicated or researched one.
+
+Anything finer-grained than one row per source id lives in a **side
+table joined by `uei`**:
+
+- `01_stage1/stage1_k_candidates.csv` — one row per surfaced candidate.
+  This is where a NO’s near-miss information lives: what it almost
+  matched, and at what score. It is deliberately *not* in
+  `stage1_no.csv`, which stays one row wide.
+- `03_stage3/stage3_research_findings.csv` — the full research record,
+  including the determination taxonomy (`match`, `not_a_nonprofit`,
+  `nonprofit_not_in_bmf`, `cant_determine`) that `reason` carries in
+  condensed form.
+
+## 5. Stage 1 — the probabilistic cascade
+
+    01_stage1/
+    ├── README.md
+    ├── stage1_yes.csv             *  ──▶ 04_final
+    ├── stage1_maybe.csv           *  ──▶ 02_stage2
+    ├── stage1_no.csv              *  ──▶ 03_stage3
+    ├── stage1_k_candidates.csv    *  one row per surfaced candidate
+    ├── STAGE1-REPORT.md           *  per-pass cascade table, tier counts, timings
+    ├── STAGE1-STATS.csv           *  per-chunk tally
+    ├── batches/                   *  crosswalk-NN · review-NN · unmatched-NN · report-NN
+    │   └── shards/                *  review-sized parts handed to stage 2
+    ├── interim/                   *  res-NN.rds · pairs-NN.rds — EXPENSIVE, keep
+    └── logs/                      *  run-<timestamp>.log · .err · progress.log
+
+``` r
+np_stage1_run(reference = bmf, compute_size = 2500, review_size = 250, k = 3)
+```
+
+### What happens to a candidate pair
+
+``` mermaid
+flowchart TD
+    Q["<b>sam_query.csv</b><br/>one row per source organization"]
+    B["<b>np_block()</b> — 7 passes, tight → loose<br/>exact name · exact DBA · shared rare token · cross-state<br/><i>queries resolved to YES drop out after each pass</i>"]
+    C["<b>np_compare()</b> — reclin2 pairs and compares<br/>name_key similarity + the geo fields<br/>street · city · zip5 · zip3 · state"]
+    S["<b>np_score()</b> — method = 'hier'<br/>0.60 × name + 0.40 × geo<br/><i>geo = max, not sum: zip9 ▸ street ▸ zip5 ▸ pobox ▸ zip3 ▸ city ▸ state</i>"]
+    V["<b>np_veto()</b> — do-not-match rules"]
+    X["pair removed from contention<br/><i>the query still gets a tier,<br/>from whatever candidate survives</i>"]
+    SEL["<b>np_select()</b> — best candidate per query<br/>under three views: overall · name-only · addr-only"]
+    T["<b>np_tier()</b>"]
+    Q --> B --> C --> S --> V
+    V -->|"<b>hard</b>: number · ordinal · direction · for-profit form"| X
+    V --> SEL --> T
+    T -->|"score ≥ 0.78, margin ≥ 0.05,<br/>no soft veto"| YES["🟢 <b>YES</b> — auto-accept"]
+    T -->|"0.65 ≤ score < 0.78<br/>or near-tie with runner-up<br/>or <b>soft</b> veto: affiliate · government"| MAYBE["🟡 <b>MAYBE</b> — needs a reviewer"]
+    T -->|"score < 0.65<br/>or nothing survived"| NO["🔴 <b>NO</b> — rejected"]
+    classDef yes fill:#c7e9c0,stroke:#31a354,color:#111;
+    classDef maybe fill:#fee391,stroke:#d95f0e,color:#111;
+    classDef no fill:#fdcfcf,stroke:#d73027,color:#111;
+    classDef step fill:#eeeeee,stroke:#777,color:#111;
+    class YES yes;
+    class MAYBE maybe;
+    class NO,X no;
+    class Q,B,C,S,V,SEL,T step;
+```
+
+Figure 2
+
+**Blocking is a cascade, not one join.** Seven passes run tight to
+loose, and after each pass the queries that reached YES are removed from
+the pending set, so each successive, more expensive pass only processes
+the harder residual:
+
+| \# | pass | pairs on |
+|----|----|----|
+| 1 | `exact-name` | `name_key` == `name_key`, same state |
+| 2 | `exact-name-dba` | `name_key` == `dba_key`, same state |
+| 3 | `exact-dba-name` | `dba_key` == `name_key`, same state |
+| 4 | `exact-dba-dba` | `dba_key` == `dba_key`, same state |
+| 5 | `token-state` | a shared name token, same state (token IDF ≥ 8, token in ≤ 25,000 reference records) |
+| 6 | `token-concat` | as above, also matching de-spaced compounds (`STEPFORWARD` ↔︎ `STEP FORWARD`) |
+| 7 | `token-crossstate` | a shared name token, **any** state (token in ≤ 5,000 records) |
+
+Candidates are scored once and the final
+[`np_select()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_select.md)
+/
+[`np_tier()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_tier.md)
+run over the de-duplicated union, so a match found by a loose pass still
+competes on equal footing with one found early.
+
+**The vetoes exist because string similarity is worst exactly where it
+matters.** “First Presbyterian Church” and “Second Presbyterian Church”
+are ~95% similar and are two different congregations. No amount of
+scorer tuning separates them: the one differing token is drowned out by
+the agreeing ones. The rules encode that token as a constraint on
+identity instead, and run *after* scoring so they can override a strong
+match. Hard vetoes remove the pair; soft vetoes cap it at MAYBE.
+[`np_veto_audit()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_veto_audit.md)
+shows what each rule is firing on.
+
+**Two things demote a YES to MAYBE**: a near-tie with the runner-up
+(`margin < 0.05` — genuine ambiguity between two reference records), and
+a soft veto on the selected pair. A soft veto never pushes a MAYBE down
+to NO.
+
+### Two kinds of NO
+
+A query for which blocking surfaced *nothing at all* is written to
+`stage1_no` with `reason = no_candidates` and has no rows in
+`stage1_k_candidates`. That is a different failure from a query whose
+candidates all scored below the floor, and keeping the two separate is
+what makes blocking recall measurable — the first is a blocking problem,
+the second a scoring problem, and they are fixed by different work.
+
+The run is **resumable**: a chunk counts as done when its per-chunk
+report exists, and `only =` re-runs a specific subset. Read
+`STAGE1-REPORT.md` — the per-pass table, tier counts and timings —
+before moving on.
+
+## 6. Stage 2 — adjudicating the MAYBEs
+
+    02_stage2/
+    ├── README.md
+    ├── PROMPT.md                     the agent's instructions (written by init)
+    ├── stage2_yes.csv             *  ──▶ 04_final
+    ├── stage2_no.csv              *  ──▶ 03_stage3
+    ├── STAGE2-REPORT.md           *
+    ├── batches/
+    │   ├── slim/                  *  slim-NN.csv       — questions out
+    │   └── decisions/             *  decision-NN.csv   — answers back
+    ├── interim/
+    └── logs/
+
+Two calls, with an adjudicator in the middle:
+
+``` r
+np_stage2_run(shard_size = 250)   # 1st call: writes batches/slim/*.csv, stops
+# ... point an agent at 02_stage2/PROMPT.md; it writes one
+# ... decision-<shard>.csv per shard into 02_stage2/batches/decisions/
+np_stage2_run()                   # 2nd call: collects, writes stage2_yes / stage2_no
+```
+
+### What a case looks like
+
+Here is a real MAYBE from the shipped benchmark — the SAM registrant
+**Alston Wilkes Society** of Columbia, SC, and the three candidates
+stage 1 surfaced for it:
+
+``` r
+ex <- npmatch_eval[npmatch_eval$uei == "C5DVNAHN8F94", ]
+rownames(ex) <- NULL
+
+ex[, c("ein", "name_bmf_raw_main", "name_similarity", "addr_similarity",
+       "total_score", "veto_soft_reason")]
+```
+
+| ein | name_bmf_raw_main | name_similarity | addr_similarity | total_score | veto_soft_reason |
+|:---|:---|---:|---:|---:|:---|
+| 23-7219283 | ALSTON WILKES FOUNDATION | 1 | 1 | 0.98 | affiliate_suffix |
+| 57-0477907 | ALSTON WILKES SOCIETY | 1 | 1 | 0.98 | NA |
+| 57-0706820 | ALSTON WILKES ASSOCIATION | 1 | 1 | 0.98 | NA |
+
+Every candidate scores **0.98**. All three have identical name
+similarity, identical address similarity, and sit at the same street
+address in Columbia. The margin between first and second place is
+**0.00**:
+
+``` r
+ex$decision_reason[1]
+```
+
+    #> [1] "near-tie: runner-up 0.98 (margin 0.00); name/address views differ (name->23-7219283, addr->23-7219283)"
+
+This is the case the arithmetic cannot decide, and the reason stage 2
+exists. A scorer sees three indistinguishable candidates; a reader sees
+a Society, its Foundation, and its Association — a parent and two
+affiliates sharing a building. Note that `affiliate_suffix` fired as a
+soft veto on the Foundation, which is what capped the whole case at
+MAYBE instead of letting a coin-flip auto-accept.
+
+The adjudicator gets the columns above plus the raw names on both sides,
+the aligned address fields, and the BMF and SAM context columns, and
+answers one question: *is one of these the same legal entity as the
+source?* It writes one row per source id:
+
+    # 02_stage2/batches/decisions/decision-07.csv
+    uei,best_ein,llm_decision,llm_confidence,llm_reason
+    C5DVNAHN8F94,57-0477907,YES,high,"legal name matches exactly; Foundation and Association at the same address are its affiliates"
+
+The ground-truth label for this case agrees — `57-0477907`, the Society
+itself.
+
+The contract is fixed and
+[`np_merge_decisions()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_merge_decisions.md)
+enforces it: `uei`, `best_ein`, `llm_decision` (`YES`/`NO` only),
+`llm_confidence` (`high`/`medium`/`low`), `llm_reason`. Every uei in the
+shard gets a row including the rejections, every `YES` carries a
+`best_ein` drawn from that uei’s own candidates, and every `NO` leaves
+it empty.
+
+### Partial returns
+
+Re-running after only some shards come back collects what is there and
+reports which are still outstanding. **An unreturned shard is a hole in
+the results, not a set of NOs**, and is never silently treated as one.
+An empty MAYBE queue is a legitimate outcome — stage 1 resolved
+everything — and writes empty outputs so the stage reads as complete.
+
+## 7. Stage 3 — researching the NOs
+
+    03_stage3/
+    ├── README.md
+    ├── PROMPT.md                        the agent's instructions
+    ├── stage3_yes.csv                *  ──▶ 04_final
+    ├── stage3_no.csv                 *
+    ├── stage3_research_findings.csv  *  the full research record
+    ├── STAGE3-REPORT.md              *
+    ├── batches/
+    │   ├── packets/                  *  run-NNNN.md    — questions out
+    │   └── out/                      *  run-NNNN.tsv   — answers back
+    ├── interim/                      *  stage3_seed.csv, cache/
+    └── logs/
+
+Same two-call shape. By default it pools the NO cases from both stage 1
+and stage 2; pass `sources = "stage1_no"` to research only what the
+matcher rejected outright.
+
+``` r
+np_stage3_run(source_data = sam_query, bmf_index = bmf[, c("ein", "name")])
+# ... agent follows 03_stage3/PROMPT.md, writing run-<NNNN>.tsv into batches/out/
+np_stage3_run()
+```
+
+**The gate settles what it can for free.** Before anything is looked up,
+[`np_entity_gate()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_entity_gate.md)
+screens the pool: foreign registrants, for-profit legal forms,
+government units and sole proprietors get a determination and high
+confidence with no lookup at all. An escape hatch still researches a
+screened case where there is contrary evidence — a hit in `bmf_index`,
+an unreliable SAM flag, or a 990 filer sharing the registrant’s website.
+
+**A match must resolve to an EIN this reference actually contains.**
+Passing `bmf_index` enforces that on collection: an EIN that is real but
+absent from this vintage is reclassified to `nonprofit_not_in_bmf` with
+the EIN retained, because a match the crosswalk cannot join is not a
+match.
+
+## 8. `04_final` — the rollup
+
+    04_final/
+    ├── README.md
+    ├── crosswalk.csv     *  every matched source id, one row each
+    ├── eval_frame.csv    *  every candidate, annotated with the final answer
+    ├── FINAL-REPORT.md   *  the end-to-end funnel
+    ├── interim/
+    └── logs/
+
+``` r
+np_final_run()
+```
+
+Stage 3 recovers matches the matcher never surfaced, so a final EIN is
+often absent from `stage1_k_candidates`. Those rows are not dropped — a
+synthetic row carries the EIN with its similarity columns empty, and
+`final_ein_in_candset` records which case it is. That flag splits recall
+loss into **blocking failure** (never surfaced; no threshold change
+recovers it) and **scoring failure** (surfaced but under the floor;
+recoverable by recalibration). Collapsing the two would hide the only
+number that says which to work on.
+
+## 9. Knowing where you are
+
+``` r
+s <- np_project_status(run, write = TRUE, quiet = TRUE)
+attr(s, "stages")[, c("stage", "title", "status", "present", "expected")]
+```
+
+| stage     | title                                   | status  | present | expected |
+|:----------|:----------------------------------------|:--------|--------:|---------:|
+| 00_bmf    | Reference (BMF) pointer                 | not run |       0 |        2 |
+| 00_sams   | Source (SAM) extract + nonprofit filter | not run |       0 |        1 |
+| 01_stage1 | Stage 1 - probabilistic cascade         | not run |       0 |        4 |
+| 02_stage2 | Stage 2 - LLM adjudication of MAYBE     | not run |       0 |        2 |
+| 03_stage3 | Stage 3 - LLM research of NO            | not run |       0 |        3 |
+| 04_final  | Final rollup                            | not run |       0 |        2 |
+
+[`np_project_status()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_project_status.md)
+is a **scanner, not a ledger**. It reads the directory every time it is
+called, so it cannot drift out of sync with reality the way a stored
+state file would: delete an output and the stage reports as incomplete
+on the next call. `RUN-STATUS.md` at the project root is the written
+form of the same scan, regenerated on every call.
+
+A stage is `complete` when every expected output is present, `partial`
+when some are, and `not run` when none are.
+
+``` r
+head(s[, c("stage", "file", "exists")], 8)
+```
+
+| stage     | file                    | exists |
+|:----------|:------------------------|:-------|
+| 00_bmf    | SOURCE.md               | FALSE  |
+| 00_bmf    | SIGNATURE.txt           | FALSE  |
+| 00_sams   | sam_query.csv           | FALSE  |
+| 01_stage1 | stage1_yes.csv          | FALSE  |
+| 01_stage1 | stage1_maybe.csv        | FALSE  |
+| 01_stage1 | stage1_no.csv           | FALSE  |
+| 01_stage1 | stage1_k_candidates.csv | FALSE  |
+| 02_stage2 | stage2_yes.csv          | FALSE  |
+
+## 10. Rules of the road
+
+These are the conventions the layout assumes. `AGENTS.md` in every
+scaffolded project repeats them for an agent driving the run.
+
+- **Never edit a stage’s outputs by hand.** Re-run the stage function. A
+  hand-patched CSV cannot be reproduced, and it silently invalidates
+  every count downstream of it.
+- **Never delete `interim/`** until `04_final` is complete.
+- Everything under `batches/` is derived — safe to delete and rebuild.
+- Write logs to the stage’s `logs/`, not to the console only.
+- Record every input and output in `manifest.csv` via
+  [`np_manifest_add()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_manifest.md).
+- **Stop rather than improvise** when: the signature does not match the
+  cached reference; a stage’s outputs exist but its row counts do not
+  reconcile with the previous stage (`stage2_yes` + `stage2_no` should
+  equal `stage1_maybe`); or a queued batch returns no output file.
+
+## 11. The whole run
+
+``` r
+library(npmatch)
+
+# once per machine
+np_data_init()
+
+# once per run
+np_project_init("runs/2026MAY", run_id = "2026MAY",
+                bmf = np_data_path("normalized", "bmf-unified-2026-01.rds"))
+
+np_prepare_sam("runs/2026MAY/00_sams/raw/SAM_PUBLIC_MONTHLY.dat",
+               out = np_project_path("00_sams", "sam_query.csv"))
+
+np_stage1_run(reference = bmf)
+np_project_status()
+
+np_stage2_run(); np_stage2_run()    # agent works between the two calls
+np_stage3_run(); np_stage3_run()
+
+np_final_run()
+np_project_status()
+```
+
+## 12. The next vintage
+
+A new source extract does not mean a new run from scratch.
+[`np_diff_unmatched()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_diff_unmatched.md)
+takes a fresh extract and an existing crosswalk and returns the ids that
+are genuinely new or still unmatched — the only ones worth paying to
+match again.
+
+``` r
+fresh <- np_prepare_sam("path/to/SAM_PUBLIC_MONTHLY_2026_AUG.dat")
+todo  <- np_diff_unmatched(fresh, crosswalk = "runs/2026MAY/04_final/crosswalk.csv")
+
+np_project_init("runs/2026AUG", run_id = "2026AUG")
+data.table::fwrite(todo, np_project_path("00_sams", "sam_query.csv"))
+```
+
+Each vintage gets its own project directory, and runs are never edited
+in place. That is what makes it possible to say which reference vintage
+produced any given row of any given crosswalk.
+
+## See also
+
+- [A Reviewer’s
+  Guide](https://nonprofit-open-data-collective.github.io/npmatch/articles/reviewer-guide.md)
+  — what the matcher decides, and where a human comes in.
+- [The Training & Evaluation
+  Dataset](https://nonprofit-open-data-collective.github.io/npmatch/articles/training-dataset.md)
+  — the hand-labeled benchmark.
+- [Building a
+  Classifier](https://nonprofit-open-data-collective.github.io/npmatch/articles/building-a-classifier.md)
+  — training and calibrating stage-1 scoring.
+- [The Candidate Evaluation
+  Frame](https://nonprofit-open-data-collective.github.io/npmatch/articles/candidate-evaluation-frame.md)
+  — the candidate-level frame `04_final` produces.

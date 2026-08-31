@@ -55,6 +55,12 @@ Before anything can be compared, "The Smith Family Foundation, Inc." and
 compares). Legal suffixes (Inc, Foundation), a leading "The", and punctuation
 are dropped; abbreviations are standardized (St → Saint, & → and, Ctr → Center).
 
+Punctuation *inside* a word is deleted rather than turned into a space, which is
+why "Y.W.C.A." collapses to the single token `YWCA` and "Mary's" to `MARYS`. This
+matches how the IRS file itself stores names — it holds `ST LUKES`, not
+`ST LUKE S` — so a possessive or an initialism can still clear an exact-name
+match. A period that already separates words ("St. Mary's") keeps its break.
+
 ```{r norm-names}
 nm <- c("The Smith Family Foundation, Inc.", "St. Mary's Hosp. & Health Ctr",
         "Boys & Girls Club of N.E. Texas", "Y.W.C.A. of Helena", "StepForward")
@@ -220,12 +226,17 @@ the tiers as the diagram shows, the review stage recovering most of what lands i
 MAYBE:
 
 ```{r population}
-data.frame(
-  `Ground-truth category` = c("Linkable nonprofit — a findable IRS record exists",
-     "Nonprofit, but not in the active IRS file",
-     "Not a nonprofit (government / for-profit / person)", "Undetermined"),
-  Count = c(1161, 158, 139, 44),
-  Share = c("77%", "11%", "9%", "3%"), check.names = FALSE)
+# counted from the shipped benchmark rather than transcribed, so this table
+# cannot drift out of step with the labels
+lbl <- c(in_bmf_match         = "Linkable nonprofit — a findable IRS record exists",
+         nonprofit_not_in_bmf = "Nonprofit, but not in the active IRS file",
+         not_a_nonprofit      = "Not a nonprofit (government / for-profit / person)",
+         no_match_or_na       = "No match, not otherwise classifiable",
+         cant_determine       = "Undetermined")
+n   <- table(factor(npmatch_groundtruth$gt_outcome_class, names(lbl)))
+
+data.frame(`Ground-truth category` = unname(lbl), Count = as.integer(n),
+  Share = sprintf("%.0f%%", 100 * as.integer(n) / sum(n)), check.names = FALSE)
 ```
 
 ```{mermaid}
@@ -281,10 +292,16 @@ data.frame(
 data.frame(
   `Recall denominator` = c("Achievable — matcher performance", "Population yield — practical"),
   Value = c("96.5%", "~85%"),
-  `Out of` = c("nonprofits with a findable IRS record (1,161)",
-               "all nonprofits, incl. those absent from the file (1,319)"),
+  `Out of` = c(
+    sprintf("nonprofits with a findable IRS record (%s)",
+            format(sum(npmatch_groundtruth$gt_outcome_class == "in_bmf_match"),
+                   big.mark = ",")),
+    sprintf("all nonprofits, incl. those absent from the file (%s)",
+            format(sum(npmatch_groundtruth$gt_outcome_class %in%
+                         c("in_bmf_match", "nonprofit_not_in_bmf")),
+                   big.mark = ","))),
   Note = c("measures the algorithm itself",
-           "~1 in 8 nonprofits has no active IRS record; the inactive-file option recovers ~6%"),
+           "~1 in 11 nonprofits has no active IRS record; the inactive-file option recovers ~6%"),
   check.names = FALSE)
 ```
 
@@ -293,7 +310,7 @@ data.frame(
 > confirmed in review), and when it assigns an EIN it is right **~99%** of the
 > time. It correctly declines to link **99%** of the organizations that are not
 > nonprofits or are absent from the file. The main ceiling on total recovery is
-> IRS coverage itself — about **1 in 8** nonprofits has no active record — which
+> IRS coverage itself — about **1 in 11** nonprofits has no active record — which
 > the inactive-file option partially recovers.
 
 Operationally, every source org lands in one of three tiers. Here is what each

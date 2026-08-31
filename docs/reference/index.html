@@ -15,10 +15,12 @@
     </button>
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
-      <ul class="navbar-nav me-auto"><li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
+      <ul class="navbar-nav me-auto"><li class="nav-item"><a class="nav-link" href="../articles/workflow.html">Workflow</a></li>
+<li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
-  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/reviewer-guide.html">npmatch: A Reviewer's Guide</a></li>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/workflow.html">npmatch: Workflow &amp; Project Structure</a></li>
+    <li><a class="dropdown-item" href="../articles/reviewer-guide.html">npmatch: A Reviewer's Guide</a></li>
     <li><a class="dropdown-item" href="../articles/training-dataset.html">npmatch: The Training &amp; Evaluation Dataset</a></li>
     <li><a class="dropdown-item" href="../articles/building-a-classifier.html">npmatch: Building a Stage-1 Match Classifier</a></li>
     <li><a class="dropdown-item" href="../articles/candidate-evaluation-frame.html">The Candidate Evaluation Frame — Fields &amp; Methods</a></li>
@@ -38,12 +40,111 @@
     </div>
 
     <div class="section level2">
+      <h2 id="run-projects-stage-drivers">Run projects &amp; stage drivers<a class="anchor" aria-label="anchor" href="#run-projects-stage-drivers"></a></h2>
+
+      <div class="section-desc"><p>Scaffold a run directory, address files inside it, drive each stage, and report on progress. See the Workflow article for the layout these produce.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="np_project_init.html">np_project_init()</a></code>
+
+        </dt>
+        <dd>Create a run project directory</dd>
+
+        <dt>
+
+          <code><a href="np_project_use.html">np_project_use()</a></code>
+
+        </dt>
+        <dd>Point the session at an existing project</dd>
+
+        <dt>
+
+          <code><a href="np_project_root.html">np_project_root()</a></code>
+
+        </dt>
+        <dd>Locate the active npmatch project</dd>
+
+        <dt>
+
+          <code><a href="np_project_path.html">np_project_path()</a></code>
+
+        </dt>
+        <dd>Build a path inside the active project</dd>
+
+        <dt>
+
+          <code><a href="np_project_status.html">np_project_status()</a></code>
+
+        </dt>
+        <dd>Report the status of a run project</dd>
+
+        <dt>
+
+          <code><a href="np_stage_schema.html">np_stage_schema()</a></code>
+
+        </dt>
+        <dd>The shared outcome schema</dd>
+
+        <dt>
+
+          <code><a href="np_stage1_run.html">np_stage1_run()</a></code>
+
+        </dt>
+        <dd>Run stage 1 - the probabilistic cascade</dd>
+
+        <dt>
+
+          <code><a href="np_stage2_run.html">np_stage2_run()</a></code>
+
+        </dt>
+        <dd>Run stage 2 - LLM adjudication of the MAYBE queue</dd>
+
+        <dt>
+
+          <code><a href="np_stage3_run.html">np_stage3_run()</a></code>
+
+        </dt>
+        <dd>Run stage 3 - LLM research of the NO cases</dd>
+
+        <dt>
+
+          <code><a href="np_final_run.html">np_final_run()</a></code>
+
+        </dt>
+        <dd>Roll the stages up into the final deliverables</dd>
+
+        <dt>
+
+          <code><a href="np_gate_rules.html">np_gate_rules()</a></code>
+
+        </dt>
+        <dd>Entity-gate rules</dd>
+
+        <dt>
+
+          <code><a href="np_entity_gate.html">np_entity_gate()</a></code>
+
+        </dt>
+        <dd>Classify source records before research</dd>
+
+        <dt>
+
+          <code><a href="np_merge_decisions.html">np_merge_decisions()</a></code>
+
+        </dt>
+        <dd>Merge adjudication decisions onto a review frame</dd>
+      </dl></div><div class="section level2">
       <h2 id="match-pipeline">Match pipeline<a class="anchor" aria-label="anchor" href="#match-pipeline"></a></h2>
 
       <div class="section-desc"><p>Block, compare, score, veto, select, and tier candidate pairs.</p></div>
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
@@ -54,61 +155,71 @@
 
         </dt>
         <dd>Match with a progressive blocking cascade</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_match.html">np_match()</a></code>
 
         </dt>
         <dd>Run the full linkage pipeline</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_block.html">np_block()</a></code>
 
         </dt>
         <dd>Generate candidate pairs by blocking</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_block_union.html">np_block_union()</a></code>
 
         </dt>
         <dd>Union candidate-pair sets from several blocking passes</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_ref_index.html">np_ref_index()</a></code>
 
         </dt>
         <dd>Precompute the reference-side token index for blocking</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_compare.html">np_compare()</a></code>
 
         </dt>
         <dd>Generate and compare candidate pairs</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_score.html">np_score()</a></code>
 
         </dt>
         <dd>Score candidate pairs</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_veto.html">np_veto()</a></code>
 
         </dt>
         <dd>Apply veto rules to candidate pairs</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_select.html">np_select()</a></code>
 
         </dt>
         <dd>Select best matches per query record</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_tier.html">np_tier()</a></code>
 
         </dt>
         <dd>Sort selected matches into YES / MAYBE / NO tiers</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_route.html">np_route()</a></code>
 
@@ -119,8 +230,7 @@
 
       <div class="section-desc"><p>Run the stage-1 cascade over a large source in evenly sized chunks.</p></div>
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
@@ -131,7 +241,8 @@
 
         </dt>
         <dd>Split a data frame into batches</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_run_batches.html">np_run_batches()</a></code>
 
@@ -142,8 +253,7 @@
 
       <div class="section-desc"><p>Map raw datasets onto canonical fields and normalize names and addresses.</p></div>
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
@@ -154,49 +264,64 @@
 
         </dt>
         <dd>Configuration for a linkage run</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_fields.html">np_fields</a></code>
 
         </dt>
         <dd>npmatch canonical fields</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_query.html">np_query()</a></code>
 
         </dt>
         <dd>Construct a query frame</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_reference.html">np_reference()</a></code>
 
         </dt>
         <dd>Construct a reference frame</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_normalize.html">np_normalize()</a></code>
 
         </dt>
         <dd>Normalize a query or reference frame</dd>
-      </dl><dl><dt>
+
+        <dt>
+
+          <code><a href="np_normalize_signature.html">np_normalize_signature()</a></code>
+
+        </dt>
+        <dd>Fingerprint the normalizer</dd>
+
+        <dt>
 
           <code><a href="np_maps.html">np_map_bmf()</a></code> <code><a href="np_maps.html">np_map_sam()</a></code>
 
         </dt>
         <dd>Built-in schema maps</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_flag_active.html">np_flag_active()</a></code>
 
         </dt>
         <dd>Flag which reference EINs are active</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_geo_profiles.html">np_geo_profiles()</a></code>
 
         </dt>
         <dd>Geographic profiles</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_detect_geo.html">np_detect_geo()</a></code>
 
@@ -207,8 +332,7 @@
 
       <div class="section-desc"><p>Do-not-match rules, token/name statistics, and model benchmarking.</p></div>
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
@@ -219,73 +343,85 @@
 
         </dt>
         <dd>Default veto rule set</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_rule.html">np_rule()</a></code>
 
         </dt>
         <dd>Build a veto rule</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_default_passes.html">np_default_passes()</a></code>
 
         </dt>
         <dd>Default progressive blocking passes</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_stopwords.html">np_stopwords()</a></code>
 
         </dt>
         <dd>Blocking stopwords</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_name_freq.html">np_name_freq()</a></code>
 
         </dt>
         <dd>Name-key frequency table for a reference corpus</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_token_idf.html">np_token_idf()</a></code>
 
         </dt>
         <dd>Per-token inverse document frequency for a reference corpus</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_default_weights.html">np_default_weights()</a></code>
 
         </dt>
         <dd>Default per-profile field weights</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_default_geo_weights.html">np_default_geo_weights()</a></code>
 
         </dt>
         <dd>Default location-granularity credits</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_train.html">np_train()</a></code>
 
         </dt>
         <dd>Train a supervised match combiner</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_benchmark.html">np_benchmark()</a></code>
 
         </dt>
         <dd>Benchmark scoring methods by cross-validation</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_auc.html">np_auc()</a></code>
 
         </dt>
         <dd>Area under the ROC curve (Mann-Whitney form)</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_evaluate.html">np_evaluate()</a></code>
 
         </dt>
         <dd>Evaluate scored pairs against known labels</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_tune_thresholds.html">np_tune_thresholds()</a></code>
 
@@ -296,8 +432,7 @@
 
       <div class="section-desc"><p>Build review frames, LLM prompts, and calibration/labeling tools.</p></div>
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
@@ -308,55 +443,64 @@
 
         </dt>
         <dd>Build a labelling frame for training and evaluation</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_calibration_frame.html">np_calibration_frame()</a></code>
 
         </dt>
         <dd>Build a labelling frame for threshold / weight calibration</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_label.html">np_label()</a></code>
 
         </dt>
         <dd>Attach labels to candidate pairs</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_preview_pair.html">np_preview_pair()</a></code>
 
         </dt>
         <dd>Preview the field-by-field comparison for one candidate pair</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_veto_audit.html">np_veto_audit()</a></code>
 
         </dt>
         <dd>Extract vetoed pairs for auditing and training</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_bmf_review_fields.html">np_bmf_review_fields()</a></code>
 
         </dt>
         <dd>Default BMF context fields for the review queue</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_sam_review_fields.html">np_sam_review_fields()</a></code>
 
         </dt>
         <dd>SAM context fields for the review queue</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_as_prompt.html">np_as_prompt()</a></code>
 
         </dt>
         <dd>Render a review case as an LLM adjudication prompt</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_as_prompts.html">np_as_prompts()</a></code>
 
         </dt>
         <dd>Render every review case as a prompt</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_review_report.html">np_review_report()</a></code>
 
@@ -367,8 +511,7 @@
 
       <div class="section-desc"><p>Resolve data assets, fetch/prepare source files, run incremental diffs, and report on a run.</p></div>
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
@@ -379,67 +522,78 @@
 
         </dt>
         <dd>npmatch data asset directories</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_manifest.html">np_manifest()</a></code> <code><a href="np_manifest.html">np_manifest_add()</a></code>
 
         </dt>
         <dd>Record and read the data-asset manifest</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_source_urls.html">np_source_urls()</a></code>
 
         </dt>
         <dd>Known npmatch data sources</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_fetch.html">np_fetch()</a></code>
 
         </dt>
         <dd>Download a data file</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_fetch_bmf.html">np_fetch_bmf()</a></code>
 
         </dt>
         <dd>Fetch the reference BMF (pinned archive)</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_fetch_sam.html">np_fetch_sam()</a></code>
 
         </dt>
         <dd>Fetch a SAM extract (pinned archive or a URL you supply)</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_read_sam.html">np_read_sam()</a></code>
 
         </dt>
         <dd>Read a raw SAM public extract</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_sam_layout.html">np_sam_layout()</a></code>
 
         </dt>
         <dd>SAM public extract column layout</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_flag_nonprofits.html">np_flag_nonprofits()</a></code>
 
         </dt>
         <dd>Filter a SAM extract to nonprofits</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_prepare_sam.html">np_prepare_sam()</a></code>
 
         </dt>
         <dd>Download-and-prepare a SAM extract for matching</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_diff_unmatched.html">np_diff_unmatched()</a></code>
 
         </dt>
         <dd>Retain only source records not already matched (incremental matching)</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_run_report.html">np_run_report()</a></code>
 
@@ -450,8 +604,7 @@
 
       <div class="section-desc"><p>The hand-labeled 1,502-org training/evaluation benchmark.</p></div>
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
@@ -462,7 +615,8 @@
 
         </dt>
         <dd>npmatch evaluation frame (1,502-org benchmark)</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="npmatch_groundtruth.html">npmatch_groundtruth</a></code>
 
@@ -473,8 +627,7 @@
 
 
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
@@ -485,37 +638,43 @@
 
         </dt>
         <dd>Clean and standardize city and state fields</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_city_aliases.html">np_city_aliases()</a></code>
 
         </dt>
         <dd>Common city aliases</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_augment_geo.html">np_augment_geo()</a></code>
 
         </dt>
         <dd>Augment records with ZIP-level geography</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_ruca_urban.html">np_ruca_urban()</a></code>
 
         </dt>
         <dd>Collapse a RUCA code to an urban / rural flag</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_load_hud.html">np_load_hud()</a></code>
 
         </dt>
         <dd>Load a HUD USPS ZIP crosswalk file</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_load_ruca.html">np_load_ruca()</a></code>
 
         </dt>
         <dd>Load a USDA ERS ZIP-code RUCA file</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="np_load_zipcode_db.html">np_load_zipcode_db()</a></code>
 
@@ -531,7 +690,7 @@
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.3.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

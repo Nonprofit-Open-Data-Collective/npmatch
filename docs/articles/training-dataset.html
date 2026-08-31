@@ -33,11 +33,13 @@
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto">
+<li class="nav-item"><a class="nav-link" href="../articles/workflow.html">Workflow</a></li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
-<li><a class="dropdown-item" href="../articles/reviewer-guide.html">npmatch: A Reviewer's Guide</a></li>
+<li><a class="dropdown-item" href="../articles/workflow.html">npmatch: Workflow &amp; Project Structure</a></li>
+    <li><a class="dropdown-item" href="../articles/reviewer-guide.html">npmatch: A Reviewer's Guide</a></li>
     <li><a class="dropdown-item" href="../articles/training-dataset.html">npmatch: The Training &amp; Evaluation Dataset</a></li>
     <li><a class="dropdown-item" href="../articles/building-a-classifier.html">npmatch: Building a Stage-1 Match Classifier</a></li>
     <li><a class="dropdown-item" href="../articles/candidate-evaluation-frame.html">The Candidate Evaluation Frame — Fields &amp; Methods</a></li>
@@ -354,7 +356,7 @@
 <p><code>TRAINING-PAIRS-1502.csv</code> is one row per scored candidate pair with a boolean <code>label</code> (1 = this EIN is the true match) and the comparison features the scorers calibrate on: the continuous field similarities <strong><code>name_sim</code></strong>, <strong><code>street_sim</code></strong>, <strong><code>city_sim</code></strong>, <strong><code>zip_sim</code></strong> (Jaro-Winkler / agreement, 0–1), the binary geographic-agreement flags <strong><code>geo_stnum</code>/<code>geo_zip9</code>/<code>geo_zip5</code>/<code>geo_zip3</code>/ <code>geo_state</code>/<code>geo_pobox</code></strong>, the categorical <strong><code>name_match_type</code></strong>, the name distinctiveness <strong><code>name_freq</code></strong>, and the current blended <strong><code>score</code></strong>. It is exactly the input to the package’s model tools:</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">npmatch</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/Nonprofit-Open-Data-Collective/npmatch" class="external-link">npmatch</a></span><span class="op">)</span></span>
 <span><span class="va">path</span>  <span class="op">&lt;-</span> <span class="fu"><a href="../reference/np_fetch.html">np_fetch</a></span><span class="op">(</span><span class="fu"><a href="../reference/np_source_urls.html">np_source_urls</a></span><span class="op">(</span><span class="op">)</span><span class="op">$</span><span class="va">url</span><span class="op">[</span><span class="fu"><a href="../reference/np_source_urls.html">np_source_urls</a></span><span class="op">(</span><span class="op">)</span><span class="op">$</span><span class="va">key</span> <span class="op">==</span> <span class="st">"training_pairs"</span><span class="op">]</span><span class="op">)</span>   <span class="co"># fetch-only (too large to bundle)</span></span>
 <span><span class="va">pairs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span><span class="va">path</span><span class="op">)</span></span>
 <span></span>
@@ -522,7 +524,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.1.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>
