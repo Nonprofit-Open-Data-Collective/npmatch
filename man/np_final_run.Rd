@@ -33,8 +33,15 @@ produce, and reports the end-to-end funnel.
 an adjudicator or a web search produced. This is the only place the word
 "crosswalk" is used; elsewhere the linked pairs are \code{matches}.
 \item \strong{\code{eval_frame.csv}} — the candidate-level frame: every candidate stage 1
-surfaced, annotated with the final answer for its source id.
+surfaced, annotated with the final answer for its source id. Every source
+id has at least one row; one with no candidates gets a single row with
+\code{candidate_source = "none"}.
 }
+
+\code{final_outcome} is \code{"MATCH"} exactly for the ids in the crosswalk. An
+unmatched id takes \code{final_stage}, \code{final_basis}, \code{final_confidence} and
+\code{final_reason} from the last stage that decided it and has no \code{final_ein}: a
+MAYBE candidate rejected downstream is not an answer.
 }
 \section{Answers found outside the candidate set}{
 

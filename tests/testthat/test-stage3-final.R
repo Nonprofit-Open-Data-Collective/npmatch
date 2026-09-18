@@ -116,6 +116,9 @@ test_that("np_stage3_run screens, queues, then collects", {
   expect_equal(yes$ein, "44-4444444")
   expect_true(all(yes$decided_by == "llm_research"))
   expect_equal(nrow(no), 3L)
+  # a case the screen settled is credited to the screen, not to research
+  expect_equal(no$decided_by[no$uei == "N1"], "entity_screen")
+  expect_true(all(no$decided_by[no$uei != "N1"] == "llm_research"))
   # the taxonomy survives into `reason` rather than being flattened away
   expect_true(all(c("not_a_nonprofit", "nonprofit_not_in_bmf", "cant_determine")
                   %in% no$reason))
@@ -236,6 +239,82 @@ test_that("the earliest stage wins when one id is matched twice", {
   expect_equal(xw$decided_by, "algorithm")
   expect_true(any(grepl("more than one stage",
                         readLines(np_project_path("04_final", "FINAL-REPORT.md")))))
+})
+
+test_that("a MAYBE rejected in stage 2 is not a match", {
+  p <- tmp_p(); on.exit({ unlink(p, recursive = TRUE); options(npmatch.project = NULL) })
+  put("01_stage1", "stage1_yes.csv", uei = "A", outcome = "YES", ein = "11-1111111")
+  # M carries its candidate EIN into stage1_maybe, is rejected in stage 2 and
+  # is not found in stage 3; Q is rejected in stage 2 with no stage 3 run on it
+  put("01_stage1", "stage1_maybe.csv", uei = c("M", "Q"), outcome = "MAYBE",
+      ein = c("55-5555555", "66-6666666"), reason = "grey_zone")
+  put("01_stage1", "stage1_no.csv", uei = "N", outcome = "NO")
+  put("02_stage2", "stage2_no.csv", uei = c("M", "Q"), outcome = "NO",
+      decided_by = "llm_review", stage = "2", reason = "different_org")
+  put("03_stage3", "stage3_no.csv", uei = c("M", "N"), outcome = "NO",
+      decided_by = c("llm_research", "entity_screen"), stage = "3",
+      confidence = c("high", "medium"),
+      reason = c("nonprofit_not_in_bmf", "not_a_nonprofit"))
+  data.table::fwrite(data.frame(
+    uei = c("A", "M", "Q"), ein = c("11-1111111", "55-5555555", "66-6666666"),
+    total_score = c("0.9", "0.6", "0.6"), stringsAsFactors = FALSE),
+    np_project_path("01_stage1", "stage1_k_candidates.csv"))
+
+  xw <- np_final_run(verbose = FALSE)
+  expect_equal(xw$uei, "A")
+
+  ev <- utils::read.csv(np_project_path("04_final", "eval_frame.csv"),
+                        colClasses = "character")
+  f <- ev[!duplicated(ev$uei), ]
+  f <- f[match(c("A", "M", "N", "Q"), f$uei), ]
+  expect_equal(f$final_outcome, c("MATCH", "NO_MATCH", "NO_MATCH", "NO_MATCH"))
+  expect_equal(f$final_ein, c("11-1111111", "", "", ""))
+  # unmatched ids report the last stage that decided them, not the earliest
+  expect_equal(f$final_stage, c("1", "3", "3", "2"))
+  expect_equal(f$final_basis,
+               c("algorithm", "llm_research", "entity_screen", "llm_review"))
+  expect_equal(f$final_reason[-1],
+               c("nonprofit_not_in_bmf", "not_a_nonprofit", "different_org"))
+  expect_equal(f$final_confidence[2:3], c("high", "medium"))
+  # the rejected candidate is still in the frame, but not as the answer
+  expect_equal(ev$is_final_ein[ev$uei == "M"], "0")
+  expect_false(any(ev$candidate_source[ev$uei == "M"] == "stage3_research"))
+})
+
+test_that("every source id appears in the eval frame", {
+  p <- tmp_p(); on.exit({ unlink(p, recursive = TRUE); options(npmatch.project = NULL) })
+  put("01_stage1", "stage1_yes.csv", uei = "A", outcome = "YES", ein = "11-1111111")
+  put("01_stage1", "stage1_no.csv", uei = c("Z", "C"), outcome = "NO")
+  put("03_stage3", "stage3_yes.csv", uei = "C", outcome = "YES", ein = "33-3333333",
+      decided_by = "llm_research", stage = "3")
+  put("03_stage3", "stage3_no.csv", uei = "Z", outcome = "NO",
+      decided_by = "entity_screen", stage = "3", reason = "not_a_nonprofit")
+  # Z and C had no candidates at all
+  data.table::fwrite(data.frame(uei = "A", ein = "11-1111111", total_score = "0.9",
+                                stringsAsFactors = FALSE),
+                     np_project_path("01_stage1", "stage1_k_candidates.csv"))
+
+  np_final_run(verbose = FALSE)
+  ev <- utils::read.csv(np_project_path("04_final", "eval_frame.csv"),
+                        colClasses = "character")
+  expect_setequal(unique(ev$uei), c("A", "C", "Z"))
+  z <- ev[ev$uei == "Z", ]
+  expect_equal(nrow(z), 1L)
+  expect_equal(z$candidate_source, "none")
+  expect_equal(z$final_outcome, "NO_MATCH")
+  expect_equal(z$is_final_ein, "0")
+  # a matched id with no candidates is a blocking miss, not a "none" row
+  expect_equal(ev$candidate_source[ev$uei == "C"], "stage3_research")
+  st <- utils::read.csv(np_project_path("04_final", "FINAL-STATS.csv"),
+                        colClasses = "character")
+  expect_equal(st$value[st$metric == "source_ids_without_candidates"], "1")
+
+  # with no candidate file at all, every id still gets a row
+  unlink(np_project_path("01_stage1", "stage1_k_candidates.csv"))
+  np_final_run(verbose = FALSE)
+  ev <- utils::read.csv(np_project_path("04_final", "eval_frame.csv"),
+                        colClasses = "character")
+  expect_setequal(ev$uei, c("A", "C", "Z"))
 })
 
 test_that("the runners refuse to guess", {

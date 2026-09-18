@@ -396,7 +396,8 @@ np_stage3_run <- function(project = np_project_root(),
     outcome = ifelse(ok, "YES", "NO"),
     ein = ifelse(ok, a$ein_found, ""),
     name_source = a$sam_name, name_reference = "", score = "",
-    decided_by = "llm_research", confidence = a$confidence,
+    decided_by = ifelse(a$web, "llm_research", "entity_screen"),
+    confidence = a$confidence,
     reason = ifelse(nzchar(a$determination), a$determination, "unresolved"),
     stringsAsFactors = FALSE)
   .np_write_outcomes(frame, "03_stage3", "stage3", project)
