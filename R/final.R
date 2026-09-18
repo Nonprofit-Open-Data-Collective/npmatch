@@ -32,7 +32,14 @@
 #'   an adjudicator or a web search produced. This is the only place the word
 #'   "crosswalk" is used; elsewhere the linked pairs are `matches`.
 #' * **`eval_frame.csv`** — the candidate-level frame: every candidate stage 1
-#'   surfaced, annotated with the final answer for its source id.
+#'   surfaced, annotated with the final answer for its source id. Every source
+#'   id has at least one row; one with no candidates gets a single row with
+#'   `candidate_source = "none"`.
+#'
+#' `final_outcome` is `"MATCH"` exactly for the ids in the crosswalk. An
+#' unmatched id takes `final_stage`, `final_basis`, `final_confidence` and
+#' `final_reason` from the last stage that decided it and has no `final_ein`: a
+#' MAYBE candidate rejected downstream is not an answer.
 #'
 #' @section Answers found outside the candidate set:
 #' Stage 3 recovers matches the matcher never surfaced, so the final EIN for a
@@ -82,14 +89,22 @@ np_final_run <- function(project = np_project_root(),
   data.table::fwrite(xw, np_project_path("04_final", "crosswalk.csv", project = project))
 
   # --- one row per source id: the final answer, matched or not ---------------
-  rest  <- all_out[!(all_out$uei %in% xw$uei), , drop = FALSE]
-  rest  <- rest[!duplicated(rest$uei), , drop = FALSE]
-  final <- rbind(xw, rest)
+  # Matched is crosswalk membership, nothing else: a stage-1 MAYBE carries its
+  # candidate EIN, so a non-empty `ein` does not mean the id was matched. An
+  # unmatched id takes its final fields from the last stage that decided it
+  # (stage 3 when it ran), and has no final EIN.
+  rest <- all_out[!(all_out$uei %in% xw$uei), , drop = FALSE]
+  st   <- suppressWarnings(as.integer(rest$stage)); st[is.na(st)] <- 0L
+  rest <- rest[order(-st, -seq_len(nrow(rest))), , drop = FALSE]
+  rest <- rest[!duplicated(rest$uei), , drop = FALSE]
+  rest$ein <- rep("", nrow(rest))
+  final   <- rbind(xw, rest)
+  matched <- final$uei %in% xw$uei
   fin <- data.frame(
     uei              = final$uei,
     final_ein        = final$ein,
-    final_outcome    = ifelse(nzchar(final$ein), "MATCH", "NO_MATCH"),
-    final_basis      = ifelse(nzchar(final$ein), final$decided_by, ""),
+    final_outcome    = ifelse(matched, "MATCH", "NO_MATCH"),
+    final_basis      = final$decided_by,
     final_stage      = final$stage,
     final_confidence = final$confidence,
     final_reason     = final$reason,
@@ -113,27 +128,39 @@ np_final_run <- function(project = np_project_root(),
     ev$final_ein_in_candset <- stats::ave(ev$is_final_ein, ev$uei,
                                           FUN = function(v) as.integer(any(v == 1L)))
   } else {
-    ev <- cbind(fin[0, , drop = FALSE],
+    ev <- cbind(data.frame(uei = character(), ein = character(),
+                           stringsAsFactors = FALSE),
+                fin[0, -1, drop = FALSE],
                 data.frame(candidate_source = character(), is_final_ein = integer(),
                            final_ein_in_candset = integer(), stringsAsFactors = FALSE))
+  }
+
+  # A row for a source id the candidate file cannot show: similarity columns
+  # empty, the final answer filled in.
+  synth <- function(ids, source, ein) {
+    syn <- fin[match(ids, fin$uei), , drop = FALSE]
+    add <- ev[rep(NA_integer_, length(ids)), , drop = FALSE]
+    add[] <- lapply(add, function(x) rep(NA, length(ids)))
+    add$uei <- syn$uei
+    if ("ein" %in% names(add)) add$ein <- ein
+    for (cl in names(fin)[-1]) add[[cl]] <- syn[[cl]]
+    add$candidate_source     <- source
+    add$is_final_ein         <- as.integer(nzchar(ein))
+    add$final_ein_in_candset <- 0L
+    add
   }
 
   # matched ids whose answer the cascade never surfaced get a synthetic row --
   # dropping them would hide exactly the cases the frame exists to measure
   surfaced <- if (nrow(ev)) unique(ev$uei[ev$final_ein_in_candset == 1L]) else character(0)
   missed   <- setdiff(fin$uei[nzchar(fin$final_ein)], surfaced)
-  if (length(missed) && nrow(ev)) {
-    syn <- fin[match(missed, fin$uei), , drop = FALSE]
-    add <- ev[rep(NA_integer_, length(missed)), , drop = FALSE]
-    add[] <- lapply(add, function(x) rep(NA, length(missed)))
-    add$uei <- syn$uei
-    if ("ein" %in% names(add)) add$ein <- syn$final_ein
-    for (cl in names(fin)[-1]) add[[cl]] <- syn[[cl]]
-    add$candidate_source     <- "stage3_research"
-    add$is_final_ein         <- 1L
-    add$final_ein_in_candset <- 0L
-    ev <- rbind(ev, add)
-  }
+  if (length(missed))
+    ev <- rbind(ev, synth(missed, "stage3_research",
+                          fin$final_ein[match(missed, fin$uei)]))
+  # ids with no candidates at all still get a row, so the frame covers every id
+  none <- setdiff(fin$uei, ev$uei)
+  if (length(none))
+    ev <- rbind(ev, synth(none, "none", rep("", length(none))))
   rownames(ev) <- NULL
   data.table::fwrite(ev, np_project_path("04_final", "eval_frame.csv", project = project))
 
@@ -143,9 +170,11 @@ np_final_run <- function(project = np_project_root(),
   data.table::fwrite(
     data.frame(metric = c("source_ids", "matched", "unmatched",
                           paste0("matched_stage_", precedence),
-                          "candidate_rows", "answers_outside_candidate_set"),
+                          "candidate_rows", "answers_outside_candidate_set",
+                          "source_ids_without_candidates"),
                value = c(n_all, nrow(xw), n_all - nrow(xw), as.integer(by_stage),
-                         nrow(ev), length(missed)), stringsAsFactors = FALSE),
+                         nrow(ev), length(missed), length(none)),
+               stringsAsFactors = FALSE),
     np_project_path("04_final", "FINAL-STATS.csv", project = project))
 
   pc <- function(a) if (n_all) sprintf("%.1f%%", 100 * a / n_all) else "n/a"
@@ -162,6 +191,7 @@ np_final_run <- function(project = np_project_root(),
             format(as.integer(by_stage), big.mark = ","), pc(as.integer(by_stage))),
     "", "## Candidate coverage", "",
     sprintf("- candidate rows: %s", format(nrow(ev), big.mark = ",")),
+    sprintf("- source ids with no candidates: %s", format(length(none), big.mark = ",")),
     sprintf("- answers the cascade never surfaced: %s%s",
             format(length(missed), big.mark = ","),
             if (nrow(xw)) sprintf(" (%.1f%% of matches)",
