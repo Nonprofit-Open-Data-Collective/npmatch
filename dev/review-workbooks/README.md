@@ -21,6 +21,7 @@ Needs `data.table`, `openxlsx`, `openssl`, `readxl`.
 | | |
 |---|---|
 | `theme-eval-frame.R` | The build. |
+| `stage3-secondary-review.R` | Builds `review/STAGE-03-SECONDARY-REVIEW.xlsx` from the state workbooks — see below. |
 | `build-size-uss.R` | Aggregates federal award totals per UEI → `size_uss.rds`. Run before the build if that file is missing or stale. |
 | `dictionary.R` | Definitions for all 118 fields, plus the section map. |
 | `column-order.txt` | The 115 reviewer-facing columns, in order. |
@@ -126,6 +127,28 @@ stage-agnostic answer — exactly one row per matched UEI, none per unmatched on
   empty on every stage-1 and stage-2 one. Stage 2 leaves its verdict in
   `final_confidence` and `match_reason` instead. A blank `llm_determination`
   means the case never needed research, not that it went unreviewed.
+
+## Stage-3 secondary review
+
+```
+Rscript stage3-secondary-review.R           # reuses cached steps
+Rscript stage3-secondary-review.R --fresh   # redo load / scan / recompute (~25 min)
+```
+
+Rows with a blank `is_best_candidate` are the synthetic rows the rollup adds
+(`candidate_source` = `stage3_research` or `none`), which carry NA for every
+candidate-level column. This build collects every such UEI with all its rows
+and fills the blanks — never overwriting a value — from, in order: stage 1's
+scored pairs (`<run>/01_stage1/interim/pairs-*.rds`) when stage 1 scored the
+pair; `np_compare()` against `NORM-BMF-UNIFIED-v2.rds` (the cache stage 1 used)
+when it did not; and `<run>/00_sams/sam_query.csv` for the SAM side. Filled
+cells are blue italic and listed in `filled_columns`.
+
+`stage1_pair_status` says why stage 1 missed each stage-3 EIN (blocking,
+scoring or veto), and `fully_vetoed` flags UEIs where stage 1 scored pairs but
+the hard veto removed every one. Intermediate steps are cached under
+`<run>/review/_secondary-review-work/`. Needs `pkgload` and `readxl` on top of
+the main build's packages.
 
 ## Known issue in the source data
 
