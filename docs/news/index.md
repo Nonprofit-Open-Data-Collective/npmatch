@@ -1,5 +1,34 @@
 # Changelog
 
+## npmatch (development version)
+
+### Name normalization
+
+- 16 more abbreviations expand, taken from networked990’s 990 name
+  resolver and checked against the BMF: FDN / FND / FNDTN / FDTN
+  (FOUNDATION), HOSP, MED, HLTH, HLTHCARE, MGMT, REG / RGNL (REGIONAL),
+  CNTR, SYS / SYST and SRVCS / SRVS. PHYS is deliberately left alone (in
+  the BMF it is mostly physical education). Because this changes
+  `name_key`, it can change which EINs stage 1 matches, and
+  [`np_normalize_signature()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_normalize_signature.md)
+  changes with it.
+- [`np_normalize()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_normalize.md)
+  adds `name_core`, an exact-lookup key that drops connector words and
+  legal forms anywhere in the name but keeps FOUNDATION, TRUST and FUND,
+  so a charity and its foundation get different keys.
+  [`np_name_core()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_name_core.md)
+  computes it for raw strings.
+- [`np_normalize()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_normalize.md)
+  adds `name_placeholder`, `TRUE` for names that are not names (“SEE
+  SCHEDULE O”, “N/A”, no letters).
+  [`np_block()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_block.md)
+  gives such query rows no candidates.
+  [`np_name_placeholder()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_name_core.md)
+  checks raw strings.
+- [`np_name_rules()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_name_rules.md)
+  returns the normalization tables, for porting the rules to another
+  engine such as a DuckDB SQL macro.
+
 ## npmatch 0.1.0 (v0)
 
 First tagged release (git tag `v0.1.0`). It pins the code that produced

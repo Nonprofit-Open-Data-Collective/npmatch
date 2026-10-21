@@ -66,20 +66,23 @@ distinguishable from a change to the normalizer itself.
 ``` r
 sig <- np_normalize_signature()
 sig
-#> [1] "v1-421e1e2a6afb024e"
+#> [1] "v1-b42811fe6601afe6"
 
 # which components make it up
 names(np_normalize_signature(detail = TRUE)$components)
 #>  [1] ".np_abbrev"             ".np_basic_clean"        ".np_canon_form"        
-#>  [4] ".np_directions"         ".np_doc_freq"           ".np_extract_direction" 
-#>  [7] ".np_extract_form"       ".np_extract_generation" ".np_extract_numbers"   
-#> [10] ".np_extract_ordinals"   ".np_extract_unit"       ".np_gen_rank"          
-#> [13] ".np_generation"         ".np_is_pobox"           ".np_legal_suffixes"    
-#> [16] ".np_ordinals"           ".np_parse_street"       ".np_parse_zip"         
-#> [19] ".np_pobox_pat"          ".np_replace_tokens"     ".np_state_abbr"        
-#> [22] ".np_state_codes"        ".np_street_key"         ".np_street_type_set"   
-#> [25] ".np_street_types"       ".np_strip_joiners"      ".np_strip_lead_the"    
-#> [28] ".np_strip_suffix"       ".np_to_state_abb"       ".np_tokenize"          
-#> [31] ".np_tokens"             ".np_unit_pat"           "np_name_freq"          
-#> [34] "np_normalize"           "np_stopwords"           "np_token_idf"          
+#>  [4] ".np_clean_name"         ".np_core_stop"          ".np_directions"        
+#>  [7] ".np_doc_freq"           ".np_extract_direction"  ".np_extract_form"      
+#> [10] ".np_extract_generation" ".np_extract_numbers"    ".np_extract_ordinals"  
+#> [13] ".np_extract_unit"       ".np_gen_rank"           ".np_generation"        
+#> [16] ".np_is_placeholder"     ".np_is_pobox"           ".np_legal_suffixes"    
+#> [19] ".np_name_core"          ".np_ordinals"           ".np_parse_street"      
+#> [22] ".np_parse_zip"          ".np_placeholder_re"     ".np_placeholder_tok"   
+#> [25] ".np_pobox_pat"          ".np_replace_tokens"     ".np_state_abbr"        
+#> [28] ".np_state_codes"        ".np_street_key"         ".np_street_type_set"   
+#> [31] ".np_street_types"       ".np_strip_joiners"      ".np_strip_lead_the"    
+#> [34] ".np_strip_suffix"       ".np_to_state_abb"       ".np_tokenize"          
+#> [37] ".np_tokens"             ".np_unit_pat"           "np_name_core"          
+#> [40] "np_name_freq"           "np_name_placeholder"    "np_normalize"          
+#> [43] "np_stopwords"           "np_token_idf"          
 ```

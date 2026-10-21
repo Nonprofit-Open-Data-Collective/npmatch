@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">npmatch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -41,6 +41,19 @@
       <small>Source: <a href="https://github.com/Nonprofit-Open-Data-Collective/npmatch/blob/HEAD/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="development version" id="npmatch-development-version">npmatch (development version)<a class="anchor" aria-label="anchor" href="#npmatch-development-version"></a></h2>
+<div class="section level3">
+<h3 id="name-normalization-development-version">Name normalization<a class="anchor" aria-label="anchor" href="#name-normalization-development-version"></a></h3>
+<ul><li>16 more abbreviations expand, taken from networked990’s 990 name resolver and checked against the BMF: FDN / FND / FNDTN / FDTN (FOUNDATION), HOSP, MED, HLTH, HLTHCARE, MGMT, REG / RGNL (REGIONAL), CNTR, SYS / SYST and SRVCS / SRVS. PHYS is deliberately left alone (in the BMF it is mostly physical education). Because this changes <code>name_key</code>, it can change which EINs stage 1 matches, and <code><a href="../reference/np_normalize_signature.html">np_normalize_signature()</a></code> changes with it.</li>
+<li>
+<code><a href="../reference/np_normalize.html">np_normalize()</a></code> adds <code>name_core</code>, an exact-lookup key that drops connector words and legal forms anywhere in the name but keeps FOUNDATION, TRUST and FUND, so a charity and its foundation get different keys. <code><a href="../reference/np_name_core.html">np_name_core()</a></code> computes it for raw strings.</li>
+<li>
+<code><a href="../reference/np_normalize.html">np_normalize()</a></code> adds <code>name_placeholder</code>, <code>TRUE</code> for names that are not names (“SEE SCHEDULE O”, “N/A”, no letters). <code><a href="../reference/np_block.html">np_block()</a></code> gives such query rows no candidates. <code><a href="../reference/np_name_core.html">np_name_placeholder()</a></code> checks raw strings.</li>
+<li>
+<code><a href="../reference/np_name_rules.html">np_name_rules()</a></code> returns the normalization tables, for porting the rules to another engine such as a DuckDB SQL macro.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.1.0" id="npmatch-010-v0">npmatch 0.1.0 (v0)<a class="anchor" aria-label="anchor" href="#npmatch-010-v0"></a></h2>
 <p>First tagged release (git tag <code>v0.1.0</code>). It pins the code that produced the combined 2025NOV + 2026MAY SAM-to-BMF crosswalk, so that crosswalk can be reproduced and cited against a fixed version of the package.</p>

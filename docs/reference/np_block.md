@@ -121,3 +121,7 @@ Both frames must be normalized
 ([`np_normalize()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_normalize.md)).
 Combine passes by `rbind`-ing results and de-duplicating (see
 [`np_block_union()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_block_union.md)).
+
+Query rows whose `name_placeholder` is `TRUE` ("SEE SCHEDULE O", "N/A")
+get no candidates. Reference rows are not filtered. Frames normalized
+before that column existed are blocked as before.

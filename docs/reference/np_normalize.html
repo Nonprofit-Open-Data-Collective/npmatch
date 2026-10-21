@@ -11,7 +11,7 @@ layer needs. Adds columns alongside the canonical ones:"></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">npmatch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -76,6 +76,11 @@ layer needs. Adds columns alongside the canonical ones:</p>
 <ul><li><p><code>name_key</code>     cleaned, abbreviation-standardized, legal-suffix-stripped</p></li>
 <li><p><code>dba_key</code>      the DBA name under the same normalization (for cross-matching)</p></li>
 <li><p><code>name_full</code>    cleaned name <em>with</em> suffix retained</p></li>
+<li><p><code>name_core</code>    exact-lookup key: <code>name_full</code> without connector words and
+legal forms anywhere (THE, OF, AND, INC, LLC ...), keeping FOUNDATION,
+TRUST, FUND (see <code><a href="np_name_core.html">np_name_core()</a></code>)</p></li>
+<li><p><code>name_placeholder</code> <code>TRUE</code> for names that are not names ("SEE SCHEDULE O",
+"N/A", no letters); <code><a href="np_block.html">np_block()</a></code> gives such query rows no candidates</p></li>
 <li><p><code>name_form</code>    detected legal form (INC / LLC / CORP / ...), or <code>NA</code></p></li>
 <li><p><code>name_gen</code>, <code>name_gen_rank</code> <strong>vestigial</strong> — a person-name generation marker
 (<code>JR</code> / <code>SR</code>, ranked <code>SR</code> = 1, <code>JR</code> = 2) inherited from npmatch's

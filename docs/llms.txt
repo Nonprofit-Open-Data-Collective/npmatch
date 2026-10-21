@@ -444,6 +444,11 @@ addresses.
   : Normalize a query or reference frame
 - [`np_normalize_signature()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_normalize_signature.md)
   : Fingerprint the normalizer
+- [`np_name_core()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_name_core.md)
+  [`np_name_placeholder()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_name_core.md)
+  : Exact-lookup name key and placeholder check for raw name strings
+- [`np_name_rules()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_name_rules.md)
+  : Name-normalization rule tables
 - [`np_map_bmf()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_maps.md)
   [`np_map_sam()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_maps.md)
   : Built-in schema maps
