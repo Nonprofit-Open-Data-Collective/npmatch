@@ -23,6 +23,11 @@ layer needs. Adds columns alongside the canonical ones:
 \item \code{name_key}     cleaned, abbreviation-standardized, legal-suffix-stripped
 \item \code{dba_key}      the DBA name under the same normalization (for cross-matching)
 \item \code{name_full}    cleaned name \emph{with} suffix retained
+\item \code{name_core}    exact-lookup key: \code{name_full} without connector words and
+legal forms anywhere (THE, OF, AND, INC, LLC ...), keeping FOUNDATION,
+TRUST, FUND (see \code{\link[=np_name_core]{np_name_core()}})
+\item \code{name_placeholder} \code{TRUE} for names that are not names ("SEE SCHEDULE O",
+"N/A", no letters); \code{\link[=np_block]{np_block()}} gives such query rows no candidates
 \item \code{name_form}    detected legal form (INC / LLC / CORP / ...), or \code{NA}
 \item \code{name_gen}, \code{name_gen_rank} \strong{vestigial} — a person-name generation marker
 (\code{JR} / \code{SR}, ranked \code{SR} = 1, \code{JR} = 2) inherited from npmatch's

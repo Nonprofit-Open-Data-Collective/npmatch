@@ -27,7 +27,8 @@
       ".np_legal_suffixes", ".np_abbrev", ".np_street_types",
       ".np_generation", ".np_ordinals", ".np_gen_rank", ".np_directions",
       ".np_street_type_set", ".np_state_abbr", ".np_state_codes",
-      ".np_unit_pat", ".np_pobox_pat"
+      ".np_unit_pat", ".np_pobox_pat",
+      ".np_core_stop", ".np_placeholder_re", ".np_placeholder_tok"
     ),
     # --- functions producing the per-row derived columns --------------------
     normalize = c(
@@ -37,7 +38,9 @@
       ".np_extract_direction", ".np_extract_form", ".np_canon_form",
       ".np_strip_lead_the", ".np_strip_suffix",
       ".np_is_pobox", ".np_extract_unit", ".np_street_key",
-      ".np_parse_street", ".np_parse_zip", ".np_to_state_abb"
+      ".np_parse_street", ".np_parse_zip", ".np_to_state_abb",
+      ".np_name_core", ".np_is_placeholder", ".np_clean_name",
+      "np_name_core", "np_name_placeholder"
     ),
     # --- corpus statistics shipped alongside a compiled reference -----------
     corpus = c("np_stopwords", "np_name_freq", "np_token_idf"),
@@ -55,7 +58,8 @@
 # someone classifies it.
 .np_signature_exempt <- function() {
   c(".np_collapse_initials", ".np_is_acronymish", ".np_name_overlap",
-    ".np_contain_overlap")
+    ".np_contain_overlap",
+    "np_name_rules")   # an accessor: returns the registered tables, derives nothing
 }
 
 .np_sig_md5 <- function(x) {

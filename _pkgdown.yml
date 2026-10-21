@@ -72,6 +72,8 @@ reference:
   - np_reference
   - np_normalize
   - np_normalize_signature
+  - np_name_core
+  - np_name_rules
   - np_map_bmf
   - np_map_sam
   - np_flag_active

@@ -115,6 +115,20 @@ num_cols <- setdiff(names(d)[vapply(d, num_ok, logical(1))], KEEP_TEXT)
 d[, (num_cols) := lapply(.SD, as.numeric), .SDcols = num_cols]
 msg("  numeric columns: %d", length(num_cols))
 
+# UEI-level views of size_bmf, constant across a UEI's block so the frame can be
+# sorted by registrant size without the candidate rows scattering. Built after
+# the numeric conversion so max() compares numbers, not strings.
+#   size_bmf_max   -- largest size_bmf among the UEI's candidates
+#   size_bmf_match -- size_bmf of the matched row (is_final_ein = 1); blank for
+#                     an unmatched UEI, which has no such row
+smax <- function(x) if (all(is.na(x))) NA_real_ else max(x, na.rm = TRUE)
+d[, size_bmf := as.numeric(size_bmf)]
+d[, size_bmf_max := smax(size_bmf), by = uei]
+d[, size_bmf_match := smax(size_bmf[is_final_ein %in% 1]), by = uei]
+setcolorder(d, c("size_bmf_max", "size_bmf_match"), after = "size_bmf")
+msg("  size_bmf_max / size_bmf_match added (%d UEIs with a matched size)",
+    uniqueN(d$uei[!is.na(d$size_bmf_match)]))
+
 for (cl in names(d)[vapply(d, is.character, logical(1))]) {   # Excel hygiene
   v <- d[[cl]]
   v <- gsub("[\x01-\x08\x0B\x0C\x0E-\x1F]", "", v, useBytes = TRUE)
@@ -159,7 +173,7 @@ msg("state groups: %d", uniqueN(d$.grp))
 # after an inserted one picks up its neighbour's section.
 sect_of <- setNames(rep(NA_character_, length(XORDER)), XORDER)
 for (s in names(NP_SECTIONS)) sect_of[NP_SECTIONS[[s]]] <- s
-sect_of[c("row_id", "size_uss", "size_bmf")] <- "1. Review header"
+sect_of[c("row_id", "size_uss", "size_bmf", "size_bmf_max", "size_bmf_match")] <- "1. Review header"
 
 FIELDS <- setdiff(names(d), ".grp")          # the order actually written
 missing_def <- setdiff(FIELDS, names(NP_DICT))
@@ -205,7 +219,7 @@ write_themed <- function(dt, path, label) {
   setColWidths(wb, "eval_frame", cols = 1:nc, widths = NARROW)
   setColWidths(wb, "eval_frame", cols = grep(WIDE_PAT, names(dt)), widths = WIDE)
   setColWidths(wb, "eval_frame", cols = 1, widths = 18)   # row_id
-  sz <- which(names(dt) %in% c("size_uss", "size_bmf"))
+  sz <- which(names(dt) %in% c("size_uss", "size_bmf", "size_bmf_max", "size_bmf_match"))
   setColWidths(wb, "eval_frame", cols = sz, widths = 16)
   if (n > 0) addStyle(wb, "eval_frame", createStyle(numFmt = "#,##0"),
                       rows = 2:(n + 1), cols = sz, gridExpand = TRUE)
