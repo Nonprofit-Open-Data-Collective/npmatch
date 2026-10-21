@@ -8,7 +8,7 @@ template:
 
 navbar:
   structure:
-    left:  [workflow, reference, articles]
+    left:  [workflow, reference, articles, news]
     right: [search, github]
   components:
     workflow:

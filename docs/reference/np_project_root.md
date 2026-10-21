@@ -28,6 +28,6 @@ to point the session at an existing run.
 ``` r
 old <- options(npmatch.project = tempdir())
 np_project_root()
-#> [1] "C:\\Users\\jdlec\\AppData\\Local\\Temp\\RtmpW0OTGG"
+#> [1] "C:\\Users\\jlecy\\AppData\\Local\\Temp\\RtmpeWzd0K"
 options(old)
 ```
