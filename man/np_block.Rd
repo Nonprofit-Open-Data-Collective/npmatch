@@ -87,4 +87,8 @@ state — the firm-vs-establishment case).
 
 Both frames must be normalized (\code{\link[=np_normalize]{np_normalize()}}). Combine passes by
 \code{rbind}-ing results and de-duplicating (see \code{\link[=np_block_union]{np_block_union()}}).
+
+Query rows whose \code{name_placeholder} is \code{TRUE} ("SEE SCHEDULE O", "N/A") get
+no candidates. Reference rows are not filtered. Frames normalized before that
+column existed are blocked as before.
 }
