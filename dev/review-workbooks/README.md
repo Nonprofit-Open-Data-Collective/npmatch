@@ -144,6 +144,10 @@ pair; `np_compare()` against `NORM-BMF-UNIFIED-v2.rds` (the cache stage 1 used)
 when it did not; and `<run>/00_sams/sam_query.csv` for the SAM side. Filled
 cells are blue italic and listed in `filled_columns`.
 
+It writes the all-states workbook, one `STAGE-03-SECONDARY-REVIEW_<STATE>.xlsx`
+per state under `review/stage3_by_state/` (each UEI keeps the state it has in
+`review/by_state`), and `review/STAGE-03-SECONDARY-REVIEW_by_state.zip` of those.
+
 `stage1_pair_status` says why stage 1 missed each stage-3 EIN (blocking,
 scoring or veto), and `fully_vetoed` flags UEIs where stage 1 scored pairs but
 the hard veto removed every one. Intermediate steps are cached under

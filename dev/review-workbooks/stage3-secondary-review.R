@@ -19,6 +19,9 @@
 #   3. the run's 00_sams/sam_query.csv, normalized as stage 1 does, for the
 #      SAM-side fields (the only side a `none` row has)
 #
+# Writes the all-states workbook, one workbook per state (same state grouping
+# as review/by_state) under review/stage3_by_state/, and a zip of those.
+#
 # Steps are cached in <run>/review/_secondary-review-work/; pass --fresh to
 # redo them. Rough cost: load ~5 min, scan ~15 min, recompute ~3 min.
 #
@@ -39,6 +42,8 @@ CACHE <- file.path(REPO, "data-dev/NORM-BMF-UNIFIED-v2.rds")   # what stage 1 us
 STDIR <- file.path(BASE, "review", "by_state")
 WORK  <- file.path(BASE, "review", "_secondary-review-work")
 OUT   <- file.path(BASE, "review", "STAGE-03-SECONDARY-REVIEW.xlsx")
+ST3DIR <- file.path(BASE, "review", "stage3_by_state")          # one workbook per state
+ZIP   <- file.path(BASE, "review", "STAGE-03-SECONDARY-REVIEW_by_state.zip")
 FRESH <- "--fresh" %in% commandArgs(TRUE)
 dir.create(WORK, recursive = TRUE, showWarnings = FALSE)
 
@@ -288,80 +293,111 @@ hdr <- function(fill) createStyle(fgFill = fill, fontColour = "#FFFFFF", textDec
                                   borderColour = "#2F3B4F")
 fill_font <- createStyle(fontColour = "#1F4E9E", textDecoration = "italic")
 wrap_top  <- createStyle(wrapText = TRUE, valign = "top")
-n <- nrow(sel); nc <- ncol(sel); SH <- "secondary_review"
+SH <- "secondary_review"
 
-wb <- createWorkbook()
-addWorksheet(wb, SH)
-writeData(wb, SH, sel, headerStyle = hdr(HDR_FILL), withFilter = TRUE)
-addStyle(wb, SH, hdr(NEW_FILL), rows = 1, cols = match(NEW_COLS, names(sel)), gridExpand = TRUE)
-freezePane(wb, SH, firstActiveRow = 2, firstActiveCol = 6)
-setColWidths(wb, SH, cols = 1:nc, widths = 14)
-setColWidths(wb, SH, cols = grep(paste0("name_|street|reason|notes|judgement|sources|web_|path|",
-                                        "definition|tokenized|status_basis|filled_columns"), names(sel)),
-             widths = 45)
-setColWidths(wb, SH, cols = 1, widths = 18)
-setColWidths(wb, SH, cols = nc, widths = 8, hidden = TRUE)
-# Filled cells get a font style; the row shading is conditional formatting,
-# which only sets the fill, so the two compose.
-for (cl in colnames(filled)) {
-  r <- which(filled[, cl]); if (!length(r)) next
-  addStyle(wb, SH, fill_font, rows = r + 1, cols = match(cl, names(sel)), gridExpand = TRUE, stack = TRUE)
+# One workbook: the review sheet, an `about` sheet and a `summary` sheet. Used
+# for the all-states file and for each per-state file; `scope` names the slice.
+write_review <- function(dt, fl, path, scope) {
+  dt <- copy(dt)
+  # Parity on the rows actually written, so groups alternate within each file.
+  dt[, `_band` := as.integer(cumsum(uei != shift(uei, fill = "\u0001")) %% 2L == 0L)]
+  n <- nrow(dt); nc <- ncol(dt)
+
+  wb <- createWorkbook()
+  addWorksheet(wb, SH)
+  writeData(wb, SH, dt, headerStyle = hdr(HDR_FILL), withFilter = TRUE)
+  addStyle(wb, SH, hdr(NEW_FILL), rows = 1, cols = match(NEW_COLS, names(dt)), gridExpand = TRUE)
+  freezePane(wb, SH, firstActiveRow = 2, firstActiveCol = 6)
+  setColWidths(wb, SH, cols = 1:nc, widths = 14)
+  setColWidths(wb, SH, cols = grep(paste0("name_|street|reason|notes|judgement|sources|web_|path|",
+                                          "definition|tokenized|status_basis|filled_columns"), names(dt)),
+               widths = 45)
+  setColWidths(wb, SH, cols = 1, widths = 18)
+  setColWidths(wb, SH, cols = nc, widths = 8, hidden = TRUE)
+  # Filled cells get a font style; the row shading is conditional formatting,
+  # which only sets the fill, so the two compose.
+  for (cl in colnames(fl)) {
+    r <- which(fl[, cl]); if (!length(r)) next
+    addStyle(wb, SH, fill_font, rows = r + 1, cols = match(cl, names(dt)), gridExpand = TRUE, stack = TRUE)
+  }
+  band_ref <- paste0("$", int2col(nc)); top_ref <- paste0("$", int2col(match("is_final_ein", names(dt))))
+  conditionalFormatting(wb, SH, cols = 1:nc, rows = 2:(n + 1), type = "expression",
+                        rule = sprintf("%s2=1", top_ref), style = createStyle(bgFill = TOP_FILL))
+  conditionalFormatting(wb, SH, cols = 1:nc, rows = 2:(n + 1), type = "expression",
+                        rule = sprintf("AND(%s2=1,%s2<>1)", band_ref, top_ref),
+                        style = createStyle(bgFill = BAND_FILL))
+
+  sy <- dt[candidate_source != "cascade"]
+  about <- data.frame(Item = c(
+    "What this is", "Scope", "Rows", "How rows were chosen", "What was filled", "Blue italic text",
+    "fill_source", "stage1_pair_status", "fully_vetoed", "stage1_score_rank",
+    "stage1_pairs_scored / _unvetoed / stage1_best_score",
+    "is_best_candidate on filled rows", "num_of_candidates on filled rows", "state_file",
+    "filled_columns", "Shading", "Known issue", "Rebuild"),
+    Detail = c(
+    "Secondary review of the stage-3 merge: every UEI whose group in the by_state review workbooks has a row with a blank is_best_candidate, plus all other rows for that UEI.",
+    scope,
+    sprintf("%s rows, %s UEIs (%s rows with blank is_best_candidate: %s stage3_research + %s none; %s sibling cascade rows).",
+            cnt(n), cnt(uniqueN(dt$uei)), cnt(nrow(sy)), cnt(sum(sy$candidate_source == "stage3_research")),
+            cnt(sum(sy$candidate_source == "none")), cnt(sum(dt$candidate_source == "cascade"))),
+    "Read from every eval_frame_<STATE>.xlsx in review/by_state. Every row with a blank is_best_candidate is a synthetic row added by the final rollup (stage3_research: an EIN stage 3 found that stage 1 never surfaced) or by the combined build (none: a registrant stage 1 surfaced no candidate for). Each UEI keeps the state it was assigned in review/by_state.",
+    "Only cells that were blank are filled; no existing value was changed. Pair-level fields (similarities, scores, BMF-side names and address, geo flags, veto) come from stage 1's own scored pair files (01_stage1/interim/pairs-*.rds) when stage 1 scored the pair, or are recomputed with npmatch's np_normalize/np_compare/np_score/np_veto against the same reference cache stage 1 used (NORM-BMF-UNIFIED-v2.rds) when it did not. SAM-side fields come from each run's 00_sams/sam_query.csv, normalized the same way stage 1 does.",
+    "Marks every cell that was blank and has been filled by this build.",
+    "original = untouched cascade row; stage1_pairs = values taken verbatim from stage 1's scored pairs; recomputed = pair never generated by stage-1 blocking, features recomputed; sam_source = only SAM-side fields could be filled (no EIN on the row).",
+    "surfaced = normal cascade candidate; scored_not_surfaced = stage 1 blocked and scored this EIN but it missed the shortlist (top 3 + best name + best address) - a SCORING miss; scored_vetoed = stage 1 scored this EIN but a hard veto removed it (see veto_reason) - a VETO miss; not_blocked = stage 1 never generated this pair - a BLOCKING miss; ein_not_in_bmf_reference = the EIN is not in the reference stage 1 searched; no_candidates = stage 1 generated no pairs for this UEI; no_candidates_surfaced = pairs were generated but every one was vetoed.",
+    sprintf("1 when stage 1 scored at least one pair for the UEI and the hard veto removed every one, so nothing could be surfaced. Set on all of the UEI's rows. %s UEIs in this file. These are veto-rule questions, not merge ones - see veto_reason on the stage1 pairs.",
+            cnt(uniqueN(dt[fully_vetoed == 1]$uei))),
+    "For stage-1-scored stage3_research rows: where this EIN ranked by total_score among all pairs stage 1 scored for the UEI (1 = best).",
+    "Per UEI, from stage 1's scored pair files: pairs scored, pairs that survived the hard veto, and the best total_score among them.",
+    "0 on every filled row, MATCH or NO_MATCH - the row was not stage 1's pick (stage 1 never surfaced it).",
+    "stage3_research rows carry the UEI's surfaced-candidate count (the same value as its cascade rows); rows for a UEI with no cascade row carry 0.",
+    "Which by_state workbook the UEI came from.",
+    "The list of columns filled on this row.",
+    "Light orange = is_final_ein = 1 (THE MATCH for the UEI). Gray/white bands alternate per UEI (hidden _band column).",
+    sprintf("%s stage3_research rows in this file are NO_MATCH with an EIN but a blank final_ein (the anomaly noted in dev/review-workbooks/README.md). They are included and filled like the others.",
+            cnt(sum(sy$candidate_source == "stage3_research" & sy$final_outcome == "NO_MATCH"))),
+    "Rscript dev/review-workbooks/stage3-secondary-review.R [--fresh]"),
+    stringsAsFactors = FALSE)
+  addWorksheet(wb, "about")
+  writeData(wb, "about", about, headerStyle = hdr(HDR_FILL))
+  setColWidths(wb, "about", cols = 1:2, widths = c(34, 120))
+  addStyle(wb, "about", wrap_top, rows = 2:(nrow(about) + 1), cols = 1:2, gridExpand = TRUE)
+
+  addWorksheet(wb, "summary")
+  writeData(wb, "summary", headerStyle = hdr(HDR_FILL),
+            sy[, .N, by = .(candidate_source, final_outcome, stage1_pair_status, fully_vetoed, fill_source)
+               ][order(candidate_source, -N)])
+  writeData(wb, "summary", sy[, .N, by = state_file][order(-N)], startCol = 8, headerStyle = hdr(HDR_FILL))
+  setColWidths(wb, "summary", cols = 1:9, widths = c(18, 14, 26, 13, 14, 8, 2, 12, 10))
+
+  # A workbook open in Excel is locked and openxlsx only warns; verify the write.
+  before <- if (file.exists(path)) file.mtime(path) else NA
+  ok <- tryCatch({ suppressWarnings(saveWorkbook(wb, path, overwrite = TRUE))
+                   file.exists(path) && (is.na(before) || file.mtime(path) > before) },
+                 error = function(e) FALSE)
+  if (!ok) { path <- sub("\\.xlsx$", "-NEW.xlsx", path)
+             msg("  ! target is locked (open in Excel) - writing %s instead", basename(path))
+             saveWorkbook(wb, path, overwrite = TRUE) }
+  path
 }
-band_ref <- paste0("$", int2col(nc)); top_ref <- paste0("$", int2col(match("is_final_ein", names(sel))))
-conditionalFormatting(wb, SH, cols = 1:nc, rows = 2:(n + 1), type = "expression",
-                      rule = sprintf("%s2=1", top_ref), style = createStyle(bgFill = TOP_FILL))
-conditionalFormatting(wb, SH, cols = 1:nc, rows = 2:(n + 1), type = "expression",
-                      rule = sprintf("AND(%s2=1,%s2<>1)", band_ref, top_ref),
-                      style = createStyle(bgFill = BAND_FILL))
 
-sy <- sel[candidate_source != "cascade"]
-about <- data.frame(Item = c(
-  "What this is", "Rows", "How rows were chosen", "What was filled", "Blue italic text",
-  "fill_source", "stage1_pair_status", "fully_vetoed", "stage1_score_rank",
-  "stage1_pairs_scored / _unvetoed / stage1_best_score",
-  "is_best_candidate on filled rows", "num_of_candidates on filled rows", "state_file",
-  "filled_columns", "Shading", "Known issue", "Rebuild"),
-  Detail = c(
-  "Secondary review of the stage-3 merge: every UEI whose group in the by_state review workbooks has a row with a blank is_best_candidate, plus all other rows for that UEI.",
-  sprintf("%s rows, %s UEIs (%s rows with blank is_best_candidate: %s stage3_research + %s none; %s sibling cascade rows).",
-          cnt(n), cnt(uniqueN(sel$uei)), cnt(nrow(sy)), cnt(sum(sy$candidate_source == "stage3_research")),
-          cnt(sum(sy$candidate_source == "none")), cnt(sum(sel$candidate_source == "cascade"))),
-  "Read from every eval_frame_<STATE>.xlsx in review/by_state. Every row with a blank is_best_candidate is a synthetic row added by the final rollup (stage3_research: an EIN stage 3 found that stage 1 never surfaced) or by the combined build (none: a registrant stage 1 surfaced no candidate for).",
-  "Only cells that were blank are filled; no existing value was changed. Pair-level fields (similarities, scores, BMF-side names and address, geo flags, veto) come from stage 1's own scored pair files (01_stage1/interim/pairs-*.rds) when stage 1 scored the pair, or are recomputed with npmatch's np_normalize/np_compare/np_score/np_veto against the same reference cache stage 1 used (NORM-BMF-UNIFIED-v2.rds) when it did not. SAM-side fields come from each run's 00_sams/sam_query.csv, normalized the same way stage 1 does.",
-  "Marks every cell that was blank and has been filled by this build.",
-  "original = untouched cascade row; stage1_pairs = values taken verbatim from stage 1's scored pairs; recomputed = pair never generated by stage-1 blocking, features recomputed; sam_source = only SAM-side fields could be filled (no EIN on the row).",
-  "surfaced = normal cascade candidate; scored_not_surfaced = stage 1 blocked and scored this EIN but it missed the shortlist (top 3 + best name + best address) - a SCORING miss; scored_vetoed = stage 1 scored this EIN but a hard veto removed it (see veto_reason) - a VETO miss; not_blocked = stage 1 never generated this pair - a BLOCKING miss; ein_not_in_bmf_reference = the EIN is not in the reference stage 1 searched; no_candidates = stage 1 generated no pairs for this UEI; no_candidates_surfaced = pairs were generated but every one was vetoed.",
-  sprintf("1 when stage 1 scored at least one pair for the UEI and the hard veto removed every one, so nothing could be surfaced. Set on all of the UEI's rows. %s UEIs. These are veto-rule questions, not merge ones - see veto_reason on the stage1 pairs.",
-          cnt(uniqueN(sel[fully_vetoed == 1]$uei))),
-  "For stage-1-scored stage3_research rows: where this EIN ranked by total_score among all pairs stage 1 scored for the UEI (1 = best).",
-  "Per UEI, from stage 1's scored pair files: pairs scored, pairs that survived the hard veto, and the best total_score among them.",
-  "0 on every filled row, MATCH or NO_MATCH - the row was not stage 1's pick (stage 1 never surfaced it).",
-  "stage3_research rows carry the UEI's surfaced-candidate count (the same value as its cascade rows); rows for a UEI with no cascade row carry 0.",
-  "Which by_state workbook the UEI came from.",
-  "The list of columns filled on this row.",
-  "Light orange = is_final_ein = 1 (THE MATCH for the UEI). Gray/white bands alternate per UEI (hidden _band column).",
-  sprintf("%s stage3_research rows are NO_MATCH with an EIN but a blank final_ein (the anomaly noted in dev/review-workbooks/README.md). They are included and filled like the others.",
-          cnt(sum(sy$candidate_source == "stage3_research" & sy$final_outcome == "NO_MATCH"))),
-  "Rscript dev/review-workbooks/stage3-secondary-review.R [--fresh]"),
-  stringsAsFactors = FALSE)
-addWorksheet(wb, "about")
-writeData(wb, "about", about, headerStyle = hdr(HDR_FILL))
-setColWidths(wb, "about", cols = 1:2, widths = c(34, 120))
-addStyle(wb, "about", wrap_top, rows = 2:(nrow(about) + 1), cols = 1:2, gridExpand = TRUE)
+## all states in one workbook
+p <- write_review(sel, filled, OUT, "All states.")
+msg("wrote %s (%.1f MB)", p, file.size(p) / 1e6)
 
-addWorksheet(wb, "summary")
-writeData(wb, "summary", headerStyle = hdr(HDR_FILL),
-          sy[, .N, by = .(candidate_source, final_outcome, stage1_pair_status, fully_vetoed, fill_source)
-             ][order(candidate_source, -N)])
-writeData(wb, "summary", sy[, .N, by = state_file][order(-N)], startCol = 8, headerStyle = hdr(HDR_FILL))
-setColWidths(wb, "summary", cols = 1:9, widths = c(18, 14, 26, 13, 14, 8, 2, 12, 10))
-
-# A workbook open in Excel is locked and openxlsx only warns; verify the write.
-before <- if (file.exists(OUT)) file.mtime(OUT) else NA
-ok <- tryCatch({ suppressWarnings(saveWorkbook(wb, OUT, overwrite = TRUE))
-                 file.exists(OUT) && (is.na(before) || file.mtime(OUT) > before) },
-               error = function(e) FALSE)
-if (!ok) { OUT <- sub("\\.xlsx$", "-NEW.xlsx", OUT)
-           msg("  ! target is locked (open in Excel) - writing %s instead", basename(OUT))
-           saveWorkbook(wb, OUT, overwrite = TRUE) }
-msg("wrote %s (%.1f MB)", OUT, file.size(OUT) / 1e6)
+## one workbook per state (the same grouping as review/by_state), then a zip
+dir.create(ST3DIR, showWarnings = FALSE)
+unlink(list.files(ST3DIR, "^STAGE-03-SECONDARY-REVIEW_.*[.]xlsx$", full.names = TRUE))
+states <- sel[, .N, by = state_file][order(-N)]$state_file
+paths <- vapply(states, function(g) {
+  i <- which(sel$state_file == g)
+  p <- write_review(sel[i], filled[i, , drop = FALSE],
+                    file.path(ST3DIR, sprintf("STAGE-03-SECONDARY-REVIEW_%s.xlsx", g)),
+                    sprintf("State file: %s (UEIs assigned to %s in review/by_state).", g, g))
+  msg("  %-8s %6s rows  %5.1f MB", g, cnt(length(i)), file.size(p) / 1e6)
+  p
+}, character(1))
+if (file.exists(ZIP)) file.remove(ZIP)
+zip::zip(ZIP, files = basename(paths), root = ST3DIR)
+msg("wrote %d state workbooks -> %s", length(paths), ST3DIR)
+msg("zipped -> %s (%.1f MB)", ZIP, file.size(ZIP) / 1e6)
