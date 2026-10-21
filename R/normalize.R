@@ -16,7 +16,42 @@
   "INTERNATL" = "INTERNATIONAL", "DEPT" = "DEPARTMENT", "DEPT'" = "DEPARTMENT",
   "UNIV" = "UNIVERSITY", "COMM" = "COMMUNITY", "CTR" = "CENTER",
   "CTR'" = "CENTER", "SVCS" = "SERVICES", "SVC" = "SERVICE",
-  "AMER" = "AMERICAN", "MT" = "MOUNT", "ST" = "SAINT"
+  "AMER" = "AMERICAN", "MT" = "MOUNT", "ST" = "SAINT",
+  # Added from networked990's resolver (990 Schedule R / O names), each checked
+  # against its contexts in the unified BMF. PHYS was left out on purpose: in
+  # the BMF it is mostly PHYS EDUCATION (physical), not PHYSICIANS.
+  "FDN" = "FOUNDATION", "FND" = "FOUNDATION", "FNDTN" = "FOUNDATION",
+  "FDTN" = "FOUNDATION", "HOSP" = "HOSPITAL", "MED" = "MEDICAL",
+  "HLTH" = "HEALTH", "HLTHCARE" = "HEALTHCARE", "MGMT" = "MANAGEMENT",
+  "REG" = "REGIONAL", "RGNL" = "REGIONAL", "CNTR" = "CENTER",
+  "SYS" = "SYSTEM", "SYST" = "SYSTEM", "SRVCS" = "SERVICES", "SRVS" = "SERVICES"
+)
+
+# Tokens dropped anywhere in `name_core`: connector words and legal forms.
+# Descriptive organisation words (FOUNDATION, TRUST, ASSOCIATION, FUND, SOCIETY)
+# are kept, unlike the trailing-suffix strip that builds `name_key`, because
+# "X" and "X FOUNDATION" are usually two different EINs (a charity and its
+# fundraising foundation). Taken from networked990's exact-name resolver.
+.np_core_stop <- c(
+  "THE", "INC", "INCORPORATED", "CORP", "CORPORATION", "CO", "LLC", "LTD",
+  "OF", "AND", "A", "AN", "FOR", "LP", "PC", "DBA"
+)
+
+# Placeholder text written where a name should be ("SEE SCHEDULE O", "SEE
+# ATTACHED", "VARIOUS"), matched on the raw upper-cased name. From 990 filings,
+# where preparers write these in name fields.
+.np_placeholder_re <- paste0(
+  "^\\s*(SEE|REFER TO|PER|AS PER|LISTED ON|LISTED IN)\\s+(THE\\s+)?",
+  "(SCHEDULE|SCHED|SCH|ATTACHED|ATTACHMENT|STATEMENT|STMT|PART|LINE|BELOW|",
+  "ABOVE|LIST|ADDENDUM|EXHIBIT|SUPPLEMENTAL|FORM)\\b|",
+  "^\\s*(VARIOUS|MULTIPLE|SEE ATTACHED|ATTACHED)\\s*$"
+)
+
+# A cleaned name made only of these tokens is a placeholder ("N/A", "NONE",
+# "SAME AS ABOVE", "NOT APPLICABLE", "UNKNOWN").
+.np_placeholder_tok <- c(
+  "NA", "N", "A", "NONE", "NO", "X", "SAME", "UNKNOWN", "NOT", "APPLICABLE",
+  "SEE", "ABOVE", "AS", "BELOW", "INAPPLICABLE", "NULL"
 )
 
 # USPS street-type standardization (long -> short) for address keys.
@@ -139,6 +174,11 @@
 #' * `name_key`     cleaned, abbreviation-standardized, legal-suffix-stripped
 #' * `dba_key`      the DBA name under the same normalization (for cross-matching)
 #' * `name_full`    cleaned name *with* suffix retained
+#' * `name_core`    exact-lookup key: `name_full` without connector words and
+#'   legal forms anywhere (THE, OF, AND, INC, LLC ...), keeping FOUNDATION,
+#'   TRUST, FUND (see [np_name_core()])
+#' * `name_placeholder` `TRUE` for names that are not names ("SEE SCHEDULE O",
+#'   "N/A", no letters); [np_block()] gives such query rows no candidates
 #' * `name_form`    detected legal form (INC / LLC / CORP / ...), or `NA`
 #' * `name_gen`, `name_gen_rank` **vestigial** — a person-name generation marker
 #'   (`JR` / `SR`, ranked `SR` = 1, `JR` = 2) inherited from npmatch's
@@ -182,6 +222,9 @@ np_normalize <- function(data) {
   # Jaro-Winkler score (no prefix boost) so "THE X FOUNDATION" would otherwise
   # fail to match "X FOUNDATION" -- a real false negative found in labelling.
   data$name_key      <- .np_strip_lead_the(.np_strip_suffix(nm))
+  data$name_core     <- .np_name_core(nm)
+  data$name_core[is.na(data$name)] <- ""
+  data$name_placeholder <- .np_is_placeholder(data$name, nm)
 
   # DBA key: same normalization as the name, for exact DBA cross-matching.
   dv <- data$dba; dv[is.na(dv)] <- ""
@@ -216,6 +259,77 @@ np_normalize <- function(data) {
   data$state_abb <- .np_to_state_abb(data$state)
 
   data
+}
+
+# Exact-lookup key: the cleaned name without connector words and legal forms
+# (see .np_core_stop). Blank when nothing is left.
+.np_name_core <- function(nm) {
+  out <- vapply(.np_tokens(nm), function(tk)
+    paste(tk[nzchar(tk) & !tk %in% .np_core_stop], collapse = " "), character(1))
+  out[is.na(nm)] <- ""
+  out
+}
+
+# TRUE when a name is not usable as a name: blank, placeholder text ("SEE
+# SCHEDULE O"), only placeholder tokens ("N/A", "SAME AS ABOVE"), or no letters
+# ("100", a misread share). `raw` is the name as written, `nm` the cleaned one.
+.np_is_placeholder <- function(raw, nm) {
+  raw <- toupper(as.character(raw)); raw[is.na(raw)] <- ""
+  nm <- as.character(nm); nm[is.na(nm)] <- ""
+  tok <- paste0("(", paste(.np_placeholder_tok, collapse = "|"), ")")
+  !grepl("[A-Z]", nm) |
+    grepl(.np_placeholder_re, raw, perl = TRUE) |
+    grepl(paste0("^", tok, "( ", tok, ")*$"), nm)
+}
+
+#' Exact-lookup name key and placeholder check for raw name strings
+#'
+#' `np_name_core()` cleans a name the way [np_normalize()] does (upper case,
+#' de-accent, `&` to AND, possessives joined, abbreviations expanded), then
+#' drops connector words and legal forms anywhere in the name (THE, OF, AND,
+#' INC, CORP, LLC ...). Unlike `name_key` it keeps FOUNDATION, TRUST,
+#' ASSOCIATION and FUND, so a charity and its foundation get different keys.
+#' Use it for exact lookups where a key must point to one organisation.
+#'
+#' `np_name_placeholder()` is `TRUE` for names that are not names: blank,
+#' "SEE SCHEDULE O", "N/A", "SAME AS ABOVE", or no letters at all.
+#'
+#' @param x Character vector of names as written.
+#' @return `np_name_core()`: character vector of keys ("" when nothing is
+#'   left). `np_name_placeholder()`: logical vector.
+#' @examples
+#' np_name_core(c("The Pueblo Zoological Society", "Pueblo Zoological Society Foundation"))
+#' np_name_placeholder(c("SEE SCHEDULE O", "N/A", "Acme Fdn"))
+#' @export
+np_name_core <- function(x) {
+  out <- .np_name_core(.np_clean_name(x))
+  out[is.na(x)] <- ""      # the cleaner turns NA into the token "NA"
+  out
+}
+
+#' @rdname np_name_core
+#' @export
+np_name_placeholder <- function(x) .np_is_placeholder(x, .np_clean_name(x))
+
+# The shared first stage of every name key: clean, then expand abbreviations.
+.np_clean_name <- function(x) .np_replace_tokens(.np_basic_clean(x), .np_abbrev)
+
+#' Name-normalization rule tables
+#'
+#' The tables [np_normalize()] uses, for packages that need the same rules in
+#' another engine (for example a DuckDB SQL macro). A port should be checked
+#' against [np_name_core()] on test strings; the tables are covered by
+#' [np_normalize_signature()].
+#'
+#' @return A list: `abbrev` (named character, token to expansion),
+#'   `core_stop` (tokens dropped from `name_core`), `legal_suffixes`
+#'   (trailing tokens stripped from `name_key`), `placeholder_re` (a Perl
+#'   regex on the raw upper-cased name) and `placeholder_tok`.
+#' @export
+np_name_rules <- function() {
+  list(abbrev = .np_abbrev, core_stop = .np_core_stop,
+       legal_suffixes = .np_legal_suffixes,
+       placeholder_re = .np_placeholder_re, placeholder_tok = .np_placeholder_tok)
 }
 
 .np_extract_generation <- function(x) {

@@ -89,3 +89,56 @@ test_that("hyphens, ampersands, and slashes still separate tokens", {
                c("MID ATLANTIC MINISTRIES", "SMITH AND JONES FUND",
                  "VEDIC SOCIETY C O ED"))
 })
+
+test_that("990-style abbreviations expand; PHYS is left alone", {
+  expect_equal(np_name_core(c("NYP FDN", "ACME HLTH SYS", "UNIVERSITY REG MED CTR",
+                              "Pine Hosp Fndtn", "Delta Mgmt Srvcs", "PHYS ED BOOSTERS")),
+               c("NYP FOUNDATION", "ACME HEALTH SYSTEM", "UNIVERSITY REGIONAL MEDICAL CENTER",
+                 "PINE HOSPITAL FOUNDATION", "DELTA MANAGEMENT SERVICES", "PHYS ED BOOSTERS"))
+})
+
+test_that("name_core keeps a charity and its foundation apart", {
+  # name_key strips trailing FOUNDATION / TRUST / SOCIETY, so these collide there
+  x <- c("PEOPLE OF FAITH INC", "PEOPLE OF FAITH FOUNDATION INC",
+         "Pueblo Zoological Society", "Pueblo Zoological Society Foundation",
+         "Greater Horizons Foundation", "Greater Horizons Trust")
+  k <- np_name_core(x)
+  expect_equal(k, c("PEOPLE FAITH", "PEOPLE FAITH FOUNDATION",
+                    "PUEBLO ZOOLOGICAL SOCIETY", "PUEBLO ZOOLOGICAL SOCIETY FOUNDATION",
+                    "GREATER HORIZONS FOUNDATION", "GREATER HORIZONS TRUST"))
+  expect_equal(length(unique(k)), 6L)
+  # connector words and legal forms drop anywhere; possessives join
+  expect_equal(np_name_core(c("The Sons of the Republic of Texas", "SONS REPUBLIC TEXAS INC",
+                              "Abilities at Eagle's Nest, Inc.", "THE CO")),
+               c("SONS REPUBLIC TEXAS", "SONS REPUBLIC TEXAS", "ABILITIES AT EAGLES NEST", ""))
+  expect_equal(np_name_core(c(NA, "")), c("", ""))
+  expect_true(np_name_placeholder(NA))
+  # the column np_normalize() adds is the same rule
+  d <- np_normalize(np_reference(data.frame(ein = "1", name = x[2], state = "CO"),
+                                 c(.ein = "ein", name = "name", state = "state")))
+  expect_equal(d$name_core, k[2])
+})
+
+test_that("placeholder names are flagged and get no candidates", {
+  x <- c("SEE SCHEDULE O", "See Attached", "N/A", "SAME AS ABOVE", "NONE", "100", "",
+         "Acme Fdn", "See Change Coalition", "NA Health Center")
+  expect_equal(np_name_placeholder(x), c(rep(TRUE, 7), FALSE, FALSE, FALSE))
+  q <- np_normalize(np_query(data.frame(id = c("1", "2"), name = c("SEE SCHEDULE O", "ACME FDN"), state = "AZ"),
+                             c(.id = "id", name = "name", state = "state")))
+  r <- np_normalize(np_reference(data.frame(ein = c("9", "8"), name = c("SEE SCHEDULE O", "ACME FOUNDATION"), state = "AZ"),
+                                 c(.ein = "ein", name = "name", state = "state")))
+  # a state block pairs all 4 combinations; the placeholder query loses its two
+  b <- np_block(q, r, by = "state", token = FALSE)
+  expect_equal(as.data.frame(b)[, c(".x", ".y")], data.frame(.x = 2L, .y = 1:2))
+  b <- np_block(q, r, by = c("state", "name_key"), token = FALSE)
+  expect_equal(as.data.frame(b)[, c(".x", ".y")], data.frame(.x = 2L, .y = 2L))
+})
+
+test_that("np_name_rules() exposes the tables the normalizer uses", {
+  r <- np_name_rules()
+  expect_named(r, c("abbrev", "core_stop", "legal_suffixes", "placeholder_re", "placeholder_tok"))
+  expect_equal(r$abbrev[["FDN"]], "FOUNDATION")
+  expect_false("PHYS" %in% names(r$abbrev))
+  expect_true(all(c("OF", "INC") %in% r$core_stop))
+  expect_false(any(c("FOUNDATION", "TRUST") %in% r$core_stop))
+})

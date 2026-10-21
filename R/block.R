@@ -134,6 +134,10 @@ print.np_ref_index <- function(x, ...) {
 #' Both frames must be normalized ([np_normalize()]). Combine passes by
 #' `rbind`-ing results and de-duplicating (see [np_block_union()]).
 #'
+#' Query rows whose `name_placeholder` is `TRUE` ("SEE SCHEDULE O", "N/A") get
+#' no candidates. Reference rows are not filtered. Frames normalized before that
+#' column existed are blocked as before.
+#'
 #' @param query,reference Normalized `np_query` / `np_reference` frames.
 #' @param by Character vector of exact-match block columns, or `NULL`. Applied to
 #'   both sides unless `by_x` / `by_y` override.
@@ -270,6 +274,11 @@ np_block <- function(query, reference, by = "state", by_x = NULL, by_y = NULL,
     }
   }
   cand <- unique(cand)
+  # placeholder query names ("SEE SCHEDULE O", "N/A") are not names: no candidates.
+  # Query side only: the 219 BMF names flagged are number-only names ("1960"),
+  # which may be real organisations.
+  if (!is.null(query$name_placeholder))
+    cand <- cand[!query$name_placeholder[cand$.x] %in% TRUE, , drop = FALSE]
   out <- data.frame(.x = as.integer(cand$.x), .y = as.integer(cand$.y))
   attr(out, "n_query") <- nrow(query)
   attr(out, "n_reference") <- nrow(reference)
