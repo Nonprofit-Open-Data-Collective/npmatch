@@ -41,7 +41,7 @@ words (“St. Mary’s”) keeps its break.
 | Original name | Cleaned match key | Tokens compared |
 |:---|:---|:---|
 | The Smith Family Foundation, Inc. | SMITH FAMILY | SMITH · FAMILY |
-| St. Mary’s Hosp. & Health Ctr | SAINT MARYS HOSP AND HEALTH CENTER | SAINT · MARYS · HOSP · AND · HEALTH · CENTER |
+| St. Mary’s Hosp. & Health Ctr | SAINT MARYS HOSPITAL AND HEALTH CENTER | SAINT · MARYS · HOSPITAL · AND · HEALTH · CENTER |
 | Boys & Girls Club of N.E. Texas | BOYS AND GIRLS CLUB OF NE TEXAS | BOYS · AND · GIRLS · CLUB · OF · NE · TEXAS |
 | Y.W.C.A. of Helena | YWCA OF HELENA | YWCA · OF · HELENA |
 | StepForward | STEPFORWARD | STEPFORWARD |

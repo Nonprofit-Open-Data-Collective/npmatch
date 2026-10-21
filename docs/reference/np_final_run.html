@@ -9,7 +9,7 @@ produce, and reports the end-to-end funnel."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">npmatch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -27,6 +27,7 @@ produce, and reports the end-to-end funnel."></head><body>
     <li><a class="dropdown-item" href="../articles/building-a-classifier.html">npmatch: Building a Stage-1 Match Classifier</a></li>
     <li><a class="dropdown-item" href="../articles/candidate-evaluation-frame.html">The Candidate Evaluation Frame — Fields &amp; Methods</a></li>
   </ul></li>
+<li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
 <li class="nav-item"><a class="external-link nav-link" href="https://github.com/Nonprofit-Open-Data-Collective/npmatch/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
@@ -87,8 +88,14 @@ Default <code>c("1", "2", "3")</code> — the earliest, most automatic match win
 an adjudicator or a web search produced. This is the only place the word
 "crosswalk" is used; elsewhere the linked pairs are <code>matches</code>.</p></li>
 <li><p><strong><code>eval_frame.csv</code></strong> — the candidate-level frame: every candidate stage 1
-surfaced, annotated with the final answer for its source id.</p></li>
-</ul></div>
+surfaced, annotated with the final answer for its source id. Every source
+id has at least one row; one with no candidates gets a single row with
+<code>candidate_source = "none"</code>.</p></li>
+</ul><p><code>final_outcome</code> is <code>"MATCH"</code> exactly for the ids in the crosswalk. An
+unmatched id takes <code>final_stage</code>, <code>final_basis</code>, <code>final_confidence</code> and
+<code>final_reason</code> from the last stage that decided it and has no <code>final_ein</code>: a
+MAYBE candidate rejected downstream is not an answer.</p>
+    </div>
     <div class="section level2">
     <h2 id="answers-found-outside-the-candidate-set">Answers found outside the candidate set<a class="anchor" aria-label="anchor" href="#answers-found-outside-the-candidate-set"></a></h2>
 

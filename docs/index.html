@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="index.html">npmatch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -43,6 +43,7 @@
     <li><a class="dropdown-item" href="articles/candidate-evaluation-frame.html">The Candidate Evaluation Frame — Fields &amp; Methods</a></li>
   </ul>
 </li>
+<li class="nav-item"><a class="nav-link" href="news/index.html">Changelog</a></li>
       </ul>
 <ul class="navbar-nav">
 <li class="nav-item"><form class="form-inline" role="search">
@@ -60,6 +61,17 @@
 <div class="page-header"><h1 id="npmatch">npmatch<a class="anchor" aria-label="anchor" href="#npmatch"></a>
 </h1></div>
 <p>A package for matching nonprofit organizations to the IRS BMF database when EINs are not available.</p>
+<div class="section level2">
+<h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
+</h2>
+<p>The current release is <strong>v0 (version 0.1.0)</strong>, git tag <a href="https://github.com/Nonprofit-Open-Data-Collective/npmatch/releases/tag/v0.1.0" class="external-link"><code>v0.1.0</code></a>. It pins the code behind the combined 2025NOV + 2026MAY SAM-to-BMF crosswalk; see <a href="NEWS.html">NEWS.md</a> for what it contains and its known issues.</p>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># install.packages("remotes")</span></span>
+<span><span class="fu">remotes</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"Nonprofit-Open-Data-Collective/npmatch@v0.1.0"</span><span class="op">)</span>  <span class="co"># the v0 release</span></span>
+<span><span class="fu">remotes</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"Nonprofit-Open-Data-Collective/npmatch"</span><span class="op">)</span>         <span class="co"># development version</span></span></code></pre></div>
+<p>Pin <code>@v0.1.0</code> in any analysis that should reproduce the v0 crosswalk exactly: <code>main</code> keeps changing, and a change to normalization, blocking or scoring changes which EINs are matched. <code>packageVersion("npmatch")</code> reports <code>0.1.0</code> for the release and a <code>.9000</code> suffix for the development version.</p>
+<p>Stage 1 compares names and addresses with <a href="https://cran.r-project.org/package=reclin2" class="external-link">reclin2</a> and <a href="https://cran.r-project.org/package=stringdist" class="external-link">stringdist</a>, which are listed under Suggests; install them before running a match.</p>
+</div>
 <div class="section level2">
 <h2 id="package-overview">Package Overview<a class="anchor" aria-label="anchor" href="#package-overview"></a>
 </h2>

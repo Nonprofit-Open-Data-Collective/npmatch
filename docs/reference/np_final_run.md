@@ -44,6 +44,13 @@ The crosswalk, invisibly.
 
 - **`eval_frame.csv`** — the candidate-level frame: every candidate
   stage 1 surfaced, annotated with the final answer for its source id.
+  Every source id has at least one row; one with no candidates gets a
+  single row with `candidate_source = "none"`.
+
+`final_outcome` is `"MATCH"` exactly for the ids in the crosswalk. An
+unmatched id takes `final_stage`, `final_basis`, `final_confidence` and
+`final_reason` from the last stage that decided it and has no
+`final_ein`: a MAYBE candidate rejected downstream is not an answer.
 
 ## Answers found outside the candidate set
 
