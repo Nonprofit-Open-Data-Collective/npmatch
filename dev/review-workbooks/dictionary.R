@@ -26,6 +26,10 @@ size_uss =
   "Size marker for the REGISTRANT: total federal award obligations received by this UEI, summed across contracts and assistance over FY2008-2026 from the USASpending annual archives. Constant across every row of a UEI's block, because it describes the source organization rather than the candidate. Note this is a LIFETIME total over 19 years, so it is not comparable in magnitude to size_bmf, which is a single year. Blank means unknown, NOT zero: the archive was filtered to the matched crosswalk, so unmatched registrants were never in scope. A matched registrant showing 0 genuinely drew no federal awards in the period.",
 size_bmf =
   "Size marker for prioritising review: the IRS-reported annual revenue of THIS ROW's EIN, copied from bmf_revenue_amount and surfaced here so large organizations can be sorted to the top without scrolling. It is _bmf, not _uss, because it describes the IRS record - the SAM registration carries no revenue, receipts, assets or employee count, so no source-side size measure exists to use instead. Blank or 0 where the BMF reports no revenue (about a quarter of matched rows). On a candidate row that is NOT the match, it is that candidate's revenue, not the registrant's - so sort on the orange rows to rank matched organizations by size.",
+size_bmf_max =
+  "The largest size_bmf among all candidate rows for this UEI, repeated on every row of the block. A UEI-level sort key: sorting on it keeps each UEI's candidates together while bringing blocks that contain a large IRS organization to the top. It describes the biggest CANDIDATE, not necessarily the match.",
+size_bmf_match =
+  "The size_bmf of the matched row (is_final_ein = 1) for this UEI, repeated on every row of the block - the registrant's IRS revenue as far as the match goes. A UEI-level sort key that keeps blocks intact. Blank for an unmatched UEI, and blank or 0 where the matched EIN reports no revenue.",
 
 ## --- 2. The strings that were actually compared -----------------------------
 match_name_uss =

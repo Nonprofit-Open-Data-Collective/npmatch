@@ -57,7 +57,7 @@ so a row can be cited without pasting it, and the id is identical in a state
 workbook and the full one. It is derived, not a sequence: rebuilding reproduces
 it; a row whose score changes gets a new one.
 
-**Two size markers sit after `ein`**, so large organizations can be sorted to the
+**The size markers sit after `ein`**, so large organizations can be sorted to the
 top without scrolling out to the BMF block.
 
 - **`size_uss`** — total federal award obligations for the UEI, FY2008-2026,
@@ -66,6 +66,13 @@ top without scrolling out to the BMF block.
 - **`size_bmf`** — IRS-reported annual revenue of the EIN *on that row*, copied
   from `bmf_revenue_amount`. Row-level, so on a non-matched candidate it is that
   candidate's revenue, not the registrant's.
+- **`size_bmf_max`** — the largest `size_bmf` in the UEI's block, repeated on
+  every row of it.
+- **`size_bmf_match`** — the `size_bmf` of the matched row (`is_final_ein = 1`),
+  repeated on every row of the block; blank for an unmatched UEI.
+
+The last two are UEI-level, so sorting on them reorders whole blocks without
+scattering a UEI's candidates.
 
 They are not comparable in magnitude: `size_uss` is a 19-year cumulative total,
 `size_bmf` a single year. Their rank correlation among matched organizations with
