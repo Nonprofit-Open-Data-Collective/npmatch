@@ -2,6 +2,29 @@
 
 A package for matching nonprofit organizations to the IRS BMF database when EINs are not available.
 
+## Installation
+
+The current release is **v0 (version 0.1.0)**, git tag
+[`v0.1.0`](https://github.com/Nonprofit-Open-Data-Collective/npmatch/releases/tag/v0.1.0).
+It pins the code behind the combined 2025NOV + 2026MAY SAM-to-BMF crosswalk;
+see [NEWS.md](NEWS.md) for what it contains and its known issues.
+
+```r
+# install.packages("remotes")
+remotes::install_github("Nonprofit-Open-Data-Collective/npmatch@v0.1.0")  # the v0 release
+remotes::install_github("Nonprofit-Open-Data-Collective/npmatch")         # development version
+```
+
+Pin `@v0.1.0` in any analysis that should reproduce the v0 crosswalk exactly:
+`main` keeps changing, and a change to normalization, blocking or scoring
+changes which EINs are matched. `packageVersion("npmatch")` reports `0.1.0` for
+the release and a `.9000` suffix for the development version.
+
+Stage 1 compares names and addresses with
+[reclin2](https://cran.r-project.org/package=reclin2) and
+[stringdist](https://cran.r-project.org/package=stringdist), which are listed
+under Suggests; install them before running a match.
+
 ## Package Overview
 
 `npmatch` builds a crosswalk from arbitrary source organization records (name + variable
