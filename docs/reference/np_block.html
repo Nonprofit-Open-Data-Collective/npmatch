@@ -9,7 +9,7 @@ np_compare() never has to score every same-state pair. Three modes:"></head><bod
 
     <a class="navbar-brand me-2" href="../index.html">npmatch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -156,6 +156,9 @@ exact key. The loose recall-recovery pass (finds a same-name org in another
 state — the firm-vs-establishment case).</p></li>
 </ul><p>Both frames must be normalized (<code><a href="np_normalize.html">np_normalize()</a></code>). Combine passes by
 <code>rbind</code>-ing results and de-duplicating (see <code><a href="np_block_union.html">np_block_union()</a></code>).</p>
+<p>Query rows whose <code>name_placeholder</code> is <code>TRUE</code> ("SEE SCHEDULE O", "N/A") get
+no candidates. Reference rows are not filtered. Frames normalized before that
+column existed are blocked as before.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

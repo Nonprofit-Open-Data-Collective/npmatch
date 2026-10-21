@@ -33,6 +33,16 @@ The same frame with the normalization columns added.
 
 - `name_full` cleaned name *with* suffix retained
 
+- `name_core` exact-lookup key: `name_full` without connector words and
+  legal forms anywhere (THE, OF, AND, INC, LLC ...), keeping FOUNDATION,
+  TRUST, FUND (see
+  [`np_name_core()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_name_core.md))
+
+- `name_placeholder` `TRUE` for names that are not names ("SEE SCHEDULE
+  O", "N/A", no letters);
+  [`np_block()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_block.md)
+  gives such query rows no candidates
+
 - `name_form` detected legal form (INC / LLC / CORP / ...), or `NA`
 
 - `name_gen`, `name_gen_rank` **vestigial** — a person-name generation
