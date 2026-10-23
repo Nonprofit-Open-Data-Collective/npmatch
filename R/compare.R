@@ -73,10 +73,20 @@ np_compare <- function(query, reference, config = np_config(),
   }
 
   jt <- config$jw_threshold
+  # config$jw_p = NULL reproduces the historical behaviour exactly, which is
+  # NOT Jaro-Winkler: reclin2::cmp_jarowinkler() calls stringdist(method="jw")
+  # with no `p`, so p defaults to 0 and this path computes plain Jaro with no
+  # prefix boost -- while the DBA cross-products further down use p = 0.1.
+  # Setting jw_p applies one value to both paths, which is what makes them
+  # comparable. See pfmatch dev/JARO-NOT-JAROWINKLER.md.
+  jp <- config$jw_p
+  cmp_name <- if (is.null(jp)) reclin2::cmp_jarowinkler(threshold = jt) else
+    local({ p <- jp; function(x, y) {
+      if (!missing(y)) 1 - stringdist::stringdist(x, y, method = "jw", p = p)
+      else (x > jt) & !is.na(x) } })
   comparators <- stats::setNames(
     lapply(cmp_cols, function(col) {
-      if (col == "zip5") reclin2::cmp_identical()
-      else reclin2::cmp_jarowinkler(threshold = jt)
+      if (col == "zip5") reclin2::cmp_identical() else cmp_name
     }), cmp_cols)
 
   pairs <- reclin2::compare_pairs(
@@ -132,7 +142,9 @@ np_compare <- function(query, reference, config = np_config(),
   if (requireNamespace("stringdist", quietly = TRUE) &&
       !is.null(query$dba_key) && !is.null(reference$dba_key)) {
     has <- function(v) !is.na(v) & nzchar(v)
-    jw  <- function(a, b) { s <- stringdist::stringsim(a, b, method = "jw", p = 0.1)
+    # p follows config$jw_p when set, else the historical 0.1 on this path
+    jw  <- function(a, b) { s <- stringdist::stringsim(a, b, method = "jw",
+                                   p = if (is.null(jp)) 0.1 else jp)
                             s[is.na(s)] <- 0; s }
     nkx <- query$name_key[ix]; nky <- reference$name_key[iy]
     dkx <- query$dba_key[ix];  dky <- reference$dba_key[iy]
@@ -158,8 +170,30 @@ np_compare <- function(query, reference, config = np_config(),
     # same-state alone fires this per-pair recovery on nearly every candidate and
     # made compare ~100x slower for a marginal (state-only, address-less) recall
     # slice. The expensive .np_contain_overlap runs only on this small subset.
-    s_ov <- numeric(nrow(df))
+    # Substring credit (config$substring_p, NULL = off, no behaviour change).
+    # Measured in pfmatch dev/NAME-METRIC-EVALUATION.md: on the hard cases a
+    # sliding-window partial ratio finds 17 of 21 while admitting only 6 wrong
+    # names, against Jaro-Winkler's 16 and 11. It targets the dominant shape
+    # here -- a filed name that is a prefix or infix of the legal name.
+    #
+    # It is folded into the SAME review-only path as token overlap, not into the
+    # JW term, and deliberately so: "PLAYWORKS" inside "PLAYWORKS WASHINGTON DC"
+    # is precisely the parent/chapter ambiguity that containment cannot resolve,
+    # and "GIRLS" scores 1.0 against both "GIRLS INC OF WASHINGTON COUNTY" and an
+    # org literally named "GIRLS". So it must surface for review rather than
+    # auto-accept. Gated on the same address confirmation for the same cost
+    # reason as the overlap path.
+    sp <- config$substring_p
+    s_sub <- numeric(nrow(df))
     addr_ok <- df$geo_zip5 == 1 | df$geo_stnum == 1 | df$geo_pobox == 1
+    if (!is.null(sp)) {
+      lo2 <- which(pmax(s_nn, s_dba) < jt & addr_ok)
+      if (length(lo2)) {
+        s_sub[lo2] <- .np_partial_ratio(nkx[lo2], nky[lo2])
+        s_sub[s_sub < sp] <- 0
+      }
+    }
+    s_ov <- numeric(nrow(df))
     low <- which(pmax(s_nn, s_dba) < jt & addr_ok)
     if (length(low)) {
       qt <- strsplit(nkx[low], "\\s+"); rt <- strsplit(nky[low], "\\s+")
@@ -171,7 +205,7 @@ np_compare <- function(query, reference, config = np_config(),
       ov[ov < 0.6] <- 0
       s_ov[low] <- ov
     }
-    df[["name_key"]] <- pmax(s_nn, s_dba, s_ov)
+    df[["name_key"]] <- pmax(s_nn, s_dba, s_ov, s_sub)
 
     # provenance: which name *version* on each side produced the match, and the
     # readable string of that version. Columns of M line up with (uss, bmf)
@@ -179,10 +213,12 @@ np_compare <- function(query, reference, config = np_config(),
     # OVERLAP = token-set / acronym / word-reorder overlap (the s_ov recovery
     # path), NOT specifically abbreviation. "none" = no name signal cleared the
     # threshold: the pair is on the list because its address matched, not its name.
-    M  <- cbind(s_nn, t_nd, t_dn, t_dd, t_vn, t_vd, s_ov)
+    M  <- cbind(s_nn, t_nd, t_dn, t_dd, t_vn, t_vd, s_ov, s_sub)
     wi <- max.col(M, ties.method = "first")
-    uss_ver <- c("MAIN", "MAIN", "DBA", "DBA", "DIVISION", "DIVISION", "TOKEN_OVERLAP")[wi]
-    bmf_ver <- c("MAIN", "DBA", "MAIN", "DBA", "MAIN", "DBA", "TOKEN_OVERLAP")[wi]
+    uss_ver <- c("MAIN", "MAIN", "DBA", "DBA", "DIVISION", "DIVISION",
+                 "TOKEN_OVERLAP", "SUBSTRING")[wi]
+    bmf_ver <- c("MAIN", "DBA", "MAIN", "DBA", "MAIN", "DBA",
+                 "TOKEN_OVERLAP", "SUBSTRING")[wi]
     az <- rowSums(M) == 0                                  # no name signal
     uss_ver[az] <- "none"; bmf_ver[az] <- "none"
     ex <- s_nn >= 0.999                                    # exact main match
@@ -201,7 +237,8 @@ np_compare <- function(query, reference, config = np_config(),
 
     # name_match_type retained (exact / name / dba / token_overlap); the division
     # cross-products fall under "dba" (match_version distinguishes them).
-    typ <- c("name", "dba", "dba", "dba", "dba", "dba", "token_overlap")[wi]
+    typ <- c("name", "dba", "dba", "dba", "dba", "dba",
+             "token_overlap", "substring")[wi]
     typ[az] <- NA_character_; typ[ex] <- "exact"
     df$name_match_type <- typ
 

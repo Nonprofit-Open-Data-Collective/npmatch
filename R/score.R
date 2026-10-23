@@ -108,7 +108,12 @@
   # floored to MAYBE so a real subset/superset false negative surfaces for review.
   nmt <- if (!is.null(pairs$name_match_type)) as.character(pairs$name_match_type)
          else rep(NA_character_, n)
-  tov <- !is.na(nmt) & nmt == "token_overlap"
+  # "substring" is treated identically and for the same reason: a filed name
+  # that is a substring of the legal name cannot separate the parent from a
+  # chapter ("PLAYWORKS" sits inside "PLAYWORKS WASHINGTON DC", and "GIRLS"
+  # inside "GIRLS INC OF WASHINGTON COUNTY" as well as matching an org named
+  # literally "GIRLS"), so it surfaces for review and never auto-accepts.
+  tov <- !is.na(nmt) & nmt %in% c("token_overlap", "substring")
   if (any(tov)) {
     th  <- config$thresholds
     omf <- config$overlap_maybe_floor; if (is.null(omf)) omf <- 0.80

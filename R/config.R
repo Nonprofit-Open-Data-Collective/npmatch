@@ -95,6 +95,22 @@ np_geo_profiles <- function() {
 #'   for name-like and address-like fields respectively.
 #' @param jw_threshold Jaro-Winkler floor passed to the comparators; per-field
 #'   similarities below this are set to 0 (reduces noise from unrelated pairs).
+#' @param jw_p Winkler prefix-boost factor `p`. `NULL` (the default) preserves
+#'   the behaviour npmatch has always had, which is **not** uniform: the
+#'   name/geo comparison runs through `reclin2::cmp_jarowinkler()`, which calls
+#'   `stringdist(method = "jw")` with no `p` and so computes plain **Jaro**
+#'   (`p = 0`), while the name/DBA cross-products in [np_compare()] use
+#'   `p = 0.1`, i.e. real Jaro-Winkler. Two metrics for one quantity, with the
+#'   same `jw_threshold` floor applied to both. Setting `jw_p` to a number uses
+#'   it for *both* paths, which is what makes the two comparable. Standard
+#'   Jaro-Winkler uses 0.1 and requires `p <= 0.25`.
+#' @param substring_p Minimum sliding-window partial ratio for substring credit,
+#'   or `NULL` (the default) to disable it, which is a no-op. When set, pairs
+#'   whose name/DBA similarity did not clear `jw_threshold` but whose address is
+#'   confirmed get a substring score (see `.np_partial_ratio()`), and a match
+#'   found only that way is marked `name_match_type = "substring"` and capped
+#'   below YES by [np_score()] exactly as token overlap is -- a substring cannot
+#'   separate a parent from a chapter. 0.85-0.90 is a sensible starting range.
 #' @param rules A veto rule set as returned by [np_default_rules()] (or a
 #'   user-extended version).
 #' @param geo_weights Named numeric of location-granularity credits used by
@@ -115,10 +131,19 @@ np_config <- function(weights    = np_default_weights(),
                       name_comparator = "jaro_winkler",
                       addr_comparator = "jaro_winkler",
                       jw_threshold = 0.85,
+                      jw_p = NULL,
+                      substring_p = NULL,
                       rules = np_default_rules(),
                       geo_weights = np_default_geo_weights(),
                       name_geo = c(name = 0.6, geo = 0.4)) {
   stopifnot(all(c("yes", "maybe") %in% names(thresholds)))
+  if (!is.null(jw_p)) {
+    stopifnot(is.numeric(jw_p), length(jw_p) == 1L, jw_p >= 0, jw_p <= 0.25)
+  }
+  if (!is.null(substring_p)) {
+    stopifnot(is.numeric(substring_p), length(substring_p) == 1L,
+              substring_p > 0, substring_p <= 1)
+  }
   structure(
     list(
       weights         = weights,
@@ -136,6 +161,8 @@ np_config <- function(weights    = np_default_weights(),
       name_comparator = name_comparator,
       addr_comparator = addr_comparator,
       jw_threshold    = jw_threshold,
+      jw_p            = jw_p,
+      substring_p     = substring_p,
       rules           = rules,
       geo_weights     = geo_weights,
       name_geo        = name_geo

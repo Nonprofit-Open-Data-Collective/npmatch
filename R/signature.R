@@ -59,6 +59,7 @@
 .np_signature_exempt <- function() {
   c(".np_collapse_initials", ".np_is_acronymish", ".np_name_overlap",
     ".np_contain_overlap",
+    ".np_partial_ratio",  # substring comparator; feeds np_compare, precomputes nothing
     "np_name_rules")   # an accessor: returns the registered tables, derives nothing
 }
 

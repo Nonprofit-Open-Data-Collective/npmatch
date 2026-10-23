@@ -525,6 +525,33 @@ np_token_idf <- function(name_keys, stopwords = np_stopwords(), min_token_len = 
 # matches still register. The result feeds a MAYBE-capped recovery in np_score:
 # containment alone is ambiguous (parent vs subsidiary vs chapter share tokens),
 # so it surfaces for review, never auto-accepts.
+# Sliding-window partial ratio: the best normalised Levenshtein similarity of
+# the shorter string against any equal-length window of the longer one -- the
+# fuzzywuzzy partial_ratio, and the canonical substring matcher. Unlike
+# Jaro-Winkler it credits an INFIX, not only a shared prefix.
+#
+# Measured in pfmatch dev/NAME-METRIC-EVALUATION.md: on the hard cases it finds
+# 17 of 21 while admitting only 6 wrong names, against Jaro-Winkler's 16 and 11.
+# Like containment it cannot separate a parent from a chapter ("GIRLS" scores 1.0
+# against both "GIRLS INC OF WASHINGTON COUNTY" and an org named "GIRLS"), so
+# np_compare() routes it into the MAYBE-capped recovery rather than the JW term.
+#
+# Cost is O(|long| - |short|) distance calls per pair, so callers must restrict
+# it to a small subset rather than running it over every candidate.
+.np_partial_ratio <- function(a, b) {
+  a <- ifelse(is.na(a), "", a); b <- ifelse(is.na(b), "", b)
+  vapply(seq_along(a), function(i) {
+    x <- a[i]; y <- b[i]
+    if (nchar(x) > nchar(y)) { t <- x; x <- y; y <- t }
+    lx <- nchar(x); ly <- nchar(y)
+    if (!lx || !ly) return(0)
+    if (lx == ly) return(1 - stringdist::stringdist(x, y, method = "lv") / lx)
+    st <- seq_len(ly - lx + 1L)
+    w  <- substring(y, st, st + lx - 1L)
+    max(1 - stringdist::stringdist(x, w, method = "lv") / lx)
+  }, numeric(1))
+}
+
 .np_contain_overlap <- function(ta, tb, idf = NULL, stopwords = np_stopwords(),
                                 idf_min = 9, min_len = 2L) {
   acr <- .np_name_overlap(ta, tb)
