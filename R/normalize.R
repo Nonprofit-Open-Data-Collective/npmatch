@@ -123,6 +123,10 @@
 .np_tokens <- function(x) strsplit(x, "\\s+")
 
 .np_replace_tokens <- function(x, dict) {
+  # A missing value is an empty string, not the token "NA": paste() would turn
+  # it into the text "NA", and two records with no street (or no name) would
+  # then agree on it.
+  x <- as.character(x); x[is.na(x)] <- ""
   toks <- .np_tokens(x)
   vapply(toks, function(tk) {
     hit <- tk %in% names(dict)

@@ -94,8 +94,13 @@ np_compare <- function(query, reference, config = np_config(),
   )
 
   df <- as.data.frame(pairs)
-  # similarities: NA -> 0 (missing on a side is not evidence of a match)
-  for (col in cmp_cols) df[[col]][is.na(df[[col]])] <- 0
+  # similarities: NA -> 0 (missing on a side is not evidence of a match). An
+  # empty string is missing too: the comparators score "" against "" as 1, so
+  # two records with no street would otherwise agree perfectly on it.
+  for (col in cmp_cols) {
+    a <- as.character(query[[col]])[df$.x]; b <- as.character(reference[[col]])[df$.y]
+    df[[col]][is.na(df[[col]]) | is.na(a) | !nzchar(a) | is.na(b) | !nzchar(b)] <- 0
+  }
   # Floor fuzzy (Jaro-Winkler) similarities below jw_threshold to 0. reclin2's
   # cmp_jarowinkler(threshold=) is the Winkler prefix BOOST, not a cutoff, so
   # unrelated strings otherwise leak ~0.5 into every score. zip5 is exact (0/1)
