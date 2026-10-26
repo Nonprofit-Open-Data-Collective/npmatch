@@ -33,7 +33,13 @@
   would only pull the true match down. See `dev/MATCHDB-ADDRESS-UNIQUENESS.md`
   section 9.
 * `np_addr_freq()` is covered by the normalizer signature, so these changes move
-  it again, to **`v1-77a3842ce517e353`**.
+  it again. **Read the value with `np_normalize_signature()` on the commit you
+  are building from, rather than from any value quoted here.** The signature is
+  computed over the whole registered normalize path, so a change merging
+  alongside this one moves it too: this entry previously named a value measured
+  on the feature branch, and a one-line `.np_replace_tokens()` fix that landed
+  in between made it wrong before the merge was a day old. A literal is only
+  safe in a tagged release note, where the commit is pinned.
 
 * **The suite number is parsed properly, carried through to review, and used as
   evidence where it means something.** Previously it was extracted, stripped
