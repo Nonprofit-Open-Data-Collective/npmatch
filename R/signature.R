@@ -47,7 +47,7 @@
     ),
     # --- corpus statistics shipped alongside a compiled reference -----------
     corpus = c("np_stopwords", "np_name_freq", "np_token_idf",
-               "np_addr_freq", ".np_addr_key"),
+               "np_addr_freq", ".np_addr_key", ".np_addr_class"),
     # --- the blocking index a caller may also cache -------------------------
     index = c(".np_tokenize", ".np_doc_freq")
   )

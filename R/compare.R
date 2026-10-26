@@ -172,7 +172,7 @@ np_compare <- function(query, reference, config = np_config(),
   # reviewer should be told the address is shared rather than left to guess.
   if (is.null(addr_freq))
     addr_freq <- np_addr_freq(reference$street_key, reference$zip5,
-                              reference$street_unit_id)
+                              reference$street_unit_id, reference$name_key)
   ux <- query$street_unit_id[ix]; uy <- reference$street_unit_id[iy]
   both <- !is.na(ux) & !is.na(uy) & nzchar(ux) & nzchar(uy)
   df$geo_unit <- ifelse(both, as.integer(ux == uy), NA_integer_)
@@ -184,14 +184,34 @@ np_compare <- function(query, reference, config = np_config(),
   df$addr_shared      <- cnt(addr_freq$addr, akey)
   df$addr_units       <- cnt(addr_freq$units, akey)
   df$addr_unit_shared <- cnt(addr_freq$addr_unit, paste(akey, uy, sep = "|"))
+  num <- function(tab, key, default) {
+    if (is.null(tab)) return(rep(default, length(key)))
+    v <- unname(tab[key]); v[is.na(v)] <- default; as.numeric(v)
+  }
+  df$addr_unit_coverage <- num(addr_freq$unit_coverage, akey, 0)
+  df$addr_top_name_share <- num(addr_freq$top_name_share, akey, NA_real_)
+  cls <- if (is.null(addr_freq$class)) rep(NA_character_, length(akey)) else
+    unname(addr_freq$class[akey])
+  cls[is.na(cls)] <- "single"
+  df$addr_class <- cls
   sm <- addr_freq$share_min
+
+  # What the reviewer is told, which is the whole value in the cases arithmetic
+  # cannot settle. Ordered by what actually decides the case: a crowded suite
+  # first (the suite is a mail drop), then a federated address (neither address
+  # nor suite separates anything -- the chapter number does), then a merely
+  # shared one.
   df$addr_note <- ifelse(
     df$addr_unit_shared > sm,
     sprintf("%d records share this address and suite", df$addr_unit_shared),
+    ifelse(df$addr_class == "federated",
+      sprintf("federated address: %d records here, %d%% of them under one name; the address does not separate them",
+              df$addr_shared, round(100 * df$addr_top_name_share)),
     ifelse(df$addr_shared > sm,
-           sprintf("%d records share this address (%d distinct suites)",
-                   df$addr_shared, df$addr_units),
-           NA_character_))
+      sprintf("%d records share this address under %s distinct names (sponsor or agent)",
+              df$addr_shared, ifelse(is.na(df$addr_top_name_share), "several",
+                                     as.character(num(addr_freq$n_names, akey, NA_real_)))),
+      NA_character_)))
 
   # Effective name similarity = best of the name/DBA cross-products (name==name,
   # name==dba, dba==name, dba==dba), so an exact DBA match scores like a name
@@ -366,6 +386,7 @@ np_compare <- function(query, reference, config = np_config(),
   df$bmf_active <- if (!is.null(reference$active)) reference$active[iy] else NA
 
   attr(df, "addr_share_min") <- addr_freq$share_min
+  attr(df, "addr_unit_coverage_min") <- addr_freq$unit_coverage_min
   attr(df, "profile")      <- profile
   attr(df, "cmp_fields")   <- cmp_fields
   attr(df, "cmp_cols")     <- cmp_cols

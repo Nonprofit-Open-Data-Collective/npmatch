@@ -628,17 +628,27 @@ np_name_freq <- function(name_keys) {
 #' @param zip5 Five-digit ZIP, so one street name in two towns is two addresses.
 #' @param unit_ids Normalized unit identifiers (reference `street_unit_id`),
 #'   `NA` where a record names no unit.
+#' @param name_keys Normalized names (reference `name_key`). Optional, but
+#'   without them an address cannot be classified: the share of records
+#'   carrying the most common name is what separates a federated parent from a
+#'   fiscal sponsor, and counts alone cannot.
 #' @param share_min Count above which an address, or an address + suite, counts
 #'   as *shared*. Default 10: below that, repeats are usually variants of one
 #'   organisation — an org, its foundation, its auxiliary — rather than a
 #'   multi-tenant building or a sponsor's mail drop.
+#' @param unit_coverage_min Share of the records at an address that must name a
+#'   suite before "several distinct suites here" is read as a fact about the
+#'   building rather than about the data. Default 0.5.
 #' @return An `np_addr_freq` list: `addr` (records per address), `addr_unit`
-#'   (records per address + suite), `units` (distinct suites per address) and
-#'   `share_min`.
+#'   (records per address + suite), `units` (distinct suites per address),
+#'   `unit_coverage`, `n_names`, `top_name_share`, `class` (one of
+#'   `"federated"`, `"shared"`, `"building"`, `"cluster"`), `share_min` and
+#'   `unit_coverage_min`.
 #' @seealso [np_name_freq()], [np_compare()]
 #' @export
 np_addr_freq <- function(street_keys, zip5 = NULL, unit_ids = NULL,
-                         share_min = 10L) {
+                         name_keys = NULL, share_min = 10L,
+                         unit_coverage_min = 0.5) {
   a <- .np_addr_key(street_keys, zip5)
   u <- if (is.null(unit_ids)) rep(NA_character_, length(a)) else as.character(unit_ids)
   ok    <- nzchar(a)
@@ -646,11 +656,78 @@ np_addr_freq <- function(street_keys, zip5 = NULL, unit_ids = NULL,
   addr  <- table(a[ok])
   aunit <- table(paste(a[has_u], u[has_u], sep = "|"))
   units <- tapply(u[has_u], a[has_u], function(v) length(unique(v)))
+  n_addr <- stats::setNames(as.integer(addr), names(addr))
+  n_unit <- stats::setNames(as.integer(units), names(units))
+
+  # Share of the records at an address that name a suite at all. Without it,
+  # "two or more distinct suites here" describes the DATA as easily as the
+  # building: at the 4,417 BMF addresses holding 10+ records the share naming a
+  # suite has median 0.73 and mean 0.52, and at 1,601 of them not one record
+  # names a suite. A suite match is only informative where the reference
+  # actually records suites at that address.
+  wu  <- stats::setNames(as.integer(table(a[has_u])), names(table(a[has_u])))
+  cov <- stats::setNames(rep(0, length(n_addr)), names(n_addr))
+  cov[names(wu)] <- wu / n_addr[names(wu)]
+
+  # Distinct names at the address, and the share of records carrying the single
+  # most common one. This is what separates the two crowded-address archetypes,
+  # which counts alone cannot: a federated parent (3700 GRAND AVE: 5,965
+  # records, 45 distinct name_keys, 0.98) against a fiscal sponsor (501
+  # SILVERSIDE RD: 1,933 records, 1,931 names, 0.00).
+  nk <- if (is.null(name_keys)) NULL else as.character(name_keys)
+  if (!is.null(nk)) {
+    n_names <- vapply(split(nk[ok], a[ok]), function(v) length(unique(v)), integer(1))
+    top_shr <- vapply(split(nk[ok], a[ok]), function(v) max(table(v)) / length(v),
+                      numeric(1))
+  } else {
+    n_names <- stats::setNames(rep(NA_integer_, length(n_addr)), names(n_addr))
+    top_shr <- stats::setNames(rep(NA_real_, length(n_addr)), names(n_addr))
+  }
+
   structure(list(
-    addr      = stats::setNames(as.integer(addr),  names(addr)),
+    addr      = n_addr,
     addr_unit = stats::setNames(as.integer(aunit), names(aunit)),
-    units     = stats::setNames(as.integer(units), names(units)),
-    share_min = as.integer(share_min)), class = "np_addr_freq")
+    units     = n_unit,
+    unit_coverage  = cov,
+    n_names        = n_names[names(n_addr)],
+    top_name_share = top_shr[names(n_addr)],
+    class     = .np_addr_class(n_addr, n_unit, cov, top_shr[names(n_addr)],
+                               share_min, unit_coverage_min),
+    share_min = as.integer(share_min),
+    unit_coverage_min = as.numeric(unit_coverage_min)), class = "np_addr_freq")
+}
+
+# Label an address by what it is, which decides what its evidence is worth.
+# Deliberately four coarse labels, each one a different answer to "can this
+# address, or a suite within it, separate two candidates":
+#
+#   federated  many records, one name dominating -- a national office its
+#              chapters all file from. The address matches every chapter
+#              equally, and so does the suite; the chapter number (name_nums)
+#              is the only discriminator, and np_veto() already uses it.
+#   shared     many records, many names -- a fiscal sponsor, a registered
+#              agent, an accountant. The address is true but uninformative;
+#              the NAME does the separating here, which is why damping the
+#              address credit measurably does not help (dev note section 9).
+#   building   many records across several recorded suites -- the suite is the
+#              discriminator, and the only case the suite credit fires in.
+#   cluster    a handful of records, usually an org with its foundation or
+#              auxiliary. Neither address nor suite helps; the name logic does.
+#
+# Addresses holding one record are absent from the table entirely -- a lookup
+# miss means exactly that, which is 88% of addresses.
+.np_addr_class <- function(n_addr, n_unit, cov, top_share, share_min,
+                           unit_coverage_min) {
+  cls <- rep("cluster", length(n_addr))
+  nm  <- names(n_addr)
+  big <- n_addr >= share_min
+  u   <- n_unit[nm]; u[is.na(u)] <- 0L
+  ts  <- top_share[nm]
+  cls[big] <- "shared"
+  cls[big & u >= 2 & cov[nm] >= unit_coverage_min] <- "building"
+  cls[big & !is.na(ts) & ts >= 0.5] <- "federated"
+  cls[n_addr < 2] <- "single"
+  stats::setNames(cls, nm)
 }
 
 # The address a suite is read against: street + ZIP, so "123 MAIN ST" in two
@@ -670,6 +747,10 @@ print.np_addr_freq <- function(x, ...) {
   cat("<np_addr_freq>\n")
   cat(sprintf("  addresses: %d | with a suite: %d | shared above: %d\n",
               length(x$addr), length(x$units), x$share_min))
+  if (!is.null(x$class)) {
+    tb <- table(x$class)
+    cat(sprintf("  %s\n", paste(sprintf("%s %d", names(tb), tb), collapse = " | ")))
+  }
   invisible(x)
 }
 

@@ -4,7 +4,14 @@
 \alias{np_addr_freq}
 \title{Address-sharing statistics for a reference corpus}
 \usage{
-np_addr_freq(street_keys, zip5 = NULL, unit_ids = NULL, share_min = 10L)
+np_addr_freq(
+  street_keys,
+  zip5 = NULL,
+  unit_ids = NULL,
+  name_keys = NULL,
+  share_min = 10L,
+  unit_coverage_min = 0.5
+)
 }
 \arguments{
 \item{street_keys}{Normalized street (reference \code{street_key}).}
@@ -14,15 +21,26 @@ np_addr_freq(street_keys, zip5 = NULL, unit_ids = NULL, share_min = 10L)
 \item{unit_ids}{Normalized unit identifiers (reference \code{street_unit_id}),
 \code{NA} where a record names no unit.}
 
+\item{name_keys}{Normalized names (reference \code{name_key}). Optional, but
+without them an address cannot be classified: the share of records
+carrying the most common name is what separates a federated parent from a
+fiscal sponsor, and counts alone cannot.}
+
 \item{share_min}{Count above which an address, or an address + suite, counts
 as \emph{shared}. Default 10: below that, repeats are usually variants of one
 organisation — an org, its foundation, its auxiliary — rather than a
 multi-tenant building or a sponsor's mail drop.}
+
+\item{unit_coverage_min}{Share of the records at an address that must name a
+suite before "several distinct suites here" is read as a fact about the
+building rather than about the data. Default 0.5.}
 }
 \value{
 An \code{np_addr_freq} list: \code{addr} (records per address), \code{addr_unit}
-(records per address + suite), \code{units} (distinct suites per address) and
-\code{share_min}.
+(records per address + suite), \code{units} (distinct suites per address),
+\code{unit_coverage}, \code{n_names}, \code{top_name_share}, \code{class} (one of
+\code{"federated"}, \code{"shared"}, \code{"building"}, \code{"cluster"}), \code{share_min} and
+\code{unit_coverage_min}.
 }
 \description{
 Counts how many reference records sit at each exact address, at each address

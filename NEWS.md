@@ -2,6 +2,39 @@
 
 ## Address and suite normalization
 
+* `np_addr_freq()` classifies each shared address, because what a shared
+  address *is* decides what its evidence is worth, and counts alone cannot tell
+  the kinds apart. It now takes `name_keys` and adds `n_names`,
+  `top_name_share`, `unit_coverage` and `class`: `federated` (many records, one
+  name dominating — a national office its chapters file from, where the address
+  matches every chapter equally and the chapter number is the only
+  discriminator), `shared` (many records, many names — a fiscal sponsor or
+  registered agent), `building` (many records across several recorded suites —
+  the suite discriminates) or `cluster` (a handful, usually an org with its
+  foundation). Over the unified BMF: 1,188 federated addresses holding 60,064
+  records, 1,319 shared holding 29,910, 1,910 buildings holding 36,327, and
+  134,212 clusters. `np_compare()` carries `addr_class`,
+  `addr_top_name_share` and `addr_unit_coverage` per pair and states the class
+  in `addr_note`, which reaches the review frame, the stage 2 packet and
+  `np_as_prompt()`.
+* The suite credit is additionally gated on `unit_coverage` (default 0.5): at
+  the BMF addresses holding 10 or more records the share of records naming a
+  suite averages 0.52 and 1,601 of them name none, so "two or more distinct
+  suites here" can describe the data rather than the building. This withholds
+  the credit at 445 of the 23,310 addresses listing two or more suites (1.9%).
+* **Damping the street credit at low-discrimination addresses was measured and
+  rejected**, against an earlier recommendation of our own. With the street
+  evidence *zeroed* at crowded addresses, the 304,274 labeled pairs give AUC
+  0.9981 to 0.9981, precision 0.5669 to 0.5669, recall 0.9212 to 0.9212 and
+  1,898 YES-band pairs either way — not one decision changes. The geo terms
+  combine with `max()` and the top rungs sit 0.05 apart, so removing one moves
+  a total score by 0.02; and the two crowded archetypes want opposite
+  treatment, since at a sponsor address the name separates cleanly and damping
+  would only pull the true match down. See `dev/MATCHDB-ADDRESS-UNIQUENESS.md`
+  section 9.
+* `np_addr_freq()` is covered by the normalizer signature, so these changes move
+  it again, to **`v1-77a3842ce517e353`**.
+
 * **The suite number is parsed properly, carried through to review, and used as
   evidence where it means something.** Previously it was extracted, stripped
   from `street_key`, and then dropped: nothing downstream saw it, so neither a

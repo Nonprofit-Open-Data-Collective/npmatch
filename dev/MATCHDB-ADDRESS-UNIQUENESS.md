@@ -25,10 +25,12 @@ Three limits, in increasing order of how much they matter:
    bad kind: scores shift with no error.
 2. **It needs the whole corpus in memory in every worker.** 1.2M addresses as
    named integer vectors, rebuilt per process.
-3. **It cannot see what actually distinguishes the shared-address cases**,
-   because that needs the occupants' names and the BMF's own group-ruling
-   columns, joined across the full database. See section 4. This is the real
-   argument for preprocessing, not the first two.
+3. **It can only see part of what distinguishes the shared-address cases.** The
+   name-concentration statistic of section 4 is computable at run time and is
+   now computed there, but it is only correct over the whole reference, so it
+   inherits limit 1. The signals it cannot reach at all are the BMF group-ruling
+   columns, occupant churn across vintages and geocode-based building ids
+   (section 7).
 
 ## 2. The scale of the problem
 
@@ -183,10 +185,11 @@ rather than silently inflating them:
 
 Yes, for three distinct reasons, in order of weight:
 
-1. **It enables a signal npmatch cannot compute.** The federated-versus-sponsor
-   distinction, group-ruling structure and vintage churn need the full database
-   and its history. Without them npmatch has counts and no way to read them,
-   which is why the current gate is deliberately crude.
+1. **It enables signals npmatch cannot reach.** Group-ruling structure, occupant
+   churn across vintages and geocode-based building ids need the full database
+   and its history (section 7). Group rulings in particular would settle the
+   federated case directly, where npmatch currently infers it from name
+   concentration.
 2. **It removes a correctness footgun.** Counts must come from the whole
    corpus; `np_compare(addr_freq = NULL)` computing them from whatever frame it
    was handed is correct only when that frame is the entire reference. A
@@ -204,19 +207,59 @@ The cost is one more versioned artifact that can go stale against the
 normalizer - the same cost the cached `name_key` already carries, with the same
 mitigation.
 
-## 9. What npmatch should change to consume it
+## 9. The npmatch side: what was built, and what was measured and dropped
 
-Follow-ups on this side, in order:
+**Built.** `np_addr_freq()` now also computes, per address, `n_names`,
+`top_name_share`, `unit_coverage` and an `addr_class` of `federated`, `shared`,
+`building` or `cluster` (section 4). Over the unified BMF that labels 1,188
+federated addresses holding 60,064 records, 1,319 sponsor-or-agent addresses
+holding 29,910, 1,910 multi-tenant buildings holding 36,327, and 134,212 family
+clusters. `np_compare()` annotates each pair with the class and states it in
+`addr_note` for a reviewer, and the suite credit is now gated on
+`unit_coverage` as well as `addr_units >= 2`, which withholds it at 445 of the
+23,310 addresses listing two or more suites (1.9%) because the reference barely
+records suites there.
 
-1. Gate the multi-tenant credit on `unit_coverage`, not just `addr_units >= 2`
-   (section 5).
-2. **Damp the street credit at low-discrimination addresses.** `street_hit`
-   currently pays the full 0.95 geo weight at `3700 GRAND AVE`, where 5,965
-   records share one address *and* one name. An address that matches every
-   candidate equally is not evidence, and `top_name_share` is exactly the
-   number that says so. This is probably worth more recall than the suite work
-   itself.
-3. Let `addr_class` reach the reviewer verbatim, so a packet can say "fiscal
-   sponsor address, 1,933 unrelated organisations" instead of "12 records share
-   this address and suite".
-4. Teach `np_addr_freq()` to read a matchdb table and verify the signature.
+**Measured and dropped: damping the street credit.** An earlier version of this
+note called this the bigger prize. It is not; it does nothing, and the reason is
+structural.
+
+The geo sub-score takes `max()` over the granularity terms, and its top rungs
+sit 0.05 apart (`zip9` 1.00, `unit` 0.97, `street` 0.95, `zip5` 0.90). Removing
+the street term entirely therefore moves the geo score from 0.95 to 0.90, which
+moves a total score by 0.4 x 0.05 = 0.02 - and the name carries the other 0.6
+at full strength, because at a federated address every candidate matches the
+name too.
+
+Scored both ways over the 304,274 labeled pairs
+(`data-dev/TRAINING-PAIRS-FULL-1502.csv`, 1,168 positives), with the street
+evidence **zeroed** at crowded addresses rather than merely damped:
+
+| | AUC | precision at 0.78 | recall | pairs in YES band |
+|---|---|---|---|---|
+| current | 0.9981 | 0.5669 | 0.9212 | 1,898 |
+| zeroed at `shared >= 10` and `top_name_share >= 0.5` | 0.9981 | 0.5669 | 0.9212 | 1,898 |
+| zeroed at `shared >= 10`, any name share | 0.9982 | 0.5669 | 0.9212 | 1,898 |
+
+Not one decision changes, on the whole set or restricted to the 1,268 affected
+pairs. Of those pairs only 73 have `street_hit` firing at all, and for every one
+of them `zip5` or `zip9` already carries the `max()`.
+
+Checking the archetypes end to end says the same thing, and adds the reason the
+federated case needs no score surgery: a PEO chapter query against Iowa returns
+5,930 candidates all scoring exactly 0.980, which the near-tie and margin gates
+already route to MAYBE rather than auto-accepting one. A Foundation Source
+query returns its true match at 0.960 against a runner-up at 0.911 - there the
+name separates cleanly, so damping the address credit would only pull the true
+match down. **The two crowded archetypes want opposite treatment, which is why
+a single damping factor cannot help either of them.**
+
+What the federated case actually needs is the chapter identifier, which
+`name_nums` already extracts and `np_veto()` already consumes, plus the
+reviewer-facing label now shipped. That is a name-side question, not a geo one.
+
+**Remaining.** Teach `np_addr_freq()` to read a matchdb table and verify the
+signature; add the `cmra` and care-of labels of section 6, which need the
+suite-composition statistics matchdb would precompute; and, if the MAYBE queue
+at federated addresses proves expensive, cap or collapse those candidate sets
+in `np_route()` rather than in the score.

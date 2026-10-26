@@ -97,7 +97,8 @@
     paste0("zip5_", s),   paste0("zip5_", r),
     paste0("street_", s, "_normalized"), paste0("street_", r, "_normalized"),
     paste0("street_unit_", s), paste0("street_unit_", r),
-    "addr_note", "addr_shared", "addr_units", "addr_unit_shared",
+    "addr_note", "addr_class", "addr_shared", "addr_units", "addr_unit_shared",
+    "addr_unit_coverage", "addr_top_name_share",
     "geo_unit", "geo_stnum", "geo_zip9", "geo_zip5", "geo_zip3", "geo_state",
     "geo_pobox")
   # derived fields first (front-ordered, then any remaining derived features),

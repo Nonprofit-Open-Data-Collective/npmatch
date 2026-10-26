@@ -63,8 +63,16 @@
   geo_unit <- if (!is.null(pairs$geo_unit)) as.integer(pairs$geo_unit)
               else rep(NA_integer_, n)
   sm <- attr(pairs, "addr_share_min"); if (is.null(sm)) sm <- 10L
+  cm <- attr(pairs, "addr_unit_coverage_min"); if (is.null(cm)) cm <- 0.5
+  # `addr_units >= 2` alone would read thin data as a multi-tenant building:
+  # at the BMF addresses holding 10+ records the share naming a suite averages
+  # 0.52, and 1,601 of them name none at all. Require the reference to actually
+  # record suites there before treating its suite list as the building's.
+  ucov <- if (!is.null(pairs$addr_unit_coverage)) z(pairs$addr_unit_coverage)
+          else rep(1, n)
   informative <- if (!is.null(pairs$addr_units))
-    z(pairs$addr_units) >= 2 & z(pairs$addr_unit_shared) <= sm else rep(TRUE, n)
+    z(pairs$addr_units) >= 2 & z(pairs$addr_unit_shared) <= sm & ucov >= cm
+  else rep(TRUE, n)
   unit_hit <- as.numeric(street_hit == 1 & !is.na(geo_unit) & geo_unit == 1 &
                          informative)
   gw_unit <- if (!is.null(gw[["unit"]])) gw[["unit"]] else 0.97

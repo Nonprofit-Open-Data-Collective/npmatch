@@ -101,7 +101,7 @@ np_cascade <- function(query, reference, config = np_config(), method = "hier",
   if (is.null(name_freq)) name_freq <- np_name_freq(r$name_key)  # distinctiveness reference
   # one pass over the whole reference, not once per block: a per-block table
   # would count tenants in a slice and under-report every shared address
-  addr_freq <- np_addr_freq(r$street_key, r$zip5, r$street_unit_id)
+  addr_freq <- np_addr_freq(r$street_key, r$zip5, r$street_unit_id, r$name_key)
   if (is.null(token_idf)) token_idf <- np_token_idf(r$name_key)  # per-token IDF for overlap recovery
   if (is.null(ref_index)) ref_index <- np_ref_index(r)           # tokenize reference ONCE, reuse across passes
 
