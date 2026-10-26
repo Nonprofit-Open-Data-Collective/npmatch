@@ -41,7 +41,12 @@ for column compatibility with existing labeled extracts. See
 \item \code{street_num}   leading house / box number
 \item \code{street_name}  street body with the number, type, and unit removed
 \item \code{street_type}  trailing street type (ST / AVE / BLVD / WAY / ...), or \code{NA}
-\item \code{street_unit}  extracted suite/unit/apt number, if any
+\item \code{street_unit}  the suite / floor / unit as written, normalized to
+"\if{html}{\out{<designator>}} \if{html}{\out{<id>}}" ("STE 300", "FL 2", "# 12"). Read from the street line,
+or from the \code{unit} column when the street line names none
+\item \code{street_unit_id} the identifier alone, separators dropped ("STE D-2" ->
+"D2"). Two records are compared on this, so a BMF "STE 300" and a source
+"# 300" are recognised as one office
 \item \code{is_po_box}    \code{TRUE} if the street is a PO box (any variant), else \code{FALSE}
 \item \code{zip5}         five-digit ZIP, leading zeros restored (nested prefix)
 \item \code{zip3}         three-digit ZIP prefix / SCF region (nested prefix)

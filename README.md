@@ -85,7 +85,8 @@ features the veto layer needs. Adds `name_key`, `dba_key`, `division_key`, `name
 - `.np_extract_ordinals()` :: FIRST / SECOND / ... -> canonical rank
 - `.np_extract_direction()` :: NORTH / SOUTHWEST / ... -> N / SW
 - `.np_street_key()` :: cleaned street with unit dropped and USPS types standardized
-- `.np_extract_unit()` :: pull the suite / apt / unit token
+- `.np_extract_unit()` :: pull the suite / floor / unit, from the street line or the `unit` column
+- `.np_unit_id()` :: the unit identifier alone (`STE D-2` -> `D2`), which is what pairs are compared on
 - `.np_is_pobox()` :: detect PO-box variants (`PO BOX`, `POB`, `P O`, `BOX`, ...)
 - `.np_parse_street()` :: split the street key into number / name / type
 - `.np_parse_zip()` :: build the nested `zip3` < `zip5` < `zip9` family, restoring leading zeros
@@ -144,6 +145,7 @@ query out of later (looser, costlier) passes once it is resolved (**residual pru
 - `.np_name_overlap()` :: token-set + acronym-aware overlap (word-reorder, `EMS` <-> `Emergency Medical Service`)
 - `.np_collapse_initials()` :: collapse single-letter runs (`F O R` -> `FOR`)
 - `np_name_freq()` :: how many reference records share a normalized name
+- `np_addr_freq()` :: how many reference records share an address, and an address + suite, and how many distinct suites an address carries — what makes a suite match informative (a multi-tenant building) or meaningless (a fiscal sponsor's mail drop)
 
 **process:**
 

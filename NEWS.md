@@ -1,5 +1,64 @@
 # npmatch (development version)
 
+## Address and suite normalization
+
+* **The suite number is parsed properly, carried through to review, and used as
+  evidence where it means something.** Previously it was extracted, stripped
+  from `street_key`, and then dropped: nothing downstream saw it, so neither a
+  human reviewer nor the stage 2 adjudicator could tell two tenants of one
+  building apart.
+* `np_normalize()` adds `street_unit_id`, the identifier alone with separators
+  dropped (`STE D-2` -> `D2`). Records are compared on it, so a BMF `STE 300`
+  and a source `# 300` are recognised as one office, while 320 and 380 are
+  simply different — a suite is an identifier, and a fuzzy score between two of
+  them means nothing.
+* `street_unit` is now read from the **`unit` column** (a second address line)
+  when the street line names no suite. Ignoring it was a penalty rather than a
+  gap: SAM keeps the suite in `physical_address_line_2`, `np_detect_geo()`
+  selected the `street_unit_full` profile on that column's coverage, and the
+  compared column was then `NA` on every row — a unit similarity of 0 on every
+  pair, fired precisely *because* the data was present.
+* A profile requiring `unit` is no longer auto-selected, because the per-profile
+  weights are a weighted *sum*, where a field earns its weight only by matching
+  and an unrecorded suite is therefore a silent penalty. Suite evidence now
+  enters `np_score(method = "hier")`, where the geo terms combine with `max()`
+  so an absent, differing or crowded suite costs a pair nothing.
+  `street_unit_full` remains available via an explicit `profile =`.
+* New `np_addr_freq()` counts, over the reference, the records at each address,
+  at each address + suite, and the distinct suites per address. `np_compare()`
+  annotates every pair with `geo_unit` (1 same suite / 0 different / `NA`
+  unknown), `addr_shared`, `addr_units`, `addr_unit_shared` and a
+  reviewer-facing `addr_note`, and `np_default_geo_weights()` gains
+  `unit = 0.97`. A matching suite is credited only where it discriminates:
+  several distinct suites on record at that address (a multi-tenant building,
+  where an exact-address match surfaces every tenant) and that suite not itself
+  shared by more than `share_min` records (a fiscal sponsor or registered
+  agent, where a shared suite says nothing). The crowded cases are reported to
+  the reviewer instead — "12 records share this address and suite" — in the
+  review frame, the stage 2 packet and `np_as_prompt()`.
+* The unit pattern is rebuilt from a `.np_unit_designators` table and now
+  requires a word boundary and, before an alphabetic id, a separator. Measured
+  on the 1.92M-row unified BMF (`dev/scan-unit-designators.R`), the old pattern
+  produced a false unit on 27,954 rows (11.3% of all extractions) by matching
+  inside ordinary words — `SHERMAN WAY` gave room "AN WAY" and
+  `INDIGO BROOM LOOP` keyed as `10317 INDIGO B` — and in 3,636 of them the
+  false match also **masked the real unit**:
+  `259 N RADNOR CHESTER RD STE 150` extracted `STER`, from inside CHESTER.
+* Designators added, by volume in the BMF: `PMB`, `FL` / `FLOOR` (including the
+  postfix form, `2ND FLOOR` -> `FL 2`), `SPC` / `SPACE`, `LOT`, `TRLR`, `DEPT`,
+  `STOP`, `LBBY`, `HNGR`, `BSMT`, `NUM` / `NUMBER`. USPS C2's `FRNT`, `REAR`,
+  `LOWR`, `UPPR`, `OFC`, `PH`, `PIER`, `KEY`, `SIDE` and `SLIP` are left out
+  because in this corpus they match street names, and `NO` because it is North
+  far more often than Number.
+* The `#` form is stripped from `street_key` at last: extraction allowed `#` and
+  the key strip did not, so `123 MAIN ST # 300` recorded unit `# 300` *and*
+  keyed as `123 MAIN ST 300`. Both now run off one pattern, before cleaning,
+  which is the only point at which the `#` still exists.
+* `np_as_prompt()` could not run at all: it addressed the pipeline column names
+  (`score`, `name_sim`) on a review frame that renames them (`total_score`,
+  `name_similarity`), so `order(-NULL)` errored. Its test had been skipping past
+  the call for the same reason — the id column is renamed too — and now runs.
+
 ## Name normalization
 
 * Letters that are not an accented form of another letter now fold to their

@@ -17,7 +17,15 @@ so correlated fields are never double-counted and a redundant noisy field
 (e.g. a wrong city when the ZIP already matches) cannot lower the score.
 }
 \details{
-Ordered strongest to weakest: full ZIP+4 (\code{zip9}), same street
-(\code{street} = number + body), 5-digit ZIP, matching PO box, 3-digit ZIP
-(SCF region), city, state.
+Ordered strongest to weakest: full ZIP+4 (\code{zip9}), same street and suite
+(\code{unit}), same street (\code{street} = number + body), 5-digit ZIP, matching PO
+box, 3-digit ZIP (SCF region), city, state.
+
+\code{unit} sits just above \code{street} and below \code{zip9}: a confirmed suite in a
+multi-tenant building is a more precise location than the street alone, but
+it is not claimed to beat a full ZIP+4. It is credited only where the suite
+is informative — see \code{\link[=np_addr_freq]{np_addr_freq()}} — and, because the terms combine with
+\code{max()}, never subtracts when a suite is absent, differing, or shared by a
+crowd. A weight vector without \code{unit} (one saved before this existed) falls
+back to 0.97.
 }

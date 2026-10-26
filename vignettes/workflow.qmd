@@ -243,6 +243,12 @@ recovered later by a human or an LLM.
   `CORP`, `LLC`, `FOUNDATION`, `TRUST`, `SOCIETY`, `INSTITUTE` and the rest
   inflate similarity between unrelated organizations
 - street types USPS-standardized (`STREET` → `ST`, `AVENUE` → `AVE`, `NORTH` → `N`)
+- **the suite / floor / unit split off** into `street_unit` ("STE 320") and
+  `street_unit_id` ("320"), read from the street line or from a second address
+  line, and removed from `street_key` so street similarity is suite-blind. The
+  designator is spelling, not information: `STE 320`, `Suite 320` and `# 320`
+  are one office, while 320 and 380 are simply different offices and never
+  partially similar
 - full state names mapped to two-letter codes; ZIP leading zeros restored
 
 **Added as features** — the columns the scorer and the veto layer read:

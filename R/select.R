@@ -1,5 +1,5 @@
 .np_addr_cols <- function(cmp_cols) {
-  intersect(cmp_cols, c("street_key", "city", "county", "zip5", "street_unit"))
+  intersect(cmp_cols, c("street_key", "city", "county", "zip5", "street_unit_id"))
 }
 
 # argmax row per group. Returns integer row indices.

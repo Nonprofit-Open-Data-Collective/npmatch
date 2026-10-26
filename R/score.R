@@ -43,8 +43,35 @@
   street_hit <- as.numeric(geo_stnum == 1 & street_sim >= 0.9 & geo_pobox == 0)
   pobox_hit  <- as.numeric(geo_pobox == 1 & geo_stnum == 1)
 
+  # Same building AND the same office inside it. All three conditions required:
+  # the street matched, the suites are exactly equal (np_compare compares the
+  # identifier, so STE 320 and # 320 agree while 320 and 380 simply do not),
+  # and the suite is informative AT THIS ADDRESS -- several distinct suites on
+  # record (a multi-tenant building, where an exact-address match surfaces every
+  # tenant and the suite is the only thing separating them) and this suite not
+  # itself a crowd (a fiscal sponsor or registered agent, where dozens of
+  # unrelated nonprofits share one suite and sharing it means nothing). Where
+  # np_compare() supplied no context, the exact match alone is credited.
+  #
+  # The term enters the pmax below, so it can only RAISE a score: a differing
+  # suite, an absent suite and a suite inside a crowded mail drop all leave a
+  # pair exactly where it was. That asymmetry is the evidence being honest --
+  # a shared office is weak positive evidence, since an organisation and its
+  # foundation share one, while a differing suite is more often a stale BMF
+  # record than a different organisation. The crowded cases are not decided
+  # here at all; np_compare()'s addr_note reports them for review instead.
+  geo_unit <- if (!is.null(pairs$geo_unit)) as.integer(pairs$geo_unit)
+              else rep(NA_integer_, n)
+  sm <- attr(pairs, "addr_share_min"); if (is.null(sm)) sm <- 10L
+  informative <- if (!is.null(pairs$addr_units))
+    z(pairs$addr_units) >= 2 & z(pairs$addr_unit_shared) <= sm else rep(TRUE, n)
+  unit_hit <- as.numeric(street_hit == 1 & !is.na(geo_unit) & geo_unit == 1 &
+                         informative)
+  gw_unit <- if (!is.null(gw[["unit"]])) gw[["unit"]] else 0.97
+
   terms <- cbind(
     gw[["zip9"]]  * geo_zip9,
+    gw_unit        * unit_hit,
     gw[["street"]] * street_hit,
     gw[["zip5"]]  * geo_zip5,
     gw[["pobox"]] * pobox_hit,
