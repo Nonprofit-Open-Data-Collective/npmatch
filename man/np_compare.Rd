@@ -12,7 +12,8 @@ np_compare(
   profile = NULL,
   candidates = NULL,
   name_freq = NULL,
-  token_idf = NULL
+  token_idf = NULL,
+  addr_freq = NULL
 )
 }
 \arguments{
@@ -28,6 +29,17 @@ np_compare(
 \item{candidates}{Optional \code{np_blocks} from \code{\link[=np_block]{np_block()}}. When given, these
 candidate pairs are compared instead of blocking on \code{block} — the scalable
 path (name-token / progressive blocking).}
+
+\item{name_freq, token_idf}{Optional pre-computed reference tables from
+\code{\link[=np_name_freq]{np_name_freq()}} / \code{\link[=np_token_idf]{np_token_idf()}}.}
+
+\item{addr_freq}{Optional \code{\link[=np_addr_freq]{np_addr_freq()}} table for the reference. Used to
+read a suite match in context: \code{addr_shared}, \code{addr_units},
+\code{addr_unit_shared} and \code{addr_note} are added to the result, and
+\code{np_score(method = "hier")} credits a matching suite only where the
+address is genuinely multi-tenant. Computed from \code{reference} when \code{NULL},
+which is wrong if \code{reference} is a slice of the real corpus — build it
+once from the whole reference and pass it in (as \code{\link[=np_cascade]{np_cascade()}} does).}
 }
 \value{
 A data frame of candidate pairs, one row per (query, reference) pair,

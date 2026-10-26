@@ -134,9 +134,35 @@ test_that("placeholder names are flagged and get no candidates", {
   expect_equal(as.data.frame(b)[, c(".x", ".y")], data.frame(.x = 2L, .y = 2L))
 })
 
+test_that("letters with no accent to drop fold to ASCII instead of splitting the word", {
+  # matchdb's md_light_key() maps the same letters, and the two keys have to
+  # agree character for character or a cached reference key never meets the
+  # query key normalized at run time. An unmapped letter becomes a space, which
+  # used to split the word it sat in: "STRA E FUND", "RESUND TRUST".
+  x <- c("Stra\u00dfe Fund", "\u00d8resund Trust", "\u0141ucja Society",
+         "\u0110uro Institute", "\u00c6on Fund", "\u0152uvre Fund",
+         "\u00deor Foundation", "Mu\u00f1oz Center", "\u00c9cole Fund")
+  expect_equal(np_name_core(x),
+               c("STRASSE FUND", "ORESUND TRUST", "LUCJA SOCIETY",
+                 "DURO INSTITUTE", "AEON FUND", "OEUVRE FUND",
+                 "THOR FOUNDATION", "MUNOZ CENTER", "ECOLE FUND"))
+  # the fold is case-blind: the key cannot depend on how the name was written
+  expect_equal(np_name_core(c("stra\u00dfe fund", "\u00f8resund trust")),
+               c("STRASSE FUND", "ORESUND TRUST"))
+  # a spelled-out name reaches the same key, which is the point of folding
+  expect_equal(np_name_core("Strasse Fund"), np_name_core("Stra\u00dfe Fund"))
+})
+
+test_that("tabs and newlines separate tokens rather than joining words", {
+  expect_equal(np_name_core("Acme\tHealth\nFund"), "ACME HEALTH FUND")
+})
+
 test_that("np_name_rules() exposes the tables the normalizer uses", {
   r <- np_name_rules()
-  expect_named(r, c("abbrev", "core_stop", "legal_suffixes", "placeholder_re", "placeholder_tok"))
+  expect_named(r, c("abbrev", "core_stop", "legal_suffixes", "special_letters",
+                    "placeholder_re", "placeholder_tok"))
+  expect_equal(r$special_letters[["\u00df"]], "SS")
+  expect_equal(r$special_letters[["\u00de"]], "TH")
   expect_equal(r$abbrev[["FDN"]], "FOUNDATION")
   expect_false("PHYS" %in% names(r$abbrev))
   expect_true(all(c("OF", "INC") %in% r$core_stop))

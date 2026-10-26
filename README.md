@@ -74,7 +74,8 @@ features the veto layer needs. Adds `name_key`, `dba_key`, `division_key`, `name
 
 **subroutines**
 
-- `.np_basic_clean()` :: uppercase, de-accent, `&` -> `AND`, strip punctuation, squish space
+- `.np_basic_clean()` :: fold special letters, de-accent, uppercase, `&` -> `AND`, strip punctuation, squish space
+- `.np_map_special()` :: letters with no accent to drop -> their ASCII spelling (`ß` -> `SS`, `Ø` -> `O`, `Æ` -> `AE`, `Þ` -> `TH`)
 - `.np_replace_tokens(dict)` :: whole-word dictionary substitution (abbreviations, USPS types)
 - `.np_strip_lead_the()` :: drop a single leading `THE`
 - `.np_strip_suffix()` :: strip trailing legal suffixes to form the match key
@@ -84,7 +85,8 @@ features the veto layer needs. Adds `name_key`, `dba_key`, `division_key`, `name
 - `.np_extract_ordinals()` :: FIRST / SECOND / ... -> canonical rank
 - `.np_extract_direction()` :: NORTH / SOUTHWEST / ... -> N / SW
 - `.np_street_key()` :: cleaned street with unit dropped and USPS types standardized
-- `.np_extract_unit()` :: pull the suite / apt / unit token
+- `.np_extract_unit()` :: pull the suite / floor / unit, from the street line or the `unit` column
+- `.np_unit_id()` :: the unit identifier alone (`STE D-2` -> `D2`), which is what pairs are compared on
 - `.np_is_pobox()` :: detect PO-box variants (`PO BOX`, `POB`, `P O`, `BOX`, ...)
 - `.np_parse_street()` :: split the street key into number / name / type
 - `.np_parse_zip()` :: build the nested `zip3` < `zip5` < `zip9` family, restoring leading zeros
@@ -92,8 +94,8 @@ features the veto layer needs. Adds `name_key`, `dba_key`, `division_key`, `name
 
 **process (name):**
 
-1. convert name to upper case :: `.np_basic_clean()`
-2. de-accent to ASCII (`N~` -> `N`) :: `.np_basic_clean()`
+1. fold letters with no accent to drop (`ß` -> `SS`, `Ø` -> `O`, `Ł` -> `L`, `Đ` -> `D`, `Æ` -> `AE`, `Œ` -> `OE`, `Þ` -> `TH`) :: `.np_map_special()`
+2. de-accent to ASCII (`N~` -> `N`), then upper case — in that order, so a two-letter upper case survives :: `.np_basic_clean()`
 3. expand `&` to `AND` :: `.np_basic_clean()`
 4. strip punctuation, keep `A-Z 0-9` only :: `.np_basic_clean()`
 5. squish repeated white space :: `.np_basic_clean()`
@@ -143,6 +145,7 @@ query out of later (looser, costlier) passes once it is resolved (**residual pru
 - `.np_name_overlap()` :: token-set + acronym-aware overlap (word-reorder, `EMS` <-> `Emergency Medical Service`)
 - `.np_collapse_initials()` :: collapse single-letter runs (`F O R` -> `FOR`)
 - `np_name_freq()` :: how many reference records share a normalized name
+- `np_addr_freq()` :: how many reference records share an address, and an address + suite, and how many distinct suites an address carries — what makes a suite match informative (a multi-tenant building) or meaningless (a fiscal sponsor's mail drop)
 
 **process:**
 

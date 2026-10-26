@@ -99,6 +99,9 @@ np_cascade <- function(query, reference, config = np_config(), method = "hier",
   r <- if (is.null(reference$name_key)) np_normalize(reference) else reference
   q$.id <- as.character(q$.id)
   if (is.null(name_freq)) name_freq <- np_name_freq(r$name_key)  # distinctiveness reference
+  # one pass over the whole reference, not once per block: a per-block table
+  # would count tenants in a slice and under-report every shared address
+  addr_freq <- np_addr_freq(r$street_key, r$zip5, r$street_unit_id, r$name_key)
   if (is.null(token_idf)) token_idf <- np_token_idf(r$name_key)  # per-token IDF for overlap recovery
   if (is.null(ref_index)) ref_index <- np_ref_index(r)           # tokenize reference ONCE, reuse across passes
 
@@ -122,7 +125,8 @@ np_cascade <- function(query, reference, config = np_config(), method = "hier",
     blk$.x <- match(q_sub$.id[blk$.x], q$.id)          # remap to full-query rows
 
     pr <- np_veto(np_score(np_compare(q, r, config, candidates = blk,
-                                      name_freq = name_freq, token_idf = token_idf),
+                                      name_freq = name_freq, token_idf = token_idf,
+                                      addr_freq = addr_freq),
                            config, method = method))
     if (is.null(cmp_cols)) { cmp_cols <- attr(pr, "cmp_cols"); profile <- attr(pr, "profile") }
     df <- as.data.frame(pr); df$pass <- p$name

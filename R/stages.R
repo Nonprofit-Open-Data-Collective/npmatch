@@ -247,7 +247,10 @@ np_stage1_run <- function(query = NULL, reference = NULL,
   "name_bmf_raw_main", "name_bmf_raw_dba", "name_bmf_raw_division",
   "street_similarity", "city_similarity", "zip_similarity",
   "street_uss", "street_bmf", "city_uss", "city_bmf",
-  "state_uss", "state_bmf", "zip5_uss", "zip5_bmf", "bmf_active")
+  "state_uss", "state_bmf", "zip5_uss", "zip5_bmf",
+  # the suite, and whether it means anything at this address (np_addr_freq)
+  "street_unit_uss", "street_unit_bmf", "geo_unit", "addr_note", "addr_class",
+  "bmf_active")
 
 #' Run stage 2 - LLM adjudication of the MAYBE queue
 #'

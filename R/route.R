@@ -96,7 +96,11 @@
     paste0("state_", s),  paste0("state_", r),
     paste0("zip5_", s),   paste0("zip5_", r),
     paste0("street_", s, "_normalized"), paste0("street_", r, "_normalized"),
-    "geo_stnum", "geo_zip9", "geo_zip5", "geo_zip3", "geo_state", "geo_pobox")
+    paste0("street_unit_", s), paste0("street_unit_", r),
+    "addr_note", "addr_class", "addr_shared", "addr_units", "addr_unit_shared",
+    "addr_unit_coverage", "addr_top_name_share",
+    "geo_unit", "geo_stnum", "geo_zip9", "geo_zip5", "geo_zip3", "geo_state",
+    "geo_pobox")
   # derived fields first (front-ordered, then any remaining derived features),
   # then every imported field (BMF_ / SAM_) at the very end.
   imported <- grep("^(BMF|SAM)_", names(df), value = TRUE)
@@ -294,6 +298,36 @@ np_route <- function(tiered, config = attr(tiered, "config"),
   structure(out, class = "np_routing")
 }
 
+# The suite line, stated rather than left inside the address string: a reviewer
+# (human or model) needs to know whether the two sides agree, and the raw
+# address line does not say so -- the suite may be written on one side only, or
+# written differently ("STE 320" vs "# 320"), which is not a disagreement.
+# Silent on both sides prints nothing, which is the common case.
+.np_prompt_suite <- function(r, src, ref) {
+  qs <- r[[paste0("street_unit_", src)]]; cs <- r[[paste0("street_unit_", ref)]]
+  if (is.null(qs) && is.null(cs)) return("")
+  qs <- if (is.null(qs) || is.na(qs)) NULL else as.character(qs)
+  cs <- if (is.null(cs) || is.na(cs)) NULL else as.character(cs)
+  if (is.null(qs) && is.null(cs)) return("")
+  gu <- r[["geo_unit"]]
+  verdict <- if (is.null(qs) || is.null(cs))
+    "named on one side only -- no evidence either way"
+  else if (!is.null(gu) && !is.na(gu) && gu == 1) "same suite"
+  else "different suites -- weak evidence, a BMF suite is often stale"
+  sprintf("\n      Suite: %s (%s) / %s (%s) -- %s",
+          if (is.null(qs)) "none given" else qs, src,
+          if (is.null(cs)) "none given" else cs, ref, verdict)
+}
+
+# Shared-address note. The crowded cases are exactly the ones the arithmetic
+# cannot settle -- a building let to many nonprofits, or a fiscal sponsor's mail
+# drop -- so the reviewer is told, instead of being left to infer it from a
+# suspiciously strong address match.
+.np_prompt_shared <- function(r) {
+  note <- r[["addr_note"]]
+  if (is.null(note) || is.na(note)) "" else paste0("\n      Note: ", note)
+}
+
 #' Render a review case as an LLM adjudication prompt
 #'
 #' Formats one query's review packet as self-contained prompt text: the source
@@ -313,7 +347,12 @@ np_as_prompt <- function(routing, id) {
   idl <- attr(routing, "id_label");  if (is.null(idl)) idl <- "uei"
   rows <- rev[rev[[idl]] == id, , drop = FALSE]
   if (nrow(rows) == 0) stop("No review case for ", idl, " = ", id, call. = FALSE)
-  rows <- rows[order(-rows$score), , drop = FALSE]
+  # NB the review frame carries the RENAMED columns (.np_rename_review): score
+  # is total_score, name_sim is name_similarity. Addressing them by the pipeline
+  # names returned NULL -- order(-NULL) is an error -- so this function could
+  # not run at all; its own test skipped past it because the id column is
+  # renamed too, so the loop over ids never had anything to do.
+  rows <- rows[order(-rows$total_score), , drop = FALSE]
 
   addr <- function(r, sfx) {
     paste(na.omit(c(r[[paste0("street_", sfx)]], r[[paste0("city_", sfx)]],
@@ -322,9 +361,12 @@ np_as_prompt <- function(routing, id) {
   q <- rows[1, ]
   cand_lines <- vapply(seq_len(nrow(rows)), function(i) {
     r <- rows[i, ]
-    sprintf("  [%d] EIN %s  %s\n      Address: %s\n      name_sim=%.2f  addr_sim=%.2f  score=%.2f%s",
+    sprintf("  [%d] EIN %s  %s\n      Address: %s%s%s\n      name_sim=%.2f  addr_sim=%.2f  score=%.2f%s",
             i, r$ein, r[[paste0("match_name_", ref)]], addr(r, ref),
-            r$name_sim, ifelse(is.na(r$addr_sim), 0, r$addr_sim), r$score,
+            .np_prompt_suite(r, src, ref), .np_prompt_shared(r),
+            r$name_similarity,
+            ifelse(is.na(r$addr_similarity), 0, r$addr_similarity),
+            r$total_score,
             if (isTRUE(r$veto_soft)) paste0("  [soft veto: ", r$veto_soft_reason, "]") else "")
   }, character(1))
 

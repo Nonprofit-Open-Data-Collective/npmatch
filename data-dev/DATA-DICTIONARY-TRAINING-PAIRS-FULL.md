@@ -16,7 +16,7 @@ Fields are marked **DERIVED** (with the formula + input fields) or direct import
 | `dba_y` | name-raw | chr | no | - | Raw BMF DBA / sort name. |
 | `division_x` | name-raw | chr | no | - | Raw source division name (SAM entity_division_name). |
 | `division_y` | name-raw | chr | no | - | Raw BMF division name (usually empty). |
-| `name_x` | name-norm | chr | yes | name_raw_x | DERIVED (name_full). str_squish(replace_tokens(basic_clean(name_raw), abbrev)) -- cleaned + abbreviation-standardized, legal suffix RETAINED. basic_clean = uppercase -> de-accent -> '&'->'AND' -> punctuation/non-alnum -> space -> squish. |
+| `name_x` | name-norm | chr | yes | name_raw_x | DERIVED (name_full). str_squish(replace_tokens(basic_clean(name_raw), abbrev)) -- cleaned + abbreviation-standardized, legal suffix RETAINED. basic_clean = fold special letters (eszett->SS, O-slash->O, ash->AE, thorn->TH) -> de-accent -> uppercase -> '&'->'AND' -> punctuation/non-alnum -> space -> squish. |
 | `name_y` | name-norm | chr | yes | name_raw_y | DERIVED (name_full) of the BMF name; see name_x. |
 | `name_key_x` | name-norm | chr | yes | name_raw_x | DERIVED. strip_lead_the(strip_suffix(name_x)) -- the match key: name_full with a trailing legal suffix (INC/CORP/LLC/ASSOCIATION/FOUNDATION/TRUST/...) and a leading 'THE' removed. |
 | `name_key_y` | name-norm | chr | yes | name_raw_y | DERIVED. BMF match key; see name_key_x. |

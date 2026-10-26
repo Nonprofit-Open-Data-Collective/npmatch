@@ -1,7 +1,110 @@
 # npmatch (development version)
 
+## Address and suite normalization
+
+* `np_addr_freq()` classifies each shared address, because what a shared
+  address *is* decides what its evidence is worth, and counts alone cannot tell
+  the kinds apart. It now takes `name_keys` and adds `n_names`,
+  `top_name_share`, `unit_coverage` and `class`: `federated` (many records, one
+  name dominating — a national office its chapters file from, where the address
+  matches every chapter equally and the chapter number is the only
+  discriminator), `shared` (many records, many names — a fiscal sponsor or
+  registered agent), `building` (many records across several recorded suites —
+  the suite discriminates) or `cluster` (a handful, usually an org with its
+  foundation). Over the unified BMF: 1,188 federated addresses holding 60,064
+  records, 1,319 shared holding 29,910, 1,910 buildings holding 36,327, and
+  134,212 clusters. `np_compare()` carries `addr_class`,
+  `addr_top_name_share` and `addr_unit_coverage` per pair and states the class
+  in `addr_note`, which reaches the review frame, the stage 2 packet and
+  `np_as_prompt()`.
+* The suite credit is additionally gated on `unit_coverage` (default 0.5): at
+  the BMF addresses holding 10 or more records the share of records naming a
+  suite averages 0.52 and 1,601 of them name none, so "two or more distinct
+  suites here" can describe the data rather than the building. This withholds
+  the credit at 445 of the 23,310 addresses listing two or more suites (1.9%).
+* **Damping the street credit at low-discrimination addresses was measured and
+  rejected**, against an earlier recommendation of our own. With the street
+  evidence *zeroed* at crowded addresses, the 304,274 labeled pairs give AUC
+  0.9981 to 0.9981, precision 0.5669 to 0.5669, recall 0.9212 to 0.9212 and
+  1,898 YES-band pairs either way — not one decision changes. The geo terms
+  combine with `max()` and the top rungs sit 0.05 apart, so removing one moves
+  a total score by 0.02; and the two crowded archetypes want opposite
+  treatment, since at a sponsor address the name separates cleanly and damping
+  would only pull the true match down. See `dev/MATCHDB-ADDRESS-UNIQUENESS.md`
+  section 9.
+* `np_addr_freq()` is covered by the normalizer signature, so these changes move
+  it again, to **`v1-77a3842ce517e353`**.
+
+* **The suite number is parsed properly, carried through to review, and used as
+  evidence where it means something.** Previously it was extracted, stripped
+  from `street_key`, and then dropped: nothing downstream saw it, so neither a
+  human reviewer nor the stage 2 adjudicator could tell two tenants of one
+  building apart.
+* `np_normalize()` adds `street_unit_id`, the identifier alone with separators
+  dropped (`STE D-2` -> `D2`). Records are compared on it, so a BMF `STE 300`
+  and a source `# 300` are recognised as one office, while 320 and 380 are
+  simply different — a suite is an identifier, and a fuzzy score between two of
+  them means nothing.
+* `street_unit` is now read from the **`unit` column** (a second address line)
+  when the street line names no suite. Ignoring it was a penalty rather than a
+  gap: SAM keeps the suite in `physical_address_line_2`, `np_detect_geo()`
+  selected the `street_unit_full` profile on that column's coverage, and the
+  compared column was then `NA` on every row — a unit similarity of 0 on every
+  pair, fired precisely *because* the data was present.
+* A profile requiring `unit` is no longer auto-selected, because the per-profile
+  weights are a weighted *sum*, where a field earns its weight only by matching
+  and an unrecorded suite is therefore a silent penalty. Suite evidence now
+  enters `np_score(method = "hier")`, where the geo terms combine with `max()`
+  so an absent, differing or crowded suite costs a pair nothing.
+  `street_unit_full` remains available via an explicit `profile =`.
+* New `np_addr_freq()` counts, over the reference, the records at each address,
+  at each address + suite, and the distinct suites per address. `np_compare()`
+  annotates every pair with `geo_unit` (1 same suite / 0 different / `NA`
+  unknown), `addr_shared`, `addr_units`, `addr_unit_shared` and a
+  reviewer-facing `addr_note`, and `np_default_geo_weights()` gains
+  `unit = 0.97`. A matching suite is credited only where it discriminates:
+  several distinct suites on record at that address (a multi-tenant building,
+  where an exact-address match surfaces every tenant) and that suite not itself
+  shared by more than `share_min` records (a fiscal sponsor or registered
+  agent, where a shared suite says nothing). The crowded cases are reported to
+  the reviewer instead — "12 records share this address and suite" — in the
+  review frame, the stage 2 packet and `np_as_prompt()`.
+* The unit pattern is rebuilt from a `.np_unit_designators` table and now
+  requires a word boundary and, before an alphabetic id, a separator. Measured
+  on the 1.92M-row unified BMF (`dev/scan-unit-designators.R`), the old pattern
+  produced a false unit on 27,954 rows (11.3% of all extractions) by matching
+  inside ordinary words — `SHERMAN WAY` gave room "AN WAY" and
+  `INDIGO BROOM LOOP` keyed as `10317 INDIGO B` — and in 3,636 of them the
+  false match also **masked the real unit**:
+  `259 N RADNOR CHESTER RD STE 150` extracted `STER`, from inside CHESTER.
+* Designators added, by volume in the BMF: `PMB`, `FL` / `FLOOR` (including the
+  postfix form, `2ND FLOOR` -> `FL 2`), `SPC` / `SPACE`, `LOT`, `TRLR`, `DEPT`,
+  `STOP`, `LBBY`, `HNGR`, `BSMT`, `NUM` / `NUMBER`. USPS C2's `FRNT`, `REAR`,
+  `LOWR`, `UPPR`, `OFC`, `PH`, `PIER`, `KEY`, `SIDE` and `SLIP` are left out
+  because in this corpus they match street names, and `NO` because it is North
+  far more often than Number.
+* The `#` form is stripped from `street_key` at last: extraction allowed `#` and
+  the key strip did not, so `123 MAIN ST # 300` recorded unit `# 300` *and*
+  keyed as `123 MAIN ST 300`. Both now run off one pattern, before cleaning,
+  which is the only point at which the `#` still exists.
+* `np_as_prompt()` could not run at all: it addressed the pipeline column names
+  (`score`, `name_sim`) on a review frame that renames them (`total_score`,
+  `name_similarity`), so `order(-NULL)` errored. Its test had been skipping past
+  the call for the same reason — the id column is renamed too — and now runs.
+
 ## Name normalization
 
+* Letters that are not an accented form of another letter now fold to their
+  ASCII spelling: `ß` → `SS`, `Ø` → `O`, `Ł` → `L`, `Đ` → `D`, `Æ` → `AE`,
+  `Œ` → `OE`, `Þ` → `TH`. De-accenting cannot reach them, and an unmapped
+  letter was replaced by a space, which split the word it sat in: `Straße Fund`
+  normalized to `STRA E FUND`. Folding now runs before the upper-casing, which
+  is what let the eszett through — R's `toupper()` is per-character, so it left
+  a letter whose upper case is two letters alone. This is the list matchdb's
+  `md_light_key()` folds, so a cached reference key and a run-time query key
+  agree character for character; `np_name_rules()` returns it as
+  `special_letters`. **`np_normalize_signature()` changes with it**, so any
+  cached `name_key` / `street_key` artifact must be rebuilt.
 * 16 more abbreviations expand, taken from networked990's 990 name resolver
   and checked against the BMF: FDN / FND / FNDTN / FDTN (FOUNDATION), HOSP,
   MED, HLTH, HLTHCARE, MGMT, REG / RGNL (REGIONAL), CNTR, SYS / SYST and

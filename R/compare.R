@@ -14,7 +14,7 @@
 .np_compare_col <- c(
   name   = "name_key",
   street = "street_key",
-  unit   = "street_unit",
+  unit   = "street_unit_id",
   city   = "city",
   county = "county",
   zip5   = "zip5"
@@ -40,13 +40,22 @@
 #' @param candidates Optional `np_blocks` from [np_block()]. When given, these
 #'   candidate pairs are compared instead of blocking on `block` — the scalable
 #'   path (name-token / progressive blocking).
+#' @param name_freq,token_idf Optional pre-computed reference tables from
+#'   [np_name_freq()] / [np_token_idf()].
+#' @param addr_freq Optional [np_addr_freq()] table for the reference. Used to
+#'   read a suite match in context: `addr_shared`, `addr_units`,
+#'   `addr_unit_shared` and `addr_note` are added to the result, and
+#'   `np_score(method = "hier")` credits a matching suite only where the
+#'   address is genuinely multi-tenant. Computed from `reference` when `NULL`,
+#'   which is wrong if `reference` is a slice of the real corpus — build it
+#'   once from the whole reference and pass it in (as [np_cascade()] does).
 #' @return A data frame of candidate pairs, one row per (query, reference) pair,
 #'   with class `np_pairs`. Columns include `.x`, `.y`, `.id`, `.ein`, a
 #'   similarity column per compared field, plus carried veto features.
 #' @export
 np_compare <- function(query, reference, config = np_config(),
                        block = "state", profile = NULL, candidates = NULL,
-                       name_freq = NULL, token_idf = NULL) {
+                       name_freq = NULL, token_idf = NULL, addr_freq = NULL) {
   if (!requireNamespace("reclin2", quietly = TRUE)) {
     stop("np_compare() requires the reclin2 package.", call. = FALSE)
   }
@@ -86,7 +95,10 @@ np_compare <- function(query, reference, config = np_config(),
       else (x > jt) & !is.na(x) } })
   comparators <- stats::setNames(
     lapply(cmp_cols, function(col) {
-      if (col == "zip5") reclin2::cmp_identical() else cmp_name
+      # a suite is an identifier, not a string: 320 and 380 are different
+      # offices, and a fuzzy score between them is meaningless
+      if (col %in% c("zip5", "street_unit_id")) reclin2::cmp_identical()
+      else cmp_name
     }), cmp_cols)
 
   pairs <- reclin2::compare_pairs(
@@ -105,7 +117,8 @@ np_compare <- function(query, reference, config = np_config(),
   # cmp_jarowinkler(threshold=) is the Winkler prefix BOOST, not a cutoff, so
   # unrelated strings otherwise leak ~0.5 into every score. zip5 is exact (0/1)
   # and is left as-is.
-  for (col in setdiff(cmp_cols, "zip5")) df[[col]][df[[col]] < jt] <- 0
+  for (col in setdiff(cmp_cols, c("zip5", "street_unit_id")))
+    df[[col]][df[[col]] < jt] <- 0
 
   ix <- df$.x; iy <- df$.y
   df$.id  <- query$.id[ix]
@@ -139,6 +152,71 @@ np_compare <- function(query, reference, config = np_config(),
   df$geo_stnum <- exact("street_num")
   df$geo_pobox <- as.integer(query$is_po_box[ix] %in% TRUE &
                              reference$is_po_box[iy] %in% TRUE)
+
+  # Suite agreement, and what a suite is worth at THIS address.
+  #
+  # geo_unit is deliberately three-valued: 1 both sides name a suite and it is
+  # the same office, 0 both name one and they differ, NA either side is silent.
+  # Most records are silent (12% of the BMF carries a suite), and silence is not
+  # a conflict -- .np_hier_score() only ever uses this to RAISE a score, so an
+  # absent or a differing suite costs a pair nothing. Partial agreement is not a
+  # thing: 320 against 380 is simply 0, never a fraction.
+  #
+  # The context columns answer "is this suite informative here", which the match
+  # alone cannot:
+  #   addr_units       distinct suites the reference lists at this address. >= 2
+  #                    means a multi-tenant building, where an exact-address
+  #                    match surfaces every tenant and the suite is the only
+  #                    thing separating them.
+  #   addr_unit_shared records at this address AND suite. Above share_min it is
+  #                    a fiscal sponsor / registered agent / mail drop, where a
+  #                    shared suite says nothing about being the same entity.
+  #   addr_shared      records at this address, suite or not.
+  # addr_note states either case in words for a human or LLM reviewer, which is
+  # the whole value in the crowded cases: the suite cannot decide them, so the
+  # reviewer should be told the address is shared rather than left to guess.
+  if (is.null(addr_freq))
+    addr_freq <- np_addr_freq(reference$street_key, reference$zip5,
+                              reference$street_unit_id, reference$name_key)
+  ux <- query$street_unit_id[ix]; uy <- reference$street_unit_id[iy]
+  both <- !is.na(ux) & !is.na(uy) & nzchar(ux) & nzchar(uy)
+  df$geo_unit <- ifelse(both, as.integer(ux == uy), NA_integer_)
+
+  akey <- .np_addr_key(reference$street_key[iy], reference$zip5[iy])
+  cnt <- function(tab, key) {
+    v <- unname(tab[key]); v[is.na(v)] <- 0L; as.integer(v)
+  }
+  df$addr_shared      <- cnt(addr_freq$addr, akey)
+  df$addr_units       <- cnt(addr_freq$units, akey)
+  df$addr_unit_shared <- cnt(addr_freq$addr_unit, paste(akey, uy, sep = "|"))
+  num <- function(tab, key, default) {
+    if (is.null(tab)) return(rep(default, length(key)))
+    v <- unname(tab[key]); v[is.na(v)] <- default; as.numeric(v)
+  }
+  df$addr_unit_coverage <- num(addr_freq$unit_coverage, akey, 0)
+  df$addr_top_name_share <- num(addr_freq$top_name_share, akey, NA_real_)
+  cls <- if (is.null(addr_freq$class)) rep(NA_character_, length(akey)) else
+    unname(addr_freq$class[akey])
+  cls[is.na(cls)] <- "single"
+  df$addr_class <- cls
+  sm <- addr_freq$share_min
+
+  # What the reviewer is told, which is the whole value in the cases arithmetic
+  # cannot settle. Ordered by what actually decides the case: a crowded suite
+  # first (the suite is a mail drop), then a federated address (neither address
+  # nor suite separates anything -- the chapter number does), then a merely
+  # shared one.
+  df$addr_note <- ifelse(
+    df$addr_unit_shared > sm,
+    sprintf("%d records share this address and suite", df$addr_unit_shared),
+    ifelse(df$addr_class == "federated",
+      sprintf("federated address: %d records here, %d%% of them under one name; the address does not separate them",
+              df$addr_shared, round(100 * df$addr_top_name_share)),
+    ifelse(df$addr_shared > sm,
+      sprintf("%d records share this address under %s distinct names (sponsor or agent)",
+              df$addr_shared, ifelse(is.na(df$addr_top_name_share), "several",
+                                     as.character(num(addr_freq$n_names, akey, NA_real_)))),
+      NA_character_)))
 
   # Effective name similarity = best of the name/DBA cross-products (name==name,
   # name==dba, dba==name, dba==dba), so an exact DBA match scores like a name
@@ -303,7 +381,8 @@ np_compare <- function(query, reference, config = np_config(),
   }
   # keep human-readable geo values for review output (self-contained packets);
   # name_x / name_y / name_raw_* / name_ver_* were set above with match provenance
-  for (f in c("street", "city", "state", "zip5")) {
+  for (f in c("street", "city", "state", "zip5", "unit", "street_unit",
+              "street_unit_id")) {
     df[[paste0(f, "_x")]] <- query[[f]][ix]
     df[[paste0(f, "_y")]] <- reference[[f]][iy]
   }
@@ -311,6 +390,8 @@ np_compare <- function(query, reference, config = np_config(),
   # filtered to current-990 matches vs identity-resolution matches downstream
   df$bmf_active <- if (!is.null(reference$active)) reference$active[iy] else NA
 
+  attr(df, "addr_share_min") <- addr_freq$share_min
+  attr(df, "addr_unit_coverage_min") <- addr_freq$unit_coverage_min
   attr(df, "profile")      <- profile
   attr(df, "cmp_fields")   <- cmp_fields
   attr(df, "cmp_cols")     <- cmp_cols

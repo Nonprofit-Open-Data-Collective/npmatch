@@ -101,7 +101,7 @@ test_that("near-tie cases carry an explanatory decision_reason", {
 test_that("np_as_prompt renders a self-contained LLM prompt without calls", {
   res <- route_fixture()
   rt <- np_route(res)
-  ids <- unique(rt$review$.id)
+  ids <- unique(rt$review$uei)       # the review frame renames .id to id_label
   skip_if(length(ids) == 0)
   p <- np_as_prompt(rt, ids[1])
   expect_type(p, "character")
