@@ -219,7 +219,14 @@ recovered later by a human or an LLM.
 **Cleaned onto a common form** — the goal is parity with the BMF's own
 `org_name_join` field, so both sides are damaged identically:
 
-- uppercased and de-accented (`Latin-ASCII`), so `Muñoz` and `Munoz` agree
+- de-accented (`Latin-ASCII`) and then uppercased, so `Muñoz` and `Munoz` agree
+- **letters with no accent to drop folded to their ASCII spelling** — `ß` → `SS`,
+  `Ø` → `O`, `Ł` → `L`, `Đ` → `D`, `Æ` → `AE`, `Œ` → `OE`, `Þ` → `TH`. De-accenting
+  cannot reach these, and an unmapped letter is replaced by a space, which splits
+  the word it sits in (`Straße Fund` → `STRA E FUND`). This is the same list
+  matchdb's `md_light_key()` folds, so the cached reference key and the run-time
+  query key agree character for character; `np_name_rules()$special_letters`
+  returns it for a port to another engine
 - `&` expanded to ` AND `
 - **apostrophes deleted, not spaced.** The BMF holds `ST LUKES HOSPITAL`, having
   stripped the apostrophe by deletion. Turning it into a space on the query side

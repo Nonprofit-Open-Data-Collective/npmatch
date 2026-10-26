@@ -17,8 +17,9 @@ np_name_placeholder(x)
 left). \code{np_name_placeholder()}: logical vector.
 }
 \description{
-\code{np_name_core()} cleans a name the way \code{\link[=np_normalize]{np_normalize()}} does (upper case,
-de-accent, \code{&} to AND, possessives joined, abbreviations expanded), then
+\code{np_name_core()} cleans a name the way \code{\link[=np_normalize]{np_normalize()}} does (special
+letters folded to ASCII, de-accented, upper-cased, \code{&} to AND, possessives
+joined, abbreviations expanded), then
 drops connector words and legal forms anywhere in the name (THE, OF, AND,
 INC, CORP, LLC ...). Unlike \code{name_key} it keeps FOUNDATION, TRUST,
 ASSOCIATION and FUND, so a charity and its foundation get different keys.

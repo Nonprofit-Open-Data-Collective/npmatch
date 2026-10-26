@@ -74,7 +74,8 @@ features the veto layer needs. Adds `name_key`, `dba_key`, `division_key`, `name
 
 **subroutines**
 
-- `.np_basic_clean()` :: uppercase, de-accent, `&` -> `AND`, strip punctuation, squish space
+- `.np_basic_clean()` :: fold special letters, de-accent, uppercase, `&` -> `AND`, strip punctuation, squish space
+- `.np_map_special()` :: letters with no accent to drop -> their ASCII spelling (`ß` -> `SS`, `Ø` -> `O`, `Æ` -> `AE`, `Þ` -> `TH`)
 - `.np_replace_tokens(dict)` :: whole-word dictionary substitution (abbreviations, USPS types)
 - `.np_strip_lead_the()` :: drop a single leading `THE`
 - `.np_strip_suffix()` :: strip trailing legal suffixes to form the match key
@@ -92,8 +93,8 @@ features the veto layer needs. Adds `name_key`, `dba_key`, `division_key`, `name
 
 **process (name):**
 
-1. convert name to upper case :: `.np_basic_clean()`
-2. de-accent to ASCII (`N~` -> `N`) :: `.np_basic_clean()`
+1. fold letters with no accent to drop (`ß` -> `SS`, `Ø` -> `O`, `Ł` -> `L`, `Đ` -> `D`, `Æ` -> `AE`, `Œ` -> `OE`, `Þ` -> `TH`) :: `.np_map_special()`
+2. de-accent to ASCII (`N~` -> `N`), then upper case — in that order, so a two-letter upper case survives :: `.np_basic_clean()`
 3. expand `&` to `AND` :: `.np_basic_clean()`
 4. strip punctuation, keep `A-Z 0-9` only :: `.np_basic_clean()`
 5. squish repeated white space :: `.np_basic_clean()`

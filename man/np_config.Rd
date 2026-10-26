@@ -20,6 +20,8 @@ np_config(
   name_comparator = "jaro_winkler",
   addr_comparator = "jaro_winkler",
   jw_threshold = 0.85,
+  jw_p = NULL,
+  substring_p = NULL,
   rules = np_default_rules(),
   geo_weights = np_default_geo_weights(),
   name_geo = c(name = 0.6, geo = 0.4)
@@ -87,6 +89,24 @@ for name-like and address-like fields respectively.}
 
 \item{jw_threshold}{Jaro-Winkler floor passed to the comparators; per-field
 similarities below this are set to 0 (reduces noise from unrelated pairs).}
+
+\item{jw_p}{Winkler prefix-boost factor \code{p}. \code{NULL} (the default) preserves
+the behaviour npmatch has always had, which is \strong{not} uniform: the
+name/geo comparison runs through \code{reclin2::cmp_jarowinkler()}, which calls
+\code{stringdist(method = "jw")} with no \code{p} and so computes plain \strong{Jaro}
+(\code{p = 0}), while the name/DBA cross-products in \code{\link[=np_compare]{np_compare()}} use
+\code{p = 0.1}, i.e. real Jaro-Winkler. Two metrics for one quantity, with the
+same \code{jw_threshold} floor applied to both. Setting \code{jw_p} to a number uses
+it for \emph{both} paths, which is what makes the two comparable. Standard
+Jaro-Winkler uses 0.1 and requires \code{p <= 0.25}.}
+
+\item{substring_p}{Minimum sliding-window partial ratio for substring credit,
+or \code{NULL} (the default) to disable it, which is a no-op. When set, pairs
+whose name/DBA similarity did not clear \code{jw_threshold} but whose address is
+confirmed get a substring score (see \code{.np_partial_ratio()}), and a match
+found only that way is marked \code{name_match_type = "substring"} and capped
+below YES by \code{\link[=np_score]{np_score()}} exactly as token overlap is -- a substring cannot
+separate a parent from a chapter. 0.85-0.90 is a sensible starting range.}
 
 \item{rules}{A veto rule set as returned by \code{\link[=np_default_rules]{np_default_rules()}} (or a
 user-extended version).}

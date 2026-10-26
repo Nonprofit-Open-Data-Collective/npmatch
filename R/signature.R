@@ -27,13 +27,14 @@
       ".np_legal_suffixes", ".np_abbrev", ".np_street_types",
       ".np_generation", ".np_ordinals", ".np_gen_rank", ".np_directions",
       ".np_street_type_set", ".np_state_abbr", ".np_state_codes",
-      ".np_unit_pat", ".np_pobox_pat",
+      ".np_unit_pat", ".np_pobox_pat", ".np_special_letters",
       ".np_core_stop", ".np_placeholder_re", ".np_placeholder_tok"
     ),
     # --- functions producing the per-row derived columns --------------------
     normalize = c(
       "np_normalize",
-      ".np_tokens", ".np_replace_tokens", ".np_strip_joiners", ".np_basic_clean",
+      ".np_tokens", ".np_replace_tokens", ".np_strip_joiners",
+      ".np_map_special", ".np_basic_clean",
       ".np_extract_generation", ".np_extract_numbers", ".np_extract_ordinals",
       ".np_extract_direction", ".np_extract_form", ".np_canon_form",
       ".np_strip_lead_the", ".np_strip_suffix",

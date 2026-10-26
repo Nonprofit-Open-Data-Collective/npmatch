@@ -118,6 +118,30 @@
 )
 .np_state_codes <- c(datasets::state.abb, "DC", "PR", "GU", "VI", "AS", "MP")
 
+# Latin letters that are not an accented form of some other letter, and the
+# ASCII strings they stand for. De-accenting cannot reach them: there is no mark
+# to drop, so an unmapped letter survives to the `[^A-Z0-9 ]` rule in
+# .np_basic_clean() and is replaced by a SPACE, which splits the word it sits
+# in -- "Strasse Fund" came back as "STRA E FUND", "Oresund" as "RESUND".
+#
+# ICU's Latin-ASCII covers all of these today, so the table is belt and braces
+# against an older ICU (eszett is a comparatively recent addition to that
+# transform) and, more to the point, it is the list matchdb's `md_light_key()`
+# ports into SQL. The two keys must agree character for character or a cached
+# reference key and a run-time query key stop meeting, so the mapping is pinned
+# here and exposed through np_name_rules() rather than left to the transform.
+#
+# Written with \u escapes, not literal glyphs, so this file stays pure ASCII.
+.np_special_letters <- c(
+  "\u00df" = "SS", "\u1e9e" = "SS",    # eszett, capital eszett
+  "\u00d8" = "O",  "\u00f8" = "O",     # O with stroke
+  "\u0141" = "L",  "\u0142" = "L",     # L with stroke
+  "\u0110" = "D",  "\u0111" = "D",     # D with stroke
+  "\u00c6" = "AE", "\u00e6" = "AE",    # ash
+  "\u0152" = "OE", "\u0153" = "OE",    # ethel
+  "\u00de" = "TH", "\u00fe" = "TH"     # thorn
+)
+
 # Helpers ---------------------------------------------------------------------
 
 .np_tokens <- function(x) strsplit(x, "\\s+")
@@ -155,9 +179,22 @@
   gsub("(?<=[A-Za-z0-9])\\.(?=[A-Za-z0-9])", "", x, perl = TRUE)
 }
 
+# Fold the letters .np_special_letters names to their ASCII spellings.
+.np_map_special <- function(x) {
+  stringi::stri_replace_all_fixed(x, names(.np_special_letters),
+                                  .np_special_letters, vectorize_all = FALSE)
+}
+
+# Upper-casing runs AFTER the two folding steps, not before. R's toupper() is
+# per-character, so it leaves a letter whose upper case is two letters alone:
+# toupper("Strasse") kept the eszett, Latin-ASCII then produced a LOWERCASE
+# "ss", and the final [^A-Z0-9 ] rule blanked it -- "STRA E". Folding first and
+# upper-casing the result keeps SS / AE / OE / TH (and ligatures such as "fi"),
+# and costs nothing otherwise.
 .np_basic_clean <- function(x) {
-  x <- toupper(as.character(x))
+  x <- .np_map_special(as.character(x))
   x <- stringi::stri_trans_general(x, "Latin-ASCII") # de-accent
+  x <- toupper(x)
   x <- gsub("&", " AND ", x, fixed = TRUE)
   x <- .np_strip_joiners(x)          # delete, do not space -- see above
   x <- gsub("[[:punct:]]", " ", x)   # every other mark separates tokens
@@ -284,8 +321,9 @@ np_normalize <- function(data) {
 
 #' Exact-lookup name key and placeholder check for raw name strings
 #'
-#' `np_name_core()` cleans a name the way [np_normalize()] does (upper case,
-#' de-accent, `&` to AND, possessives joined, abbreviations expanded), then
+#' `np_name_core()` cleans a name the way [np_normalize()] does (special
+#' letters folded to ASCII, de-accented, upper-cased, `&` to AND, possessives
+#' joined, abbreviations expanded), then
 #' drops connector words and legal forms anywhere in the name (THE, OF, AND,
 #' INC, CORP, LLC ...). Unlike `name_key` it keeps FOUNDATION, TRUST,
 #' ASSOCIATION and FUND, so a charity and its foundation get different keys.
@@ -323,12 +361,15 @@ np_name_placeholder <- function(x) .np_is_placeholder(x, .np_clean_name(x))
 #'
 #' @return A list: `abbrev` (named character, token to expansion),
 #'   `core_stop` (tokens dropped from `name_core`), `legal_suffixes`
-#'   (trailing tokens stripped from `name_key`), `placeholder_re` (a Perl
-#'   regex on the raw upper-cased name) and `placeholder_tok`.
+#'   (trailing tokens stripped from `name_key`), `special_letters` (named
+#'   character, a non-decomposable Latin letter to its ASCII spelling, folded
+#'   before de-accenting), `placeholder_re` (a Perl regex on the raw
+#'   upper-cased name) and `placeholder_tok`.
 #' @export
 np_name_rules <- function() {
   list(abbrev = .np_abbrev, core_stop = .np_core_stop,
        legal_suffixes = .np_legal_suffixes,
+       special_letters = .np_special_letters,
        placeholder_re = .np_placeholder_re, placeholder_tok = .np_placeholder_tok)
 }
 

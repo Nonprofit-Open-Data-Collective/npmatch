@@ -2,6 +2,17 @@
 
 ## Name normalization
 
+* Letters that are not an accented form of another letter now fold to their
+  ASCII spelling: `ß` → `SS`, `Ø` → `O`, `Ł` → `L`, `Đ` → `D`, `Æ` → `AE`,
+  `Œ` → `OE`, `Þ` → `TH`. De-accenting cannot reach them, and an unmapped
+  letter was replaced by a space, which split the word it sat in: `Straße Fund`
+  normalized to `STRA E FUND`. Folding now runs before the upper-casing, which
+  is what let the eszett through — R's `toupper()` is per-character, so it left
+  a letter whose upper case is two letters alone. This is the list matchdb's
+  `md_light_key()` folds, so a cached reference key and a run-time query key
+  agree character for character; `np_name_rules()` returns it as
+  `special_letters`. **`np_normalize_signature()` changes with it**, so any
+  cached `name_key` / `street_key` artifact must be rebuilt.
 * 16 more abbreviations expand, taken from networked990's 990 name resolver
   and checked against the BMF: FDN / FND / FNDTN / FDTN (FOUNDATION), HOSP,
   MED, HLTH, HLTHCARE, MGMT, REG / RGNL (REGIONAL), CNTR, SYS / SYST and
