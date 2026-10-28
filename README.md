@@ -24,6 +24,11 @@ normalizer moved. `main` keeps changing, and a change to normalization,
 blocking or scoring changes which EINs are matched. `packageVersion("npmatch")`
 reports the release number, and a `.9000` suffix for the development version.
 
+On `main`, the normalizer comes from
+[npnormalize](https://github.com/Nonprofit-Open-Data-Collective/npnormalize),
+which installs with npmatch. npmatch re-exports `np_normalize()` and the rest
+unchanged, with the same signature; the next release will be 0.2.0.
+
 Stage 1 compares names and addresses with
 [reclin2](https://cran.r-project.org/package=reclin2) and
 [stringdist](https://cran.r-project.org/package=stringdist), which are listed

@@ -64,16 +64,16 @@ reference:
   - np_batch
   - np_run_batches
 - title: Setup & normalization
-  desc: Map raw datasets onto canonical fields and normalize names and addresses.
+  desc: >
+    Map raw datasets onto canonical fields. The normalizer itself (np_normalize(),
+    np_name_core(), the name and token statistics and the signature) lives in
+    npnormalize and is re-exported here.
   contents:
   - np_config
   - np_fields
   - np_query
   - np_reference
-  - np_normalize
-  - np_normalize_signature
-  - np_name_core
-  - np_name_rules
+  - reexports
   - np_map_bmf
   - np_map_sam
   - np_flag_active
@@ -86,9 +86,6 @@ reference:
   - np_rule
   - np_rule_legal_form
   - np_default_passes
-  - np_stopwords
-  - np_name_freq
-  - np_token_idf
   - np_default_weights
   - np_default_geo_weights
   - np_train

@@ -23,12 +23,6 @@ test_that("a distinctive exact name is promoted across states; a common one is n
   expect_lt(idf_score("FOURTH BAPTIST CHURCH", "FOURTH BAPTIST CHURCH", nf), 0.75)
 })
 
-test_that("np_name_freq counts shared name_keys", {
-  nf <- np_name_freq(c("ALPHA", "ALPHA", "BETA GAMMA"))
-  expect_equal(nf[["ALPHA"]], 2L)
-  expect_equal(nf[["BETA GAMMA"]], 1L)
-})
-
 test_that("name_match_type flags how the name matched", {
   q <- np_normalize(np_query(data.frame(unique_entity_id = c("1", "2"),
         name = c("SALMON CREEK HOUSING", "NOME COMMUNITY CENTER"),

@@ -182,7 +182,7 @@ np_compare <- function(query, reference, config = np_config(),
   both <- !is.na(ux) & !is.na(uy) & nzchar(ux) & nzchar(uy)
   df$geo_unit <- ifelse(both, as.integer(ux == uy), NA_integer_)
 
-  akey <- .np_addr_key(reference$street_key[iy], reference$zip5[iy])
+  akey <- npnormalize::np_addr_key(reference$street_key[iy], reference$zip5[iy])
   cnt <- function(tab, key) {
     v <- unname(tab[key]); v[is.na(v)] <- 0L; as.integer(v)
   }
@@ -397,4 +397,118 @@ np_compare <- function(query, reference, config = np_config(),
   attr(df, "cmp_cols")     <- cmp_cols
   attr(df, "reclin_pairs") <- pairs   # kept for EM (needs the reclin2 object)
   structure(df, class = c("np_pairs", "data.frame"))
+}
+
+# ---------------------------------------------------------------------------
+# Name comparators. These sat in R/normalize.R beside the normalizer; they feed
+# np_compare() and routing and precompute nothing, so they stayed in npmatch
+# when the normalizer moved to npnormalize.
+# ---------------------------------------------------------------------------
+
+# Collapse consecutive single-letter tokens into one ("F O R" -> "FOR").
+.np_collapse_initials <- function(toks) {
+  if (!length(toks)) return(toks)
+  out <- character(0); buf <- ""
+  for (t in toks) {
+    if (nchar(t) == 1) buf <- paste0(buf, t)
+    else { if (nzchar(buf)) { out <- c(out, buf); buf <- "" }; out <- c(out, t) }
+  }
+  if (nzchar(buf)) out <- c(out, buf)
+  out
+}
+
+.np_is_acronymish <- function(t) grepl("^[A-Z]{2,6}$", t)
+
+# Token-set + acronym-aware name overlap: matched token "units" over the longer
+# name. Catches word-reorder ("Heritage Museum of Newaygo County" <-> "Newaygo
+# County Museum Heritage Center"), typos, and acronym/expansion pairs ("EMS" <->
+# "Emergency Medical Service", "F O R" <-> "Focus On Renewal") that Jaro-Winkler
+# on the joined string scores near 0. Returns 0..1.
+.np_name_overlap <- function(ta, tb) {
+  ta <- .np_collapse_initials(ta); tb <- .np_collapse_initials(tb)
+  if (!length(ta) || !length(tb)) return(0)
+  ma <- logical(length(ta)); mb <- logical(length(tb)); collapsed <- 0L
+
+  for (i in seq_along(ta)) {                        # exact token matches
+    j <- which(!mb & tb == ta[i])
+    if (length(j)) { ma[i] <- TRUE; mb[j[1]] <- TRUE }
+  }
+  run_match <- function(acr, toks, used) {          # run whose initials spell acr
+    L <- nchar(acr); n <- length(toks)
+    if (n < L) return(NULL)
+    for (s in seq_len(n - L + 1)) {
+      idx <- s:(s + L - 1)
+      if (all(!used[idx]) &&
+          paste0(substr(toks[idx], 1, 1), collapse = "") == acr) return(idx)
+    }
+    NULL
+  }
+  for (i in which(!ma & vapply(ta, .np_is_acronymish, logical(1)))) {
+    idx <- run_match(ta[i], tb, mb)
+    if (!is.null(idx)) { ma[i] <- TRUE; mb[idx] <- TRUE; collapsed <- collapsed + length(idx) - 1L }
+  }
+  for (j in which(!mb & vapply(tb, .np_is_acronymish, logical(1)))) {
+    idx <- run_match(tb[j], ta, ma)
+    if (!is.null(idx)) { mb[j] <- TRUE; ma[idx] <- TRUE; collapsed <- collapsed + length(idx) - 1L }
+  }
+  sum(ma) / max(length(ta), length(tb) - collapsed)
+}
+
+.np_contain_overlap <- function(ta, tb, idf = NULL, stopwords = np_stopwords(),
+                                idf_min = 9, min_len = 2L) {
+  acr <- .np_name_overlap(ta, tb)
+  qa <- ta[nchar(ta) >= min_len & !(ta %in% stopwords)]
+  qb <- tb[nchar(tb) >= min_len & !(tb %in% stopwords)]
+  con <- 0
+  if (length(qa) && length(qb)) {
+    sh <- intersect(qa, qb)
+    if (length(sh) >= 2L) {
+      distinct <- is.null(idf) || {
+        w <- idf[sh]; w <- w[!is.na(w)]; length(w) && max(w) >= idf_min
+      }
+      if (isTRUE(distinct)) {
+        cov <- length(sh) / min(length(qa), length(qb))   # coverage of smaller set
+        con <- 0.55 + 0.40 * cov                          # full containment -> ~0.95
+      }
+    }
+  }
+  max(acr, con)
+}
+
+# Containment-aware name overlap for the review-tier recovery path. Unlike
+# .np_name_overlap (max denominator, so a fully-contained short name is penalised
+# by the longer name's extra words), this scores coverage of the *smaller*
+# informative token set -- "BAPTIST BIBLE COLLEGE" fully inside "BAPTIST BIBLE
+# COLLEGE AND GRADUATE SCHOOL" -> ~1.0, not 0.5. Requires >= 2 shared informative
+# tokens AND, when a token-IDF map is supplied, at least one *distinctive* shared
+# token (idf >= idf_min), so generic shared words ("COMMUNITY HOUSING") don't
+# trigger it. Falls back to the acronym-aware .np_name_overlap so YWCA-style
+# matches still register. The result feeds a MAYBE-capped recovery in np_score:
+# containment alone is ambiguous (parent vs subsidiary vs chapter share tokens),
+# so it surfaces for review, never auto-accepts.
+# Sliding-window partial ratio: the best normalised Levenshtein similarity of
+# the shorter string against any equal-length window of the longer one -- the
+# fuzzywuzzy partial_ratio, and the canonical substring matcher. Unlike
+# Jaro-Winkler it credits an INFIX, not only a shared prefix.
+#
+# Measured in pfmatch dev/NAME-METRIC-EVALUATION.md: on the hard cases it finds
+# 17 of 21 while admitting only 6 wrong names, against Jaro-Winkler's 16 and 11.
+# Like containment it cannot separate a parent from a chapter ("GIRLS" scores 1.0
+# against both "GIRLS INC OF WASHINGTON COUNTY" and an org named "GIRLS"), so
+# np_compare() routes it into the MAYBE-capped recovery rather than the JW term.
+#
+# Cost is O(|long| - |short|) distance calls per pair, so callers must restrict
+# it to a small subset rather than running it over every candidate.
+.np_partial_ratio <- function(a, b) {
+  a <- ifelse(is.na(a), "", a); b <- ifelse(is.na(b), "", b)
+  vapply(seq_along(a), function(i) {
+    x <- a[i]; y <- b[i]
+    if (nchar(x) > nchar(y)) { t <- x; x <- y; y <- t }
+    lx <- nchar(x); ly <- nchar(y)
+    if (!lx || !ly) return(0)
+    if (lx == ly) return(1 - stringdist::stringdist(x, y, method = "lv") / lx)
+    st <- seq_len(ly - lx + 1L)
+    w  <- substring(y, st, st + lx - 1L)
+    max(1 - stringdist::stringdist(x, w, method = "lv") / lx)
+  }, numeric(1))
 }
