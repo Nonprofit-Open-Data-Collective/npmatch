@@ -55,10 +55,11 @@ Helpers (`R/fetch.R`):
   (`BUS TYPE STRING` contains `A8`/`BZ`/`2U`/`A7`) and write the ready-to-match subset.
 
 **Archive host (NCCS S3):** `https://nccsdata.s3.dualstack.us-east-1.amazonaws.com/crosswalks/npmatch/`.
-As of setup, `bmf_2026_01_processed.csv` and `bmf_2026_01_data_dictionary.csv`
-are public; `bmf_unified_geocoded.csv`, the SAM extract, and the sample files
-return HTTP 403 (not yet public / not uploaded) — those object ACLs need fixing
-before `np_fetch_bmf("unified")` / `np_fetch_sam()` will work.
+All six pinned archive files listed by `np_source_urls()` are public (each
+returned HTTP 200 when checked on 2026-10-27): `bmf_2026_01_processed.csv`,
+`bmf_unified_geocoded.csv`, `bmf_2026_01_data_dictionary.csv`,
+`SAM_PUBLIC_MONTHLY_V2_20251102.dat`, `TRAINING-PAIRS-1502.csv` and
+`TRAINING-PAIRS-FULL-1502.csv`.
 
 ## Incremental matching (differencing)
 
@@ -92,17 +93,31 @@ hashed; blocking is IDF-weighted **tokenization** computed on the fly.
 | Normalized reference | `np_normalize(np_reference())` | High (millions of rows) | **Yes** — cache to `normalized/` |
 | `token_idf` (per-token IDF) | `np_token_idf(name_key)` | Medium | **Yes** — cache |
 | `name_freq` (distinctiveness) | `np_name_freq(name_key)` | Medium | **Yes** — cache |
+| Blocking index (tokenized reference) | `np_ref_index(reference)` | Medium | **Yes** — reuse across passes and batches |
 | Normalized query | `np_normalize(np_query())` | Low | rebuild each run |
 | Candidate pairs / features / scores | `np_block`/`np_compare`/`np_score` | High | **Ephemeral** — except `attr(res,"pairs")`, the scored union that feeds the review frame + training table |
 
-### Known gap (roadmap item)
+### Reusing cached assets
 
-`np_cascade()` currently **re-normalizes the reference and recomputes
-`token_idf`/`name_freq` on every call** — it does not yet accept a pre-normalized
-reference or cached tables. Caching the Tier-B assets only pays off once the
-cascade can skip that work. Planned enhancement: detect an already-normalized
-reference and accept optional `name_freq` / `token_idf` arguments, turning the
-~hour normalization into a one-time cost.
+`np_cascade()` skips the costly work when it is handed the cached assets, which
+turns the ~hour normalization into a one-time cost:
+
+* An already-normalized `reference` (one that has a `name_key` column) is used
+  as is rather than normalized again.
+* `name_freq`, `token_idf` and `ref_index` are optional arguments; each is
+  computed from the reference only when `NULL`.
+* `ref_index` is built once per call and reused across every pass.
+  `np_run_batches()` passes all of these to each batch, so a large reference is
+  normalized and tokenized once for the whole run. Give it `cache = "<path>.rds"`
+  and it saves all four to disk and reloads them on the next run.
+
+```r
+ref <- np_normalize(np_reference(bmf))
+res <- np_cascade(todo, ref,
+                  name_freq = np_name_freq(ref$name_key),
+                  token_idf = np_token_idf(ref$name_key),
+                  ref_index = np_ref_index(ref))
+```
 
 ## Run report
 
