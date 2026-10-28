@@ -1,6 +1,6 @@
 Package: npmatch
 Title: Probabilistic Record Linkage of Nonprofit Data to the IRS Business Master File
-Version: 0.1.0.9000
+Version: 0.1.1
 Authors@R:
     person("Jesse", "Lecy", email = "jdlecy@gmail.com", role = c("aut", "cre"))
 Description: Tools for building crosswalks between arbitrary nonprofit datasets

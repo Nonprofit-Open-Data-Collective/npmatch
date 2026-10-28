@@ -1,4 +1,15 @@
-# npmatch (development version)
+# npmatch 0.1.1
+
+Tagged `v0.1.1`. This is the last npmatch that carries its own normalizer. In
+the next version the normalizer moves, unchanged, into the npnormalize package,
+which npmatch then imports and re-exports. Pin this release (in renv, or with
+`@v0.1.1`) for anything that should reproduce results from before that move.
+
+* **The normalizer signature at this release is `v1-3e7b9f9d59bbb19e`.** It is
+  the signature matchdb's 2026-10-26 release was built with, and the one
+  npnormalize 0.1.0 reproduces.
+* Everything since 0.1.0 is listed below: address and suite classification,
+  the suite identifier, and the name-normalization fixes.
 
 ## Address and suite normalization
 
