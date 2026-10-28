@@ -85,7 +85,7 @@ np_clean_geo <- function(data, engine = c("rules", "campfin"),
       data$state <- campfin::normal_state(as.character(data$state),
                      abbreviate = TRUE, valid = campfin::valid_state)
   } else if (!is.null(data$state)) {
-    data$state <- .np_to_state_abb(data$state)
+    data$state <- npnormalize::np_state_abb(data$state)
   }
 
   if (!is.null(data$city)) {
