@@ -15,11 +15,20 @@ np_cascade(
   reference_map = np_map_bmf(),
   name_freq = NULL,
   token_idf = NULL,
-  ref_index = NULL
+  ref_index = NULL,
+  addr_freq = NULL
 )
 }
 \arguments{
-\item{query, reference}{Raw data frames or \code{np_query}/\code{np_reference}.}
+\item{query}{Raw data frame or \code{np_query}.}
+
+\item{reference}{Raw data frame, \code{np_reference}, or a matchdb reference: the
+list that \code{matchdb::md_compile()} or \code{matchdb::md_reference()} returns.
+From a matchdb reference, npmatch takes the frame and whichever of
+\code{name_freq}, \code{token_idf}, \code{ref_index} and \code{addr_freq} it carries;
+arguments you pass explicitly take precedence. It is refused if its
+normalizer signature differs from the installed one. matchdb itself is not
+needed.}
 
 \item{config}{An \code{\link[=np_config]{np_config()}}.}
 
@@ -41,6 +50,12 @@ reference when \code{NULL}.}
 once from the reference when \code{NULL} and reused across every pass (and, via
 \code{\link[=np_run_batches]{np_run_batches()}}, every batch), so a large reference is tokenized once
 rather than per pass.}
+
+\item{addr_freq}{Optional precomputed \code{\link[=np_addr_freq]{np_addr_freq()}} table: how many
+reference records share each address and suite, and what kind of place
+each shared address is. Counted over the whole reference when \code{NULL}.
+Pass one counted over the full reference when \code{reference} is only part of
+it (one state, say), so crowded addresses are not under-counted.}
 }
 \value{
 An \code{np_tiered} result with a \code{pass} column recording which pass

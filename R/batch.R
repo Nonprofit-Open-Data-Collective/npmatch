@@ -101,14 +101,17 @@ np_batch <- function(x, size = 2500L, n = NULL, shuffle = TRUE, seed = NULL) {
 #'
 #' The reference is normalized once via [np_reference()] + [np_normalize()] (or
 #' reused if already normalized). When `cache` is a path, the normalized
-#' reference and its `name_freq`/`token_idf` tables are saved there and reloaded
-#' on the next run, so a resumed or re-run job skips normalization entirely.
+#' reference and its `name_freq`/`token_idf`, `ref_index` and `addr_freq` tables
+#' are saved there and reloaded on the next run, so a resumed or re-run job skips
+#' normalization entirely.
 #'
 #' @param query Raw source data frame (e.g. a SAM nonprofit subset). Raw
 #'   uppercase SAM headers are normalized to the names [np_map_sam()] expects; an
 #'   `np_query` is used as-is.
-#' @param reference The reference BMF: a raw data frame, an [np_reference()], or a
-#'   pre-normalized reference (the latter two skip the corresponding step).
+#' @param reference The reference BMF: a raw data frame, an [np_reference()], a
+#'   pre-normalized reference (the latter two skip the corresponding step), or a
+#'   matchdb reference from `matchdb::md_compile()` or `matchdb::md_reference()`,
+#'   whose precomputed tables are used as they are (see [np_cascade()]).
 #' @param compute_size Queries per **compute chunk** — one [np_cascade()] call.
 #'   This is the memory-bound knob (candidate pairs scale with chunk size); make
 #'   it as large as memory allows to amortize the per-chunk pass machinery.
@@ -126,7 +129,12 @@ np_batch <- function(x, size = 2500L, n = NULL, shuffle = TRUE, seed = NULL) {
 #' @param config,method Passed to [np_cascade()].
 #' @param query_map,reference_map Schema maps for raw inputs.
 #' @param cache Optional `.rds` path to cache/reuse the normalized reference and
-#'   its `name_freq`/`token_idf` tables and blocking `ref_index`.
+#'   its `name_freq`/`token_idf` tables, blocking `ref_index` and `addr_freq`.
+#'   When the file exists it is used in place of `reference`. A cache written
+#'   before a table existed gains that table on its next use.
+#' @param addr_freq Optional precomputed [np_addr_freq()] table, passed to every
+#'   [np_cascade()] call. Takes precedence over the one in a matchdb reference
+#'   or the cache; otherwise counted once over the whole reference.
 #' @param sam_context Optional raw SAM frame passed to [np_route()] (`sam =`) to
 #'   add `SAM_`-prefixed context columns to the review queue.
 #' @param bmf_context Optional raw processed BMF passed to [np_route()]
@@ -155,7 +163,8 @@ np_run_batches <- function(query, reference,
                            query_map = np_map_sam(), reference_map = np_map_bmf(),
                            seed = 1L, cache = NULL, sam_context = NULL,
                            bmf_context = NULL, review_tiers = "MAYBE",
-                           save_interim = NULL, threads = NULL, verbose = TRUE) {
+                           save_interim = NULL, threads = NULL, addr_freq = NULL,
+                           verbose = TRUE) {
   say <- function(...) if (verbose) message(sprintf(...))
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -170,37 +179,48 @@ np_run_batches <- function(query, reference,
   }
 
   # --- reference: normalize + index once (or reuse cache / an already-normalized ref) ---
-  ref_index <- NULL
+  # A matchdb reference brings its own tables; an explicit addr_freq wins over
+  # both the reference's and the cache's.
+  u <- .np_unpack_reference(reference, addr_freq = addr_freq)
+  reference <- u$reference; addr_freq_arg <- u$addr_freq
+  save_cache <- function(msg) {
+    saveRDS(list(reference = ref_norm, name_freq = name_freq, token_idf = token_idf,
+                 ref_index = ref_index, addr_freq = addr_freq), cache)
+    say("%s -> %s", msg, cache)
+  }
   if (!is.null(cache) && file.exists(cache)) {
     say("reusing cached normalized reference: %s", cache)
     cc <- readRDS(cache)
     ref_norm <- cc$reference; name_freq <- cc$name_freq; token_idf <- cc$token_idf
     ref_index <- cc$ref_index                       # may be absent in an older cache
+    addr_freq <- addr_freq_arg %||% cc$addr_freq    # likewise
+    cache_fresh <- FALSE
   } else {
     t_ref <- Sys.time()
     if (!inherits(reference, "np_reference"))
       reference <- np_reference(reference, reference_map)
     ref_norm <- if (is.null(reference$name_key)) np_normalize(reference) else reference
     say("normalizing reference (%s rows) ...", format(nrow(ref_norm), big.mark = ","))
-    name_freq <- np_name_freq(ref_norm$name_key)
-    token_idf <- np_token_idf(ref_norm$name_key)
-    ref_index <- np_ref_index(ref_norm)
+    name_freq <- u$name_freq %||% np_name_freq(ref_norm$name_key)
+    token_idf <- u$token_idf %||% np_token_idf(ref_norm$name_key)
+    ref_index <- u$ref_index %||% np_ref_index(ref_norm)
+    addr_freq <- addr_freq_arg %||% .np_ref_addr_freq(ref_norm)
     say("reference ready in %.1f min", as.numeric(difftime(Sys.time(), t_ref, units = "mins")))
-    if (!is.null(cache)) {
-      saveRDS(list(reference = ref_norm, name_freq = name_freq,
-                   token_idf = token_idf, ref_index = ref_index), cache)
-      say("cached normalized reference -> %s", cache)
-    }
+    if (!is.null(cache)) save_cache("cached normalized reference")
+    cache_fresh <- TRUE
   }
-  if (is.null(ref_index)) {                          # older cache without an index
+  # an older cache lacks the later tables: build them once and upgrade it in place
+  upgraded <- character(0)
+  if (is.null(ref_index)) {
     say("building blocking index (one-time) ...")
-    ref_index <- np_ref_index(ref_norm)
-    if (!is.null(cache) && file.exists(cache)) {     # upgrade the cache in place
-      saveRDS(list(reference = ref_norm, name_freq = name_freq,
-                   token_idf = token_idf, ref_index = ref_index), cache)
-      say("upgraded cache with blocking index -> %s", cache)
-    }
+    ref_index <- np_ref_index(ref_norm); upgraded <- c(upgraded, "blocking index")
   }
+  if (is.null(addr_freq)) {
+    say("counting shared addresses (one-time) ...")
+    addr_freq <- .np_ref_addr_freq(ref_norm); upgraded <- c(upgraded, "address counts")
+  }
+  if (length(upgraded) && !cache_fresh && !is.null(cache))
+    save_cache(paste("upgraded cache with", paste(upgraded, collapse = " and ")))
 
   # --- query: normalize headers (raw source only), then split into compute chunks ---
   if (!inherits(query, "np_query")) {
@@ -234,7 +254,8 @@ np_run_batches <- function(query, reference,
     say("=== compute chunk %d/%d (%d rows) ===", b, nb, nrow(chunks[[b]]))
     res <- np_cascade(chunks[[b]], ref_norm, config = config, method = method,
                       query_map = query_map, name_freq = name_freq,
-                      token_idf = token_idf, ref_index = ref_index, verbose = verbose)
+                      token_idf = token_idf, ref_index = ref_index,
+                      addr_freq = addr_freq, verbose = verbose)
     routing <- np_route(res, review_tiers = review_tiers, token_idf = token_idf,
                         sam = sam_context, bmf = bmf_context)
     secs <- as.numeric(difftime(Sys.time(), t0, units = "secs"))

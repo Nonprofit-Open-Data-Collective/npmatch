@@ -31,6 +31,24 @@
 * **Dependencies:** stringi is no longer imported (only the normalizer used it);
   npnormalize is, from GitHub (`Remotes:`).
 
+## matchdb references and precomputed address counts
+
+* **`np_cascade()` and `np_run_batches()` take a matchdb reference directly.**
+  Pass the object `matchdb::md_compile()` or `matchdb::md_reference()` returns
+  as `reference`, and npmatch uses its frame plus whichever of `name_freq`,
+  `token_idf`, `ref_index` and `addr_freq` it carries, instead of recomputing
+  them. Explicit arguments still take precedence. A reference whose normalizer
+  signature differs from the installed one is refused. npmatch recognises the
+  object by its shape, so matchdb is not a dependency, not even a suggested one.
+* **Both take an `addr_freq` argument**, a precomputed `np_addr_freq()` table.
+  `np_cascade()` used to recount it on every call, over whatever reference it
+  was given. Pass one counted over the full reference when matching against
+  part of it, so crowded addresses are not under-counted. matchdb's bundles
+  ship one counted over exactly the bundle's rows.
+* `np_run_batches()` counts addresses once for the whole run and keeps the
+  table in its `cache =` file. A cache written before this version gains it
+  on first use, as an older cache already gained `ref_index`.
+
 # npmatch 0.1.1
 
 Tagged `v0.1.1`. This is the last npmatch that carries its own normalizer. In

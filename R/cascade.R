@@ -68,7 +68,14 @@ np_default_passes <- function() {
 #' once, then per stage: candidates generated, YES / MAYBE / NO found, how many
 #' were resolved, how many remain pending, and the median YES margin.
 #'
-#' @param query,reference Raw data frames or `np_query`/`np_reference`.
+#' @param query Raw data frame or `np_query`.
+#' @param reference Raw data frame, `np_reference`, or a matchdb reference: the
+#'   list that `matchdb::md_compile()` or `matchdb::md_reference()` returns.
+#'   From a matchdb reference, npmatch takes the frame and whichever of
+#'   `name_freq`, `token_idf`, `ref_index` and `addr_freq` it carries;
+#'   arguments you pass explicitly take precedence. It is refused if its
+#'   normalizer signature differs from the installed one. matchdb itself is not
+#'   needed.
 #' @param config An [np_config()].
 #' @param method Scoring method for [np_score()] (default `"hier"`).
 #' @param passes A list of pass specs (see [np_default_passes()]).
@@ -83,6 +90,11 @@ np_default_passes <- function() {
 #'   once from the reference when `NULL` and reused across every pass (and, via
 #'   [np_run_batches()], every batch), so a large reference is tokenized once
 #'   rather than per pass.
+#' @param addr_freq Optional precomputed [np_addr_freq()] table: how many
+#'   reference records share each address and suite, and what kind of place
+#'   each shared address is. Counted over the whole reference when `NULL`.
+#'   Pass one counted over the full reference when `reference` is only part of
+#'   it (one state, say), so crowded addresses are not under-counted.
 #' @return An `np_tiered` result with a `pass` column recording which pass
 #'   produced each query's chosen match. A per-stage summary is attached as
 #'   `attr(result, "stages")`; the scored candidate union as `attr(result, "pairs")`.
@@ -90,7 +102,12 @@ np_default_passes <- function() {
 np_cascade <- function(query, reference, config = np_config(), method = "hier",
                        passes = np_default_passes(), verbose = TRUE,
                        query_map = np_map_sam(), reference_map = np_map_bmf(),
-                       name_freq = NULL, token_idf = NULL, ref_index = NULL) {
+                       name_freq = NULL, token_idf = NULL, ref_index = NULL,
+                       addr_freq = NULL) {
+  u <- .np_unpack_reference(reference, name_freq = name_freq, token_idf = token_idf,
+                            ref_index = ref_index, addr_freq = addr_freq)
+  reference <- u$reference; name_freq <- u$name_freq; token_idf <- u$token_idf
+  ref_index <- u$ref_index; addr_freq <- u$addr_freq
   if (!inherits(query, "np_query"))         query <- np_query(query, query_map)
   if (!inherits(reference, "np_reference")) reference <- np_reference(reference, reference_map)
   q <- np_normalize(query)
@@ -101,7 +118,7 @@ np_cascade <- function(query, reference, config = np_config(), method = "hier",
   if (is.null(name_freq)) name_freq <- np_name_freq(r$name_key)  # distinctiveness reference
   # one pass over the whole reference, not once per block: a per-block table
   # would count tenants in a slice and under-report every shared address
-  addr_freq <- np_addr_freq(r$street_key, r$zip5, r$street_unit_id, r$name_key)
+  if (is.null(addr_freq)) addr_freq <- .np_ref_addr_freq(r)
   if (is.null(token_idf)) token_idf <- np_token_idf(r$name_key)  # per-token IDF for overlap recovery
   if (is.null(ref_index)) ref_index <- np_ref_index(r)           # tokenize reference ONCE, reuse across passes
 
@@ -169,4 +186,42 @@ np_cascade <- function(query, reference, config = np_config(), method = "hier",
   attr(res, "pairs")  <- union
   attr(res, "config") <- config
   res
+}
+
+# A matchdb reference: md_compile() returns one of class "md_reference" and
+# md_reference() a plain list of the same shape, so recognise it by shape. No
+# matchdb code is called.
+.np_is_md_reference <- function(x) {
+  is.list(x) && !is.data.frame(x) && is.data.frame(x$reference)
+}
+
+# Split a reference argument into the frame and its precomputed tables. A plain
+# frame passes through untouched. From a matchdb reference, explicit arguments
+# win over the tables it carries, and a reference built by another normalizer is
+# refused: its derived columns and statistics would not match this run's keys.
+.np_unpack_reference <- function(reference, name_freq = NULL, token_idf = NULL,
+                                 ref_index = NULL, addr_freq = NULL) {
+  if (.np_is_md_reference(reference)) {
+    sig <- reference$stamp$normalize_signature
+    if (!is.null(sig) && !identical(as.character(sig),
+                                    npnormalize::np_normalize_signature())) {
+      stop(sprintf(paste0("this matchdb reference was built by normalizer %s; the ",
+                          "installed one is %s. Recompile or republish it."),
+                   sig, npnormalize::np_normalize_signature()), call. = FALSE)
+    }
+    name_freq <- name_freq %||% reference$name_freq
+    token_idf <- token_idf %||% reference$token_idf
+    ref_index <- ref_index %||% reference$ref_index
+    addr_freq <- addr_freq %||% reference$addr_freq
+    reference <- reference$reference
+  }
+  if (!is.null(addr_freq) && !inherits(addr_freq, "np_addr_freq"))
+    stop("addr_freq must come from np_addr_freq()", call. = FALSE)
+  list(reference = reference, name_freq = name_freq, token_idf = token_idf,
+       ref_index = ref_index, addr_freq = addr_freq)
+}
+
+# Address sharing over a normalized reference, counted once over all of it.
+.np_ref_addr_freq <- function(r) {
+  np_addr_freq(r$street_key, r$zip5, r$street_unit_id, r$name_key)
 }
