@@ -4,21 +4,25 @@ A package for matching nonprofit organizations to the IRS BMF database when EINs
 
 ## Installation
 
-The current release is **v0 (version 0.1.0)**, git tag
-[`v0.1.0`](https://github.com/Nonprofit-Open-Data-Collective/npmatch/releases/tag/v0.1.0).
-It pins the code behind the combined 2025NOV + 2026MAY SAM-to-BMF crosswalk;
-see [NEWS.md](NEWS.md) for what it contains and its known issues.
+The current release is **version 0.1.1**, git tag
+[`v0.1.1`](https://github.com/Nonprofit-Open-Data-Collective/npmatch/releases/tag/v0.1.1).
+It is the last version that carries its own normalizer: the next one imports
+it from the npnormalize package, unchanged. The first release, **v0 (0.1.0)**,
+pins the code behind the combined 2025NOV + 2026MAY SAM-to-BMF crosswalk. See
+[NEWS.md](NEWS.md) for what each contains and their known issues.
 
 ```r
 # install.packages("remotes")
-remotes::install_github("Nonprofit-Open-Data-Collective/npmatch@v0.1.0")  # the v0 release
+remotes::install_github("Nonprofit-Open-Data-Collective/npmatch@v0.1.1")  # the current release
+remotes::install_github("Nonprofit-Open-Data-Collective/npmatch@v0.1.0")  # v0, the crosswalk release
 remotes::install_github("Nonprofit-Open-Data-Collective/npmatch")         # development version
 ```
 
-Pin `@v0.1.0` in any analysis that should reproduce the v0 crosswalk exactly:
-`main` keeps changing, and a change to normalization, blocking or scoring
-changes which EINs are matched. `packageVersion("npmatch")` reports `0.1.0` for
-the release and a `.9000` suffix for the development version.
+Pin a release in any analysis that must reproduce its results exactly:
+`@v0.1.0` for the v0 crosswalk, `@v0.1.1` for anything from before the
+normalizer moved. `main` keeps changing, and a change to normalization,
+blocking or scoring changes which EINs are matched. `packageVersion("npmatch")`
+reports the release number, and a `.9000` suffix for the development version.
 
 Stage 1 compares names and addresses with
 [reclin2](https://cran.r-project.org/package=reclin2) and
