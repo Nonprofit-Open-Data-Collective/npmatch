@@ -41,6 +41,37 @@
 * **Dependencies:** stringi is no longer imported (only the normalizer used it);
   npnormalize is, from GitHub (`Remotes:`).
 
+## The suite a reviewer is shown
+
+* A reviewer is no longer told that a floor is the same suite as a suite
+  ([#23](https://github.com/Nonprofit-Open-Data-Collective/npmatch/issues/23),
+  reported from pfmatch via
+  [npnormalize#7](https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/7)).
+  `geo_unit` compares npnormalize's `street_unit_id`, which drops the
+  designator — that is what makes `STE 320` and `# 320` agree, one office
+  written two ways, and it is right. The same drop made `FL 2` agree with
+  `STE 2`, and `PMB 136` with `STE 136`:
+
+  | query | reference | `geo_unit` | prompt, before | prompt, now |
+  |---|---|---|---|---|
+  | `FL 2` | `STE 2` | `1` | same suite | not the same kind of unit |
+  | `PMB 136` | `STE 136` | `1` | same suite | not the same kind of unit |
+  | `STE 320` | `# 320` | `1` | same suite | same suite |
+
+  `np_compare()` now also returns `geo_unit_same_kind` — `1` both sides name
+  the same kind of place, `0` they do not, `NA` either side names no unit —
+  and `np_as_prompt()` requires it before it says the suites are the same. The
+  room-level designators (`STE` `APT` `UNIT` `RM` `SPC` `TRLR` `LOT` `#`) are
+  one kind; a floor, a mailbox, a department, a building and a basement are
+  each their own. A review frame saved before the column existed reads
+  correctly too, because the canonical values are in the frame.
+* **No score moves.** `np_score()` reads `geo_unit` and nothing else, so the
+  0.97 suite credit and its multi-tenant gate are exactly as they were; a test
+  asserts the scores are identical with the new column dropped. The grouping
+  deliberately stays in npmatch: which designators count as the same door is a
+  matching policy, while npnormalize's tables feed the normalizer signature
+  that stamps every published artifact.
+
 # npmatch 0.1.1
 
 Tagged `v0.1.1`. This is the last npmatch that carries its own normalizer. In
