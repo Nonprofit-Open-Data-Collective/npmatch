@@ -16,27 +16,30 @@
 * **The move itself kept every stored artifact valid**, because
   `np_normalize_signature()` still reported `v1-3e7b9f9d59bbb19e` on both sides
   of it — npmatch 0.1.1 and npnormalize 0.1.0 and 0.1.1.
-* **npnormalize has since moved the signature on purpose**, to
-  `v1-592912060053c4c3`: 0.1.2 made `BUILDING` a unit designator
+* **npnormalize has since moved the signature on purpose**, more than once.
+  0.1.2 made `BUILDING` a unit designator
   ([npnormalize#7](https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/7)),
   and 0.1.3 made a line naming several units keep the most specific one and the
-  house number a whole token. Stored `street_unit`, `street_unit_id`,
-  `street_num` and `street_name` values from before that must be rebuilt —
+  house number a whole token — `v1-592912060053c4c3` at that point. Stored
+  `street_unit`, `street_unit_id`, `street_num` and `street_name` values from
+  before that must be rebuilt —
   matchdb's database, bundles and tranches included
   ([matchdb#29](https://github.com/Nonprofit-Open-Data-Collective/matchdb/issues/29)).
   npmatch carries a version floor on npnormalize, so an install cannot quietly
   compute keys with an older normalizer than the one it is pinned to.
-* **The floor is `npnormalize (>= 0.1.4)`**, ahead of that release landing.
-  0.1.4 adds `street_has_box` — whether a street *carries* a box component,
-  which `is_po_box` cannot answer because it is the gate that blanks the address
-  key — and moves the signature again
-  ([npnormalize#9](https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/9)).
-  Two consequences, both deliberate: an npmatch install resolves npnormalize
-  from GitHub, so it cannot be satisfied until 0.1.4 is on npnormalize's `main`;
-  and `tests/testthat/test-signature.R` still pins 0.1.3's value, so it must be
-  re-pinned from the merged release rather than from a value copied out of a
-  branch. Stored keys and the statistics built on them need rebuilding once
-  more, matchdb's published data included.
+* **The floor is `npnormalize (>= 0.1.5)`**, and the two releases it reaches for
+  have both landed on npnormalize's `main`. 0.1.4 added `street_has_box` —
+  whether a street *carries* a box component, which `is_po_box` cannot answer
+  because it is the gate that blanks the address key
+  ([npnormalize#9](https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/9))
+  — and 0.1.5 published one box vocabulary for the four packages that had each
+  kept their own, which also made a lettered box (`PO BOX A`) a box
+  ([npnormalize#12](https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/12)).
+  Each move changed the signature, so `tests/testthat/test-signature.R` now pins
+  `v1-533f186c123357cf`, read off npnormalize's merged `main` rather than off a
+  value copied out of a branch; the registry comment beside it keeps 0.1.4's
+  `v1-1179714ce1e9d31f` as part of the record. Stored keys and the statistics
+  built on them need rebuilding once more, matchdb's published data included.
 * **Why.** Both sides of a match depend on the normalizer: matchdb stores its
   keys, and npmatch computes them for each query. With the normalizer in its own
   package, matchdb no longer needs npmatch, and npmatch can depend on matchdb in
