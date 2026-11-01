@@ -321,7 +321,7 @@ np_route <- function(tiered, config = attr(tiered, "config"),
   # A review frame built before that column existed still gets the right words:
   # both canonical values are in hand here, so the kinds can be read off them.
   if (is.null(gk) && !is.null(qs) && !is.null(cs))
-    gk <- as.integer(identical(.np_unit_kind(qs), .np_unit_kind(cs)))
+    gk <- .np_unit_same_kind(qs, cs)
   verdict <- if (is.null(qs) || is.null(cs))
     "named on one side only -- no evidence either way"
   else if (isTRUE(gu == 1) && isTRUE(gk == 0))

@@ -99,6 +99,32 @@ test_that("the same number on different kinds of unit is not the same suite", {
                    np_score(blind, method = "hier")$score)
 })
 
+test_that("a bare # is a door or a mailbox, and nothing else", {
+  # npnormalize 0.1.3 keeps the most specific unit a line names, so a mail
+  # store's "STE 204 # 22915" is held as "# 22915": the customer's box.
+  same <- function(q, r) .np_unit_same_kind(q, r)
+  expect_equal(same(c("# 22915", "PMB 22915", "# 320", "STE 320", "# 1"),
+                    c("PMB 22915", "# 22915", "STE 320", "# 320", "# 1")),
+               rep(1L, 5))
+  # the other kinds stay apart, PMB from a door included
+  expect_equal(same(c("PMB 136", "FL 2", "# 2", "DEPT 400", "BLDG 2"),
+                    c("STE 136", "STE 2", "FL 2", "# 400", "# 2")),
+               rep(0L, 5))
+  expect_equal(same(c("# 1", NA, ""), c(NA, "PMB 1", "STE 1")), rep(NA_integer_, 3))
+
+  # end to end, from the address lines as written
+  qry <- data.frame(unique_entity_id = "q1", name = "GAMMA FUND", dba_name = "",
+                    street = "2125 BISCAYNE BLVD PMB 22915", city = "MIAMI",
+                    state = "FL", zip = "33137", stringsAsFactors = FALSE)
+  ref <- data.frame(ein = "01", name = "GAMMA FUND",
+                    street = "2125 BISCAYNE BLVD STE 204 # 22915", city = "MIAMI",
+                    state = "FL", zip = "33137", dba_name = "", stringsAsFactors = FALSE)
+  p <- np_compare(np_normalize(np_query(qry, np_test_map_q)),
+                  np_normalize(np_reference(ref, np_test_map_r)), block = "state")
+  expect_equal(p$geo_unit, 1L)
+  expect_equal(p$geo_unit_same_kind, 1L)
+})
+
 test_that("the prompt says the kinds differ instead of claiming one suite", {
   # .np_prompt_suite() is the line a reviewer and the stage-2 model read. Both
   # directions matter: the fold must still agree, and the floor must not.
@@ -119,6 +145,11 @@ test_that("the prompt says the kinds differ instead of claiming one suite", {
                fixed = TRUE)
   expect_match(say("STE 320", NA_character_, NA_integer_, NA_integer_),
                "named on one side only", fixed = TRUE)
+  # a bare "#" is a mail store's box as often as a door, so it agrees with PMB
+  # (npnormalize 0.1.3 keeps "STE 204 # 22915" as "# 22915")
+  expect_match(.np_prompt_suite(list(street_unit_uss = "PMB 22915",
+                                     street_unit_bmf = "# 22915", geo_unit = 1L),
+                                "uss", "bmf"), "same suite", fixed = TRUE)
   # A review frame saved before this column existed gets the right words too:
   # the canonical values are in the frame, so the kinds can be read off them.
   old <- .np_prompt_suite(list(street_unit_uss = "FL 2",
