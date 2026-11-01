@@ -4,10 +4,19 @@
 # The signature's own behaviour (moves on logic, not on comments) is tested in
 # npnormalize.
 
-test_that("npmatch reports npnormalize's signature, the one it always reported", {
+test_that("npmatch reports npnormalize's signature, whatever it now is", {
   expect_identical(np_normalize_signature(), npnormalize::np_normalize_signature())
-  # the value every artifact built before the move was stamped with
-  expect_identical(np_normalize_signature(), "v1-3e7b9f9d59bbb19e")
+  # The pinned value is npnormalize's own, and it moves only when npnormalize
+  # moves it deliberately. Every move invalidates stored keys, so the literal is
+  # here to make an accidental one impossible to miss -- and to fail loudly when
+  # the installed npnormalize is not the one this npmatch was written against:
+  #   v1-3e7b9f9d59bbb19e  npnormalize 0.1.0-0.1.1, and npmatch 0.1.1 before
+  #                        the normalizer moved out -- the move itself changed
+  #                        nothing
+  #   v1-6d90b52d8b781673  0.1.2 -- BUILDING became a unit designator
+  #   v1-592912060053c4c3  0.1.3 -- a line naming several units keeps the most
+  #                        specific one, and the house number is a whole token
+  expect_identical(np_normalize_signature(), "v1-592912060053c4c3")
 })
 
 test_that("the re-exported functions are npnormalize's own", {
