@@ -16,7 +16,12 @@ test_that("npmatch reports npnormalize's signature, whatever it now is", {
   #   v1-6d90b52d8b781673  0.1.2 -- BUILDING became a unit designator
   #   v1-592912060053c4c3  0.1.3 -- a line naming several units keeps the most
   #                        specific one, and the house number is a whole token
-  expect_identical(np_normalize_signature(), "v1-592912060053c4c3")
+  #   v1-1179714ce1e9d31f  0.1.4 -- the street parse reads an anchored box, and
+  #                        street_has_box joined the address keys
+  #   v1-533f186c123357cf  0.1.5 -- one box vocabulary, published for the
+  #                        packages that each kept their own, and a lettered
+  #                        box (PO BOX A) is a box
+  expect_identical(np_normalize_signature(), "v1-533f186c123357cf")
 })
 
 test_that("the re-exported functions are npnormalize's own", {
