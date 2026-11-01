@@ -41,6 +41,20 @@
   ifelse(is.na(d), NA_character_, ifelse(d %in% .np_unit_door, "DOOR", d))
 }
 
+# Do two canonical units name the same kind of place? 1 / 0, NA where either
+# side names none. One exception to the kinds above: a bare "#" is either a
+# door or a mailbox, because a mail store's address writes the customer's box
+# as "# 22915" after its own suite ("STE 204 # 22915"), and npnormalize 0.1.3
+# keeps that box as the unit. So "#" also agrees with PMB: "# 22915" and
+# "PMB 22915" are one mailbox written two ways, as "# 320" and "STE 320" are
+# one office.
+.np_unit_same_kind <- function(qu, ru) {
+  qk <- .np_unit_kind(qu); rk <- .np_unit_kind(ru)
+  qd <- sub(" .*$", "", as.character(qu)); rd <- sub(" .*$", "", as.character(ru))
+  box <- (qd == "#" & rk == "PMB") | (rd == "#" & qk == "PMB")
+  ifelse(!is.na(qk) & !is.na(rk), as.integer(qk == rk | box), NA_integer_)
+}
+
 # Map canonical geo fields to the normalized column actually compared.
 .np_compare_col <- c(
   name   = "name_key",
@@ -223,12 +237,9 @@ np_compare <- function(query, reference, config = np_config(),
   # identifier it compares has the designator stripped off. Three-valued the
   # same way, and read only by the reviewer-facing text: nothing in np_score()
   # looks at it, so a suite earns exactly the credit it earned before.
-  qk <- .np_unit_kind(if (is.null(query$street_unit)) NA_character_
-                      else query$street_unit[ix])
-  rk <- .np_unit_kind(if (is.null(reference$street_unit)) NA_character_
-                      else reference$street_unit[iy])
-  df$geo_unit_same_kind <- ifelse(!is.na(qk) & !is.na(rk),
-                                  as.integer(qk == rk), NA_integer_)
+  df$geo_unit_same_kind <- .np_unit_same_kind(
+    if (is.null(query$street_unit)) NA_character_ else query$street_unit[ix],
+    if (is.null(reference$street_unit)) NA_character_ else reference$street_unit[iy])
 
   akey <- npnormalize::np_addr_key(reference$street_key[iy], reference$zip5[iy])
   cnt <- function(tab, key) {

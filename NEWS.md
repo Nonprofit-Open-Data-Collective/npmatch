@@ -43,6 +43,14 @@
 
 ## The suite a reviewer is shown
 
+* A bare `#` now agrees with `PMB` in `geo_unit_same_kind`, as well as with
+  the room-level designators. Since npnormalize 0.1.3 a line naming several
+  units keeps the most specific, so a mail store's `STE 204 # 22915` keeps the
+  customer's box as `# 22915`; against a record written `PMB 22915`, the
+  reviewer was told "not the same kind of unit" about one mailbox. `#` is
+  either a door or a box, so it agrees with both, while `PMB 136` against
+  `STE 136` and `FL 2` against `STE 2` still do not. No score moves.
+
 * A reviewer is no longer told that a floor is the same suite as a suite
   ([#23](https://github.com/Nonprofit-Open-Data-Collective/npmatch/issues/23),
   reported from pfmatch via
