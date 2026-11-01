@@ -6,28 +6,41 @@ template:
     primary: "#B22222"        # firebrick, matching the guide accents
     link-color: "#AF7817"
   includes:
-    # GitHub renders ```mermaid fences natively; pkgdown emits them as
-    # <pre class="mermaid"><code>...</code></pre> and ships no renderer, so the
-    # README's dependency diagram needs mermaid loaded here. Unwrap the <code>
-    # first: mermaid reads the element's own text.
+    # The README diagram only. GitHub renders ```mermaid fences natively;
+    # pkgdown emits them as <pre class="mermaid"><code>...</code></pre> and
+    # ships no renderer, so the landing page needs mermaid loaded here. Unwrap
+    # the <code> first: mermaid reads the element own text.
+    #
+    # Every selector excludes .mermaid-js, and the import is behind that
+    # guard. Quarto renders the vignette diagrams itself, with its own bundled
+    # mermaid, and marks those blocks `mermaid mermaid-js`. Unscoped, both
+    # renderers claim the same <pre>: this one wins the race and replaces the
+    # source with an <svg>, then quarto window-load handler re-renders what is
+    # left and dies with "No diagram type detected". The guard also keeps the
+    # ~1 MB CDN bundle off the hundred-odd pages that have no diagram at all.
     after_body: >
       <script type="module">
-        import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
-        document.querySelectorAll("pre.mermaid > code").forEach(function (code) {
-          code.parentNode.textContent = code.textContent;
-        });
-        mermaid.initialize({
-          startOnLoad: false,
-          securityLevel: "loose",
-          theme: "base",
-          themeVariables: {
-            lineColor: "#888888",
-            textColor: "#111111",
-            edgeLabelBackground: "#ffffff",
-            fontFamily: "inherit"
-          }
-        });
-        await mermaid.run({ querySelector: "pre.mermaid" });
+        const blocks = document.querySelectorAll("pre.mermaid:not(.mermaid-js)");
+        if (blocks.length) {
+          const { default: mermaid } =
+            await import("https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs");
+          blocks.forEach(function (pre) {
+            const code = pre.querySelector("code");
+            if (code) pre.textContent = code.textContent;
+          });
+          mermaid.initialize({
+            startOnLoad: false,
+            securityLevel: "loose",
+            theme: "base",
+            themeVariables: {
+              lineColor: "#888888",
+              textColor: "#111111",
+              edgeLabelBackground: "#ffffff",
+              fontFamily: "inherit"
+            }
+          });
+          await mermaid.run({ nodes: blocks });
+        }
       </script>
 
 # The normalizer moved to npnormalize and is re-exported, so its nine topics
