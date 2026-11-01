@@ -1,5 +1,12 @@
 # npmatch — A Reviewer's Guide
 
+> **Superseded.** The maintained version of this guide is the
+> `reviewer-guide` vignette (`vignettes/reviewer-guide.qmd`, published at
+> <https://nonprofit-open-data-collective.github.io/npmatch/articles/reviewer-guide.html>),
+> which is longer, runs its numbers from the shipped benchmark rather than
+> transcribing them, and is kept current. This file is the original draft, left
+> in place for its history. Do not edit it; edit the vignette.
+
 *A plain-language overview of how the nonprofit crosswalk is built, what the
 package decides on its own, and where a human (or an LLM standing in for one)
 comes in.*

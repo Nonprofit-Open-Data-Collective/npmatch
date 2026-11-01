@@ -108,7 +108,8 @@ np_batch <- function(x, size = 2500L, n = NULL, shuffle = TRUE, seed = NULL) {
 #' @param query Raw source data frame (e.g. a SAM nonprofit subset). Raw
 #'   uppercase SAM headers are normalized to the names [np_map_sam()] expects; an
 #'   `np_query` is used as-is.
-#' @param reference The reference BMF: a raw data frame, an [np_reference()], a
+#' @param reference The reference (the BMF, in the shipped deployment): a raw
+#'   data frame, an [np_reference()], a
 #'   pre-normalized reference (the latter two skip the corresponding step), or a
 #'   matchdb reference from `matchdb::md_compile()` or `matchdb::md_reference()`,
 #'   whose precomputed tables are used as they are (see [np_cascade()]).

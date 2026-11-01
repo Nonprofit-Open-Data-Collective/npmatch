@@ -13,9 +13,13 @@
   * `np_normalize_signature()`.
 * **Nothing changes for callers.** npmatch re-exports those nine functions, so
   `npmatch::np_normalize()`, scripts, pfmatch and networked990 work as before.
-  `np_normalize_signature()` reports the same value, `v1-3e7b9f9d59bbb19e`, so
-  every stored artifact built under npmatch 0.1.1 stays valid. That includes
-  matchdb's database, bundles and tranches.
+  The move itself did not touch a rule: npnormalize 0.1.0 reproduces the
+  signature npmatch 0.1.1 reported, so every stored artifact built under 0.1.1
+  stayed valid across it — matchdb's database, bundles and tranches included.
+  npnormalize has moved the signature since, in 0.1.2 and 0.1.3 (both
+  unit-parsing fixes), and matchdb's published data was rebuilt under 0.1.3 on
+  2026-11-01. Read the value your install reports from
+  `np_normalize_signature()`; it is not a constant to quote.
 * **Why.** Both sides of a match depend on the normalizer: matchdb stores its
   keys, and npmatch computes them for each query. With the normalizer in its own
   package, matchdb no longer needs npmatch, and npmatch can depend on matchdb in
@@ -48,6 +52,35 @@
 * `np_run_batches()` counts addresses once for the whole run and keeps the
   table in its `cache =` file. A cache written before this version gains it
   on first use, as an older cache already gained `ref_index`.
+
+## Documentation reframed around the six tiers
+
+* **npmatch is documented as a tiered workflow, not as a SAM-to-BMF matcher.**
+  The README, the landing page, the package help and the articles now name the
+  six steps the package manages — alias enumeration (matchdb), input
+  standardization (npnormalize), data pre-prep (tokenization, inverse document
+  frequency, name and address frequency), candidate generation by blocking and
+  fuzzy comparison (reclin2), tiered adjudication, and packaging for human or
+  LLM review — and present federal registrants against the IRS Business Master
+  File as the deployment npmatch ships wired for rather than as what it is for.
+  `np_map_sam()` / `np_map_bmf()` and the SAM helpers are described as that
+  deployment's conveniences; pfmatch is named as another deployment.
+* **The README and landing page carry a dependency diagram** of npmatch,
+  npnormalize, matchdb and reclin2, with a table saying what each owns and why
+  it is separate. pkgdown now renders mermaid blocks on the home page.
+* **matchdb is documented as the default reference path.** The quick start
+  downloads a published bundle and passes it straight to the cascade; building a
+  reference from raw NCCS files is kept as the path for a vintage, slice or
+  schema matchdb does not publish. The Workflow article leads with it.
+* **The README no longer restates npnormalize's rules.** The subroutine-level
+  walkthrough of the normalizer is replaced by the columns it produces and a
+  pointer to npnormalize's own reference, which is authoritative. The tier-3
+  corpus statistics get a section of their own, including the warning against
+  counting them over a slice.
+* **No normalizer signature literal is quoted anywhere.** The development-version
+  entry above said the signature was unchanged and named the value; npnormalize
+  0.1.2 and 0.1.3 have moved it since. Read it from
+  `np_normalize_signature()`.
 
 # npmatch 0.1.1
 

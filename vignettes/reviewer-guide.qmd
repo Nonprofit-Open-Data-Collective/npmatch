@@ -32,28 +32,43 @@ comes in.*
 
 ## 1. What the package does
 
-**npmatch** links organizations from one list (here, federal award and
-registration records keyed by a **UEI**) to the IRS **Business Master File**
-of nonprofits (keyed by an **EIN**). It does three things:
+**npmatch** links organizations from one list to a reference database when the
+two share no identifier. It does three things:
 
 1. **Normalizes** both sides so they can be compared fairly.
 2. **Runs a multi-tier matching strategy** — strict first, then progressively
    looser — scoring how well each candidate agrees on name and address.
 3. **Returns a scored, labeled candidate dataset** — for every source
-   organization: the candidate EIN(s) it weighed, a 0–1 match score, and a
+   organization: the candidate record(s) it weighed, a 0–1 match score, and a
    **decision label: YES, MAYBE, or NO**.
 
 The output is not just "the answer." It is an auditable table showing *which
 candidates were considered and why one was chosen* — the raw material for the
 review stage.
 
+Throughout this guide the example is the deployment npmatch ships wired for:
+federal award and registration records keyed by a **UEI**, matched to the IRS
+**Business Master File** of nonprofits keyed by an **EIN**. Nothing in the
+decision logic is specific to those two files — the same package runs over any
+source list and any reference, and the reference itself usually comes from
+[matchdb](https://nonprofit-open-data-collective.github.io/matchdb/), which
+enumerates every name an EIN has been recorded under rather than only its legal
+one.
+
 ## 2. How names and addresses are normalized
 
 Before anything can be compared, "The Smith Family Foundation, Inc." and
-"Smith Family Fdn" have to be made to look alike. npmatch cleans each name to a
-**match key**, then splits it into **tokens** (the words the matcher actually
-compares). Legal suffixes (Inc, Foundation), a leading "The", and punctuation
-are dropped; abbreviations are standardized (St → Saint, & → and, Ctr → Center).
+"Smith Family Fdn" have to be made to look alike. This step is
+[npnormalize](https://nonprofit-open-data-collective.github.io/npnormalize/)'s
+job — a separate package, so that the reference's stored keys and the query's
+run-time keys are built by exactly the same code, with a signature that makes a
+mismatch an error rather than a silent loss of matches. npmatch re-exports it,
+so `np_normalize()` works as it always has.
+
+It cleans each name to a **match key**, then splits it into **tokens** (the
+words the matcher actually compares). Legal suffixes (Inc, Foundation), a
+leading "The", and punctuation are dropped; abbreviations are standardized
+(St → Saint, & → and, Ctr → Center).
 
 Punctuation *inside* a word is deleted rather than turned into a space, which is
 why "Y.W.C.A." collapses to the single token `YWCA` and "Mary's" to `MARYS`. This

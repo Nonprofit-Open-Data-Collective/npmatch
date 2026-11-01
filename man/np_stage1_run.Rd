@@ -27,8 +27,11 @@ np_stage1_run(
 \item{query}{The prepared source frame, or a path to one. Defaults to
 \verb{00_sams/sam_query.csv} in the project.}
 
-\item{reference}{The reference BMF: raw data frame, \code{\link[=np_reference]{np_reference()}}, or
-pre-normalized reference. May be \code{NULL} when \code{cache} holds a built bundle.}
+\item{reference}{The reference: raw data frame, \code{\link[=np_reference]{np_reference()}}, a
+pre-normalized reference, or a matchdb reference from
+\code{matchdb::md_compile()} / \code{matchdb::md_reference()}, whose precomputed
+tables are used as they are (see \code{\link[=np_cascade]{np_cascade()}}). May be \code{NULL} when
+\code{cache} holds a built bundle.}
 
 \item{project}{Project root. Defaults to \code{\link[=np_project_root]{np_project_root()}}.}
 

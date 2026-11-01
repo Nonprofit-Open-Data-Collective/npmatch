@@ -1,14 +1,20 @@
 Package: npmatch
-Title: Probabilistic Record Linkage of Nonprofit Data to the IRS Business Master File
+Title: A Tiered Workflow for Probabilistic Record Linkage of Organization Data
 Version: 0.1.1.9000
 Authors@R:
     person("Jesse", "Lecy", email = "jdlecy@gmail.com", role = c("aut", "cre"))
-Description: Tools for building crosswalks between arbitrary nonprofit datasets
-    (entity name plus variable geographic detail) and the IRS Business Master
-    File (BMF) of exempt organizations. Wraps reclin2 for blocked pairing and
-    comparison, and adds nonprofit-specific normalization, a hard "do-not-match"
-    veto engine, geography-adaptive weighting, and tiered (YES / MAYBE / NO)
-    sorting with a structured hand-off for human or LLM refinement.
+Description: Manages the steps of matching organization records (entity name
+    plus variable geographic detail) to a reference database when no shared
+    identifier exists: alias enumeration, input standardization, corpus
+    pre-preparation (tokenization and inverse document frequency), candidate
+    generation by blocking and fuzzy comparison, tiered adjudication, and
+    packaging the residual for human or LLM review. Standardization comes from
+    'npnormalize' and alias enumeration from 'matchdb'; 'reclin2' supplies
+    blocked pairing and comparison. Adds a hard "do-not-match" veto engine,
+    geography-adaptive weighting, and tiered (YES / MAYBE / NO) sorting with a
+    structured hand-off. Ships wired for federal registrants (SAM) to the IRS
+    Business Master File of exempt organizations, which is one deployment of the
+    framework rather than a requirement of it.
 License: MIT + file LICENSE
 URL: https://github.com/Nonprofit-Open-Data-Collective/npmatch, https://nonprofit-open-data-collective.github.io/npmatch/
 BugReports: https://github.com/Nonprofit-Open-Data-Collective/npmatch/issues

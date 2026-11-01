@@ -32,7 +32,8 @@ np_run_batches(
 uppercase SAM headers are normalized to the names \code{\link[=np_map_sam]{np_map_sam()}} expects; an
 \code{np_query} is used as-is.}
 
-\item{reference}{The reference BMF: a raw data frame, an \code{\link[=np_reference]{np_reference()}}, a
+\item{reference}{The reference (the BMF, in the shipped deployment): a raw
+data frame, an \code{\link[=np_reference]{np_reference()}}, a
 pre-normalized reference (the latter two skip the corresponding step), or a
 matchdb reference from \code{matchdb::md_compile()} or \code{matchdb::md_reference()},
 whose precomputed tables are used as they are (see \code{\link[=np_cascade]{np_cascade()}}).}

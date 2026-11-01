@@ -4,23 +4,46 @@
 \name{npmatch-package}
 \alias{npmatch}
 \alias{npmatch-package}
-\title{npmatch: nonprofit record linkage to the IRS BMF}
+\title{npmatch: a tiered workflow for organization record linkage}
 \description{
-A geography-adaptive, tiered linkage pipeline built as a thin layer over
-reclin2. The stages compose left to right:
+npmatch manages the steps of matching organization records to a reference
+database when no shared identifier exists. The steps are generic; the
+nonprofit case the package ships wired for — federal registrants (SAM) to
+the IRS Business Master File — is one deployment of the framework, not a
+requirement of it.
 }
 \details{
+Six tiers, each a separable concern:
+
 \enumerate{
-\item \code{\link[=np_query]{np_query()}} / \code{\link[=np_reference]{np_reference()}} — map a dataset onto canonical fields
-\item \code{\link[=np_normalize]{np_normalize()}} — standardize names/addresses, extract veto features
-\item \code{\link[=np_compare]{np_compare()}} — block and score candidate pairs (reclin2)
-\item \code{\link[=np_score]{np_score()}} — combine field similarities (weighted / EM / model)
-\item \code{\link[=np_veto]{np_veto()}} — apply hard do-not-match rules
-\item \code{\link[=np_select]{np_select()}} — best entity per query, plus loosened name/addr views
-\item \code{\link[=np_tier]{np_tier()}} — sort into YES / MAYBE / NO
+\item \strong{Alias enumeration} — every name and address an entity is
+known by. Supplied by \pkg{matchdb}: pass the object its
+\code{md_compile()} or \code{md_reference()} returns straight to
+\code{\link[=np_cascade]{np_cascade()}} as \code{reference}.
+\item \strong{Input standardization} — \code{\link[=np_query]{np_query()}} / \code{\link[=np_reference]{np_reference()}} map
+any dataset onto the canonical fields, then \code{\link[=np_normalize]{np_normalize()}} (from
+\pkg{npnormalize}, re-exported here) builds the name and address keys.
+\item \strong{Data pre-prep} — the corpus statistics that make a token or
+an address informative: \code{\link[=np_ref_index]{np_ref_index()}}, \code{\link[=np_token_idf]{np_token_idf()}},
+\code{\link[=np_name_freq]{np_name_freq()}}, \code{\link[=np_addr_freq]{np_addr_freq()}}. Computed once over the whole
+reference, or taken precomputed from a matchdb reference.
+\item \strong{Candidate generation} — \code{\link[=np_block]{np_block()}} / \code{\link[=np_block_union]{np_block_union()}}
+keep the pair set tractable; \code{\link[=np_compare]{np_compare()}} scores each field, over
+\pkg{reclin2}.
+\item \strong{Tiered adjudication} — \code{\link[=np_score]{np_score()}} combines the fields,
+\code{\link[=np_veto]{np_veto()}} applies hard and soft do-not-match rules, \code{\link[=np_select]{np_select()}}
+picks the best candidate per query, \code{\link[=np_tier]{np_tier()}} sorts into
+YES / MAYBE / NO.
+\item \strong{Packaging for review} — \code{\link[=np_route]{np_route()}} emits the accepted
+crosswalk, the candidate-level review queue and the unmatched set;
+\code{\link[=np_label_frame]{np_label_frame()}} emits training data and \code{\link[=np_as_prompt]{np_as_prompt()}} LLM prompts.
 }
 
-\code{\link[=np_match]{np_match()}} runs the whole chain; \code{\link[=np_label_frame]{np_label_frame()}} emits training data.
+\code{\link[=np_cascade]{np_cascade()}} runs tiers 2–5 as progressive blocking passes (the scalable
+path) and \code{\link[=np_match]{np_match()}} in a single pass; \code{\link[=np_route]{np_route()}} then does tier 6 on the
+result. \code{\link[=np_run_batches]{np_run_batches()}} chunks a large source over \code{\link[=np_cascade]{np_cascade()}} and
+routes each chunk, and the stage drivers (\code{\link[=np_stage1_run]{np_stage1_run()}} and its siblings)
+wrap the whole thing in an on-disk run project.
 }
 \seealso{
 Useful links:

@@ -36,13 +36,15 @@ the result was tiered with.}
 \item{k}{Candidates to surface per review case. Default 3.}
 
 \item{source}{Suffix for the query-side (source) columns, replacing \verb{_x}.
-Default \code{"uss"} (USASpending). The source varies; the reference is the BMF.}
+Default \code{"uss"} (USASpending), the shipped deployment's source.}
 
 \item{reference}{Suffix for the candidate-side (reference) columns, replacing
-\verb{_y}. Default \code{"bmf"}.}
+\verb{_y}. Default \code{"bmf"}. Set both for another pair of datasets — the layout
+and the derived fields do not change.}
 
 \item{id_label}{Column name for the query key (\code{.id}), which is ambiguous.
-Default \code{"uei"} (Unique Entity Identifier). The reference key is \code{ein}.}
+Default \code{"uei"} (Unique Entity Identifier), the key of the shipped
+deployment's source; its reference key is \code{ein}.}
 
 \item{bmf}{Optional raw processed BMF. When supplied, the default context
 fields from \code{\link[=np_bmf_review_fields]{np_bmf_review_fields()}} (NTEE, 501(c) subsection, foundation

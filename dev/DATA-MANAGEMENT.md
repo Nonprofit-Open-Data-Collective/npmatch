@@ -5,6 +5,16 @@ active / 3.4 GB unified) and versioned on their own cadence. This note describes
 how source, derived, and output data are organised, what is built during a run,
 and what is reusable vs. ephemeral.
 
+> **The default reference path is now matchdb**, which publishes compiled
+> reference bundles (with `name_freq`, `token_idf`, `ref_index` and `addr_freq`
+> precomputed and signature-stamped) and handles alias enumeration — the names
+> an EIN has actually been recorded under, not only its legal one.
+> `matchdb::md_reference("active-observed", fetch = "missing")` returns an
+> object `np_cascade()` and `np_run_batches()` accept as `reference` directly.
+> Everything below is the build-it-yourself path: use it for a vintage, slice or
+> schema matchdb does not publish, and for the SAM query side, which is still
+> per-run and still needs `np_prepare_sam()`.
+
 ## Three tiers of data
 
 | Tier | What | Lifecycle | Tracked in git? |

@@ -96,8 +96,11 @@
 #'
 #' @param query The prepared source frame, or a path to one. Defaults to
 #'   `00_sams/sam_query.csv` in the project.
-#' @param reference The reference BMF: raw data frame, [np_reference()], or
-#'   pre-normalized reference. May be `NULL` when `cache` holds a built bundle.
+#' @param reference The reference: raw data frame, [np_reference()], a
+#'   pre-normalized reference, or a matchdb reference from
+#'   `matchdb::md_compile()` / `matchdb::md_reference()`, whose precomputed
+#'   tables are used as they are (see [np_cascade()]). May be `NULL` when
+#'   `cache` holds a built bundle.
 #' @param project Project root. Defaults to [np_project_root()].
 #' @param cache Optional `.rds` bundle of the normalized reference, passed to
 #'   [np_run_batches()].
