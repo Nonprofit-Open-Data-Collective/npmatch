@@ -54,7 +54,11 @@
 <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize_signature.html" class="external-link">np_normalize_signature()</a></code>.</li>
 </ul></li>
 <li>
-<strong>Nothing changes for callers.</strong> npmatch re-exports those nine functions, so <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize.html" class="external-link">npmatch::np_normalize()</a></code>, scripts, pfmatch and networked990 work as before. The move itself did not touch a rule: npnormalize 0.1.0 reproduces the signature npmatch 0.1.1 reported, so every stored artifact built under 0.1.1 stayed valid across it — matchdb’s database, bundles and tranches included. npnormalize has moved the signature since, in 0.1.2 and 0.1.3 (both unit-parsing fixes), and matchdb’s published data was rebuilt under 0.1.3 on 2026-11-01. Read the value your install reports from <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize_signature.html" class="external-link">np_normalize_signature()</a></code>; it is not a constant to quote.</li>
+<strong>Nothing changes for callers.</strong> npmatch re-exports those nine functions, so <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize.html" class="external-link">npmatch::np_normalize()</a></code>, scripts, pfmatch and networked990 work as before.</li>
+<li>
+<strong>The move itself kept every stored artifact valid</strong>, because <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize_signature.html" class="external-link">np_normalize_signature()</a></code> still reported <code>v1-3e7b9f9d59bbb19e</code> on both sides of it — npmatch 0.1.1 and npnormalize 0.1.0 and 0.1.1.</li>
+<li>
+<strong>npnormalize has since moved the signature on purpose</strong>, to <code>v1-592912060053c4c3</code>: 0.1.2 made <code>BUILDING</code> a unit designator (<a href="https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/7" class="external-link">npnormalize#7</a>), and 0.1.3 made a line naming several units keep the most specific one and the house number a whole token. Stored <code>street_unit</code>, <code>street_unit_id</code>, <code>street_num</code> and <code>street_name</code> values from before that must be rebuilt — matchdb’s database, bundles and tranches included (<a href="https://github.com/Nonprofit-Open-Data-Collective/matchdb/issues/29" class="external-link">matchdb#29</a>). npmatch now requires <code>npnormalize (&gt;= 0.1.3)</code>, so an install cannot quietly compute keys with an older normalizer than the one it is pinned to.</li>
 <li>
 <strong>Why.</strong> Both sides of a match depend on the normalizer: matchdb stores its keys, and npmatch computes them for each query. With the normalizer in its own package, matchdb no longer needs npmatch, and npmatch can depend on matchdb in turn.</li>
 <li>
@@ -74,17 +78,39 @@
 <code><a href="../reference/np_run_batches.html">np_run_batches()</a></code> counts addresses once for the whole run and keeps the table in its <code>cache =</code> file. A cache written before this version gains it on first use, as an older cache already gained <code>ref_index</code>.</li>
 </ul></div>
 <div class="section level3">
-<h3 id="documentation-reframed-around-the-six-tiers-development-version">Documentation reframed around the six tiers<a class="anchor" aria-label="anchor" href="#documentation-reframed-around-the-six-tiers-development-version"></a></h3>
-<ul><li>
-<strong>npmatch is documented as a tiered workflow, not as a SAM-to-BMF matcher.</strong> The README, the landing page, the package help and the articles now name the six steps the package manages — alias enumeration (matchdb), input standardization (npnormalize), data pre-prep (tokenization, inverse document frequency, name and address frequency), candidate generation by blocking and fuzzy comparison (reclin2), tiered adjudication, and packaging for human or LLM review — and present federal registrants against the IRS Business Master File as the deployment npmatch ships wired for rather than as what it is for. <code><a href="../reference/np_maps.html">np_map_sam()</a></code> / <code><a href="../reference/np_maps.html">np_map_bmf()</a></code> and the SAM helpers are described as that deployment’s conveniences; pfmatch is named as another deployment.</li>
+<h3 id="the-suite-a-reviewer-is-shown-development-version">The suite a reviewer is shown<a class="anchor" aria-label="anchor" href="#the-suite-a-reviewer-is-shown-development-version"></a></h3>
+<ul><li><p>A bare <code>#</code> now agrees with <code>PMB</code> in <code>geo_unit_same_kind</code>, as well as with the room-level designators. Since npnormalize 0.1.3 a line naming several units keeps the most specific, so a mail store’s <code>STE 204 # 22915</code> keeps the customer’s box as <code># 22915</code>; against a record written <code>PMB 22915</code>, the reviewer was told “not the same kind of unit” about one mailbox. <code>#</code> is either a door or a box, so it agrees with both, while <code>PMB 136</code> against <code>STE 136</code> and <code>FL 2</code> against <code>STE 2</code> still do not. No score moves.</p></li>
 <li>
-<strong>The README and landing page carry a dependency diagram</strong> of npmatch, npnormalize, matchdb and reclin2, with a table saying what each owns and why it is separate. pkgdown now renders mermaid blocks on the home page.</li>
-<li>
-<strong>matchdb is documented as the default reference path.</strong> The quick start downloads a published bundle and passes it straight to the cascade; building a reference from raw NCCS files is kept as the path for a vintage, slice or schema matchdb does not publish. The Workflow article leads with it.</li>
-<li>
-<strong>The README no longer restates npnormalize’s rules.</strong> The subroutine-level walkthrough of the normalizer is replaced by the columns it produces and a pointer to npnormalize’s own reference, which is authoritative. The tier-3 corpus statistics get a section of their own, including the warning against counting them over a slice.</li>
-<li>
-<strong>No normalizer signature literal is quoted anywhere.</strong> The development-version entry above said the signature was unchanged and named the value; npnormalize 0.1.2 and 0.1.3 have moved it since. Read it from <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize_signature.html" class="external-link">np_normalize_signature()</a></code>.</li>
+<p>A reviewer is no longer told that a floor is the same suite as a suite (<a href="https://github.com/Nonprofit-Open-Data-Collective/npmatch/issues/23" class="external-link">#23</a>, reported from pfmatch via <a href="https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/7" class="external-link">npnormalize#7</a>). <code>geo_unit</code> compares npnormalize’s <code>street_unit_id</code>, which drops the designator — that is what makes <code>STE 320</code> and <code># 320</code> agree, one office written two ways, and it is right. The same drop made <code>FL 2</code> agree with <code>STE 2</code>, and <code>PMB 136</code> with <code>STE 136</code>:</p>
+<table class="table"><thead><tr class="header"><th>query</th>
+<th>reference</th>
+<th><code>geo_unit</code></th>
+<th>prompt, before</th>
+<th>prompt, now</th>
+</tr></thead><tbody><tr class="odd"><td><code>FL 2</code></td>
+<td><code>STE 2</code></td>
+<td><code>1</code></td>
+<td>same suite</td>
+<td>not the same kind of unit</td>
+</tr><tr class="even"><td><code>PMB 136</code></td>
+<td><code>STE 136</code></td>
+<td><code>1</code></td>
+<td>same suite</td>
+<td>not the same kind of unit</td>
+</tr><tr class="odd"><td><code>STE 320</code></td>
+<td><code># 320</code></td>
+<td><code>1</code></td>
+<td>same suite</td>
+<td>same suite</td>
+</tr></tbody></table><p><code><a href="../reference/np_compare.html">np_compare()</a></code> now also returns <code>geo_unit_same_kind</code> — <code>1</code> both sides name the same kind of place, <code>0</code> they do not, <code>NA</code> either side names no unit — and <code><a href="../reference/np_as_prompt.html">np_as_prompt()</a></code> requires it before it says the suites are the same. The room-level designators (<code>STE</code> <code>APT</code> <code>UNIT</code> <code>RM</code> <code>SPC</code> <code>TRLR</code> <code>LOT</code> <code>#</code>) are one kind; a floor, a mailbox, a department, a building and a basement are each their own. A review frame saved before the column existed reads correctly too, because the canonical values are in the frame.</p>
+</li>
+<li><p><strong>No score moves.</strong> <code><a href="../reference/np_score.html">np_score()</a></code> reads <code>geo_unit</code> and nothing else, so the 0.97 suite credit and its multi-tenant gate are exactly as they were; a test asserts the scores are identical with the new column dropped. The grouping deliberately stays in npmatch: which designators count as the same door is a matching policy, while npnormalize’s tables feed the normalizer signature that stamps every published artifact. ## Documentation reframed around the six tiers</p></li>
+<li><p><strong>npmatch is documented as a tiered workflow, not as a SAM-to-BMF matcher.</strong> The README, the landing page, the package help and the articles now name the six steps the package manages — alias enumeration (matchdb), input standardization (npnormalize), data pre-prep (tokenization, inverse document frequency, name and address frequency), candidate generation by blocking and fuzzy comparison (reclin2), tiered adjudication, and packaging for human or LLM review — and present federal registrants against the IRS Business Master File as the deployment npmatch ships wired for rather than as what it is for. <code><a href="../reference/np_maps.html">np_map_sam()</a></code> / <code><a href="../reference/np_maps.html">np_map_bmf()</a></code> and the SAM helpers are described as that deployment’s conveniences; pfmatch is named as another deployment.</p></li>
+<li><p><strong>The README and landing page carry a dependency diagram</strong> of npmatch, npnormalize, matchdb and reclin2, with a table saying what each owns and why it is separate. pkgdown now renders mermaid blocks on the home page.</p></li>
+<li><p><strong>matchdb is documented as the default reference path.</strong> The quick start downloads a published bundle and passes it straight to the cascade; building a reference from raw NCCS files is kept as the path for a vintage, slice or schema matchdb does not publish. The Workflow article leads with it.</p></li>
+<li><p><strong>The README no longer restates npnormalize’s rules.</strong> The subroutine-level walkthrough of the normalizer is replaced by the columns it produces and a pointer to npnormalize’s own reference, which is authoritative. The tier-3 corpus statistics get a section of their own, including the warning against counting them over a slice.</p></li>
+<li><p><strong>The prose quotes no normalizer signature.</strong> The entry above names the values deliberately, as the record of what moved, and <code>tests/testthat/test-signature.R</code> pins the current one so an unintended move cannot pass unnoticed. Prose that merely asserts a signature is unchanged goes stale instead, which is what had happened here: the README and the Workflow article now say to read the value from <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize_signature.html" class="external-link">np_normalize_signature()</a></code> and to record what a run reported.</p></li>
+<li><p>The nine normalizer topics collapsed into one <code>reexports</code> page when the normalizer moved, so <code>_pkgdown.yml</code> redirects their old URLs to it, and <code><a href="../reference/np_cluster_rollup.html">np_cluster_rollup()</a></code> / <code><a href="../reference/np_pair_links.html">np_pair_links()</a></code> are in the reference index for the first time.</p></li>
 </ul></div>
 </div>
     <div class="section level2">

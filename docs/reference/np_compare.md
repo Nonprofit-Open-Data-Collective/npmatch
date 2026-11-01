@@ -87,7 +87,13 @@ np_compare(
 
 A data frame of candidate pairs, one row per (query, reference) pair,
 with class `np_pairs`. Columns include `.x`, `.y`, `.id`, `.ein`, a
-similarity column per compared field, plus carried veto features.
+similarity column per compared field, plus carried veto features. Two
+columns report the suite, both three-valued (1 agree, 0 differ, `NA`
+either side names no unit): `geo_unit` compares the unit identifier with
+the designator stripped, which is the column `np_score()` credits and
+the reason `STE 320` and `# 320` agree; `geo_unit_same_kind` says
+whether the two sides name the same kind of place, so a reviewer reading
+a floor against a suite is not told they are the same office.
 
 </div>
 

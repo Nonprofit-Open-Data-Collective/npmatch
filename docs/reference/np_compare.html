@@ -119,7 +119,13 @@ once from the whole reference and pass it in (as <code><a href="np_cascade.html"
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A data frame of candidate pairs, one row per (query, reference) pair,
 with class <code>np_pairs</code>. Columns include <code>.x</code>, <code>.y</code>, <code>.id</code>, <code>.ein</code>, a
-similarity column per compared field, plus carried veto features.</p>
+similarity column per compared field, plus carried veto features. Two
+columns report the suite, both three-valued (1 agree, 0 differ, <code>NA</code> either
+side names no unit): <code>geo_unit</code> compares the unit identifier with the
+designator stripped, which is the column <code><a href="np_score.html">np_score()</a></code> credits and the
+reason <code>STE 320</code> and <code># 320</code> agree; <code>geo_unit_same_kind</code> says whether the
+two sides name the same kind of place, so a reviewer reading a floor
+against a suite is not told they are the same office.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
