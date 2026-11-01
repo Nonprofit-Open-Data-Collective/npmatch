@@ -13,9 +13,19 @@
   * `np_normalize_signature()`.
 * **Nothing changes for callers.** npmatch re-exports those nine functions, so
   `npmatch::np_normalize()`, scripts, pfmatch and networked990 work as before.
-  `np_normalize_signature()` reports the same value, `v1-3e7b9f9d59bbb19e`, so
-  every stored artifact built under npmatch 0.1.1 stays valid. That includes
-  matchdb's database, bundles and tranches.
+* **The move itself kept every stored artifact valid**, because
+  `np_normalize_signature()` still reported `v1-3e7b9f9d59bbb19e` on both sides
+  of it — npmatch 0.1.1 and npnormalize 0.1.0 and 0.1.1.
+* **npnormalize has since moved the signature on purpose**, to
+  `v1-592912060053c4c3`: 0.1.2 made `BUILDING` a unit designator
+  ([npnormalize#7](https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/7)),
+  and 0.1.3 made a line naming several units keep the most specific one and the
+  house number a whole token. Stored `street_unit`, `street_unit_id`,
+  `street_num` and `street_name` values from before that must be rebuilt —
+  matchdb's database, bundles and tranches included
+  ([matchdb#29](https://github.com/Nonprofit-Open-Data-Collective/matchdb/issues/29)).
+  npmatch now requires `npnormalize (>= 0.1.3)`, so an install cannot quietly
+  compute keys with an older normalizer than the one it is pinned to.
 * **Why.** Both sides of a match depend on the normalizer: matchdb stores its
   keys, and npmatch computes them for each query. With the normalizer in its own
   package, matchdb no longer needs npmatch, and npmatch can depend on matchdb in
