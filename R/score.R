@@ -174,10 +174,11 @@
 #' * `"weighted"` — normalized weighted sum using the profile weights in
 #'   `config`. Transparent, no training required. The default.
 #' * `"hier"` — name similarity plus a *hierarchical* geo sub-score that takes
-#'   the strongest confirmed location granularity (ZIP+4 > street > ZIP5 > PO box
-#'   > ZIP3 > city > state) via a `max`, not a sum. Correlated address fields are
-#'   not double-counted, and a wrong city cannot pull down a ZIP-confirmed match.
-#'   Degrades gracefully as geo fields go missing. See [np_default_geo_weights()].
+#'   the strongest confirmed location granularity
+#'   (ZIP+4 > street > ZIP5 > PO box > ZIP3 > city > state) via a `max`, not a
+#'   sum. Correlated address fields are not double-counted, and a wrong city
+#'   cannot pull down a ZIP-confirmed match. Degrades gracefully as geo fields
+#'   go missing. See [np_default_geo_weights()].
 #' * `"em"` — unsupervised Fellegi-Sunter weights via [reclin2::problink_em()];
 #'   `score` is the match posterior. Learns weights from the data.
 #' * `"model"` — apply a fitted classifier (`glm`, `ranger`, `xgboost`, ...)
