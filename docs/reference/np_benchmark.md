@@ -1,4 +1,8 @@
+<div id="main" class="col-md-9" role="main">
+
 # Benchmark scoring methods by cross-validation
+
+<div class="ref-description section level2">
 
 Compares the candidate scorers on a labelled set so the "best" combiner
 can be chosen empirically. The unsupervised methods (`weighted`, `em`)
@@ -7,7 +11,13 @@ predictions to avoid optimism. Each method is then evaluated at
 thresholds tuned on the same labels, so the comparison reflects how the
 tiering would actually behave.
 
+</div>
+
+<div class="section level2">
+
 ## Usage
+
+<div class="sourceCode">
 
 ``` r
 np_benchmark(
@@ -22,42 +32,52 @@ np_benchmark(
 )
 ```
 
+</div>
+
+</div>
+
+<div class="section level2">
+
 ## Arguments
 
-- pairs:
+-   pairs:
 
-  A labelled `np_pairs` frame.
+    A labelled `np_pairs` frame.
 
-- methods:
+-   methods:
 
-  Which scorers to compare.
+    Which scorers to compare.
 
-- k:
+-   k:
 
-  Number of CV folds for the supervised `model` method.
+    Number of CV folds for the supervised `model` method.
 
-- config:
+-   config:
 
-  An
-  [`np_config()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_config.md)
-  (supplies weights for `weighted`).
+    An `np_config()` (supplies weights for `weighted`).
 
-- engine:
+-   engine:
 
-  Training engine for `model` (see
-  [`np_train()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_train.md)).
+    Training engine for `model` (see `np_train()`).
 
-- target_precision, min_recall:
+-   target_precision, min_recall:
 
-  Passed to
-  [`np_tune_thresholds()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_tune_thresholds.md).
+    Passed to `np_tune_thresholds()`.
 
-- seed:
+-   seed:
 
-  Fold-assignment seed.
+    Fold-assignment seed.
+
+</div>
+
+<div class="section level2">
 
 ## Value
 
 A data frame, one row per method, with AUC and tuned-threshold
 precision/recall/coverage. Out-of-fold scores are attached as attribute
 `scores`.
+
+</div>
+
+</div>

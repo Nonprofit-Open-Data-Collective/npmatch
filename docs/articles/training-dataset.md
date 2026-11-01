@@ -1,9 +1,13 @@
+<div id="main" class="col-md-9" role="main">
+
 # npmatch: The Training & Evaluation Dataset
 
 *A hand-labeled benchmark of 1,502 organizations linking the
 SAM/USASpending nonprofit registry to the IRS Business Master File — how
 it was built, how the matcher performs on it, and how to use it to train
 and benchmark Stage-1 classifiers or drive an LLM review loop.*
+
+<div class="section level2">
 
 ## 1. What this dataset is
 
@@ -12,18 +16,30 @@ USASpending registry (keyed by **UEI**) to the IRS Business Master File
 of exempt organizations (keyed by **EIN**). To measure and improve that
 process we hand-labeled a benchmark of **1,502 source organizations**:
 
-- **1,000 a true random sample** of SAM nonprofits — use these for
-  *population* performance and outcome-class prevalence.
-- **502 hard cases** — an oversample of the difficult residual (fuzzy
-  names, DBA/address divergence, ambiguous entities). Use these to probe
-  failure modes and train a classifier on the cases that actually
-  matter; **do not** read population rates off this stratum.
+-   **1,000 a true random sample** of SAM nonprofits — use these for
+    *population* performance and outcome-class prevalence.
+-   **502 hard cases** — an oversample of the difficult residual (fuzzy
+    names, DBA/address divergence, ambiguous entities). Use these to
+    probe failure modes and train a classifier on the cases that
+    actually matter; **do not** read population rates off this stratum.
 
 The benchmark does triple duty: a **validation set** for the matcher, a
 **training set** for Stage-1 (name/address) classifier models, and a
 **demo corpus** for exploring the package.
 
+</div>
+
+<div class="section level2">
+
 ## 2. How the dataset was built
+
+<div class="cell" layout-align="default">
+
+<div class="cell-output-display">
+
+<div>
+
+<div>
 
 ``` mermaid
 flowchart LR
@@ -34,16 +50,22 @@ flowchart LR
   E --> F["labeled benchmark<br/>(1,502 orgs)"]
 ```
 
+</div>
+
+</div>
+
+</div>
+
+</div>
+
 1.  **Source.** SAM’s public monthly extract, filtered to nonprofit
-    business-type codes
-    ([`np_flag_nonprofits()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_flag_nonprofits.md);
-    codes A8/BZ/2U/A7) — roughly 165,000 organizations.
+    business-type codes (`np_flag_nonprofits()`; codes A8/BZ/2U/A7) —
+    roughly 165,000 organizations.
 2.  **Sample.** A 1,000-org random draw plus a 502-org oversample of
     hard residual cases, each tagged with `sample_type`.
-3.  **Match.** The shipped cascade
-    ([`np_cascade()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_cascade.md))
-    against the **unified** BMF (active + inactive, 3.69M records),
-    producing a YES/MAYBE/NO tier and scored candidates for every org.
+3.  **Match.** The shipped cascade (`np_cascade()`) against the
+    **unified** BMF (active + inactive, 3.69M records), producing a
+    YES/MAYBE/NO tier and scored candidates for every org.
 4.  **Ground truth.** Each case was adjudicated with a mix of
     algorithmic agreement, human review, LLM judgment, and web
     verification — confirming that accepted matches are correct, and
@@ -52,13 +74,27 @@ flowchart LR
 
 Each org is assigned one **outcome class**:
 
-| Outcome class | Meaning |
-|:---|:---|
-| in_bmf_match | A correct BMF EIN exists (active or inactive). |
+<div class="cell">
+
+<div class="cell-output-display">
+
+<div class="kable-table">
+
+| Outcome class        | Meaning                                                                                     |
+|:---------------------|:--------------------------------------------------------------------------------------------|
+| in_bmf_match         | A correct BMF EIN exists (active or inactive).                                              |
 | nonprofit_not_in_bmf | A real nonprofit with no BMF record (many churches, lapsed orgs, state-only registrations). |
-| not_a_nonprofit | Not actually a nonprofit — a SAM mislabel (for-profit, government unit). |
-| no_match_or_na | No match and not clearly classifiable as the above. |
-| cant_determine | Insufficient evidence to decide. |
+| not_a\_nonprofit     | Not actually a nonprofit — a SAM mislabel (for-profit, government unit).                    |
+| no_match_or_na       | No match and not clearly classifiable as the above.                                         |
+| cant_determine       | Insufficient evidence to decide.                                                            |
+
+</div>
+
+</div>
+
+</div>
+
+<div class="section level3">
 
 ### The inactive-BMF correction
 
@@ -73,11 +109,23 @@ plausible-but-unconfirmed candidates were reviewed and rejected
 (affiliate siblings such as a hospital’s *Foundation*, and cross-state
 name collisions). The `gt_notes` column records every such decision.
 
+</div>
+
+</div>
+
+<div class="section level2">
+
 ## 3. Record-linkage performance
 
 The positive event is **a correct EIN link**. *Recall* = correct links ÷
 linkable orgs; *precision* = correct ÷ accepted; the MAYBE tier is a
 human/LLM review queue, not an error bucket.
+
+<div class="cell">
+
+<div class="cell-output-display">
+
+<div class="kable-table">
 
 | Metric                        | Random (n=1,000) | Hard (n=502) | All (n=1,502) |
 |:------------------------------|:-----------------|:-------------|:--------------|
@@ -88,12 +136,24 @@ human/LLM review queue, not an error bucket.
 | Precision (YES picks correct) | 99.2%            | 96.0%        | 98.3%         |
 | Auto-accept false positives   | 5                | 7            | 12            |
 
-Read the **random** column as expected real-world performance: ~95% of
+</div>
+
+</div>
+
+</div>
+
+Read the **random** column as expected real-world performance: \~95% of
 linkable nonprofits are recovered once the review tier is worked, at
-~99% precision on the auto-accepted matches. The hard column is the
+\~99% precision on the auto-accepted matches. The hard column is the
 deliberately-difficult residual.
 
 **Algorithm-only tiering** (before any review):
+
+<div class="cell">
+
+<div class="cell-output-display">
+
+<div class="kable-table">
 
 | Tier              | Random | Hard | Meaning                             |
 |:------------------|:-------|:-----|:------------------------------------|
@@ -102,9 +162,21 @@ deliberately-difficult residual.
 | NO (withhold)     | 144    | 87   | nothing cleared the review floor    |
 | No candidates     | 16     | 2    | blocking found nothing              |
 
+</div>
+
+</div>
+
+</div>
+
 Because some organizations are legitimately unmatchable, the match rate
 must be read against how often a match *can* exist. From the
 representative random sample:
+
+<div class="cell">
+
+<div class="cell-output-display">
+
+<div class="kable-table">
 
 | Outcome class                  | Random | Share |
 |:-------------------------------|:-------|:------|
@@ -114,27 +186,53 @@ representative random sample:
 | no match / n.a.                | 22     | 2.2%  |
 | can’t determine                | 21     | 2.1%  |
 
-So ~81% of SAM “nonprofit” registrations are matchable to the BMF; the
-~19% remainder are correctly *not* matched — and a NO here can be a
+</div>
+
+</div>
+
+</div>
+
+So \~81% of SAM “nonprofit” registrations are matchable to the BMF; the
+\~19% remainder are correctly *not* matched — and a NO here can be a
 **true negative** (the record is not in fact a nonprofit), not a failed
 match. Two denominators therefore matter: **recall among the linkable
-_(81%\*\* ()95%), and** yield over the whole population\*\* (~77% of all
+\~81%** (\~95%), and **yield over the whole population** (\~77% of all
 source orgs receive a correct link).
+
+</div>
+
+<div class="section level2">
 
 ## 4. The dataset files
 
-| File | Grain | Rows | Description |
-|:---|:---|:---|:---|
-| EVAL-FRAME-1502-MERGED.csv | candidate pair | 2,763 | Reviewable evaluation frame (150 cols) + ground truth. |
-| GROUNDTRUTH-MASTER-1502.csv | source org | 1,502 | One row per org: the archival label key. |
-| TRAINING-PAIRS-1502.csv | candidate pair | 304,274 | Model-training projection: features + label per scored pair. |
-| DATA-DICTIONARY-EVAL-FRAME.md / .csv | — | 150 | Column dictionary for the evaluation frame. |
+<div class="cell">
+
+<div class="cell-output-display">
+
+<div class="kable-table">
+
+| File                                 | Grain          | Rows    | Description                                                  |
+|:-------------------------------------|:---------------|:--------|:-------------------------------------------------------------|
+| EVAL-FRAME-1502-MERGED.csv           | candidate pair | 2,763   | Reviewable evaluation frame (150 cols) + ground truth.       |
+| GROUNDTRUTH-MASTER-1502.csv          | source org     | 1,502   | One row per org: the archival label key.                     |
+| TRAINING-PAIRS-1502.csv              | candidate pair | 304,274 | Model-training projection: features + label per scored pair. |
+| DATA-DICTIONARY-EVAL-FRAME.md / .csv | —              | 150     | Column dictionary for the evaluation frame.                  |
+
+</div>
+
+</div>
+
+</div>
 
 The three data frames are three *views* of the same run: the
 **ground-truth master** is the label key; the **evaluation frame** joins
 those labels onto the reviewable top candidates; the **training pairs**
 are a projection of every scored candidate (features + a boolean
 `label`).
+
+</div>
+
+<div class="section level2">
 
 ## 5. Benchmarking Stage-1 classifiers
 
@@ -147,6 +245,10 @@ features the scorers calibrate on: the continuous field similarities
 `geo_state`/`geo_pobox`**, the categorical **`name_match_type`**, the
 name distinctiveness **`name_freq`**, and the current blended
 **`score`**. It is exactly the input to the package’s model tools:
+
+<div class="cell">
+
+<div id="cb1" class="sourceCode cell-code">
 
 ``` r
 library(npmatch)
@@ -168,17 +270,25 @@ np_tune_thresholds(pairs$score, pairs$label,
                    target_precision = 0.98, min_recall = 0.95)
 ```
 
+</div>
+
+</div>
+
 On this benchmark the geography-adaptive **hier** scorer is the shipped
 default (it beat a cross-validated GLM at scale); the training pairs let
 you reproduce that comparison or fit your own Stage-1 classifier.
 
 For richer models (decision trees, gradient boosting) a **full-context
-variant**, `TRAINING-PAIRS-FULL`, carries the same 304k pairs with ~126
+variant**, `TRAINING-PAIRS-FULL`, carries the same 304k pairs with \~126
 columns — every `BMF_*` classification/finance field, every `SAM_*`
 business-type flag, the name variants and per-field similarities from
 the evaluation frame — minus the ground-truth and algorithm-decision
-columns, plus the `label`. It is available in the shared archive (a ~15
+columns, plus the `label`. It is available in the shared archive (a \~15
 MB compressed `.rds`, or a 290 MB CSV).
+
+</div>
+
+<div class="section level2">
 
 ## 6. What the evaluation dataframe looks like
 
@@ -186,8 +296,9 @@ MB compressed `.rds`, or a 290 MB CSV).
 org × BMF candidate). Group by `uei` to see an org’s competing
 candidates. Two flags orient every group:
 
-- `is_top_candidate = 1` — the algorithm’s chosen pick.
-- `is_gt_ein = 1` — the row whose EIN is the ground-truth correct match.
+-   `is_top_candidate = 1` — the algorithm’s chosen pick.
+-   `is_gt_ein = 1` — the row whose EIN is the ground-truth correct
+    match.
 
 Alongside the similarity features it carries the full evidence a
 reviewer needs: normalized name variants (`name_*_normalized`),
@@ -199,17 +310,22 @@ IDF-annotated tokens (`name_*_tokenized`), geographic agreement flags
 [candidate-evaluation-frame](https://nonprofit-open-data-collective.github.io/npmatch/articles/candidate-evaluation-frame.md)
 vignette describes field by field.
 
+</div>
+
+<div class="section level2">
+
 ## 7. From MAYBE to an LLM review loop
 
-The MAYBE tier is where the algorithm defers to judgment.
-[`np_route()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_route.md)
-turns a cascade result into a review packet, and
-[`np_as_prompt()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_as_prompt.md)
-/
-[`np_as_prompts()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_as_prompts.md)
-render each MAYBE case as a self-contained LLM adjudication prompt — the
-source org, its candidate BMF entities with fields and similarities, why
-it was flagged, and a JSON-output instruction:
+The MAYBE tier is where the algorithm defers to judgment. `np_route()`
+turns a cascade result into a review packet, and `np_as_prompt()` /
+`np_as_prompts()` render each MAYBE case as a self-contained LLM
+adjudication prompt — the source org, its candidate BMF entities with
+fields and similarities, why it was flagged, and a JSON-output
+instruction:
+
+<div class="cell">
+
+<div id="cb2" class="sourceCode cell-code">
 
 ``` r
 routing <- np_route(res, bmf = bmf_raw, sam = sam_raw)   # res = np_cascade() result
@@ -222,10 +338,18 @@ for (id in names(prompts)) {
 }
 ```
 
+</div>
+
+</div>
+
 The same packet drives a human reviewer or an LLM — the prompt is just
 formatted text, so the second-stage process is model-agnostic and easy
 to deploy. This is the two-stage philosophy in practice: the algorithm
 surfaces and sorts; a human or LLM confirms the uncertain middle.
+
+</div>
+
+<div class="section level2">
 
 ## 8. Loading the data
 
@@ -233,6 +357,10 @@ The evaluation frame and the ground-truth master ship **with the
 package** and lazy-load by name. The full training pairs (304k rows) are
 too large to bundle, so they are fetched from the shared data archive on
 demand.
+
+<div class="cell">
+
+<div id="cb3" class="sourceCode cell-code">
 
 ``` r
 data("npmatch_eval")          # candidate-level evaluation frame + ground truth (2,763 x 150)
@@ -242,3 +370,11 @@ data("npmatch_groundtruth")   # query-level labels (1,502 x 17)
 path  <- np_fetch(np_source_urls()$url[np_source_urls()$key == "training_pairs"])
 pairs <- read.csv(path)
 ```
+
+</div>
+
+</div>
+
+</div>
+
+</div>

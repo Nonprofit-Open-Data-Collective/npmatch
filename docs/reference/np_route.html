@@ -9,7 +9,7 @@ the pipeline:"></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">npmatch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -96,17 +96,19 @@ the result was tiered with.</p></dd>
 
 <dt id="arg-source">source<a class="anchor" aria-label="anchor" href="#arg-source"></a></dt>
 <dd><p>Suffix for the query-side (source) columns, replacing <code>_x</code>.
-Default <code>"uss"</code> (USASpending). The source varies; the reference is the BMF.</p></dd>
+Default <code>"uss"</code> (USASpending), the shipped deployment's source.</p></dd>
 
 
 <dt id="arg-reference">reference<a class="anchor" aria-label="anchor" href="#arg-reference"></a></dt>
 <dd><p>Suffix for the candidate-side (reference) columns, replacing
-<code>_y</code>. Default <code>"bmf"</code>.</p></dd>
+<code>_y</code>. Default <code>"bmf"</code>. Set both for another pair of datasets — the layout
+and the derived fields do not change.</p></dd>
 
 
 <dt id="arg-id-label">id_label<a class="anchor" aria-label="anchor" href="#arg-id-label"></a></dt>
 <dd><p>Column name for the query key (<code>.id</code>), which is ambiguous.
-Default <code>"uei"</code> (Unique Entity Identifier). The reference key is <code>ein</code>.</p></dd>
+Default <code>"uei"</code> (Unique Entity Identifier), the key of the shipped
+deployment's source; its reference key is <code>ein</code>.</p></dd>
 
 
 <dt id="arg-bmf">bmf<a class="anchor" aria-label="anchor" href="#arg-bmf"></a></dt>
@@ -130,7 +132,7 @@ YES/MAYBE/NO outcome; set to <code>"MAYBE"</code> for just the human-review hand
 
 
 <dt id="arg-token-idf">token_idf<a class="anchor" aria-label="anchor" href="#arg-token-idf"></a></dt>
-<dd><p>Optional token -&gt; IDF table from <code><a href="np_token_idf.html">np_token_idf()</a></code>. When given,
+<dd><p>Optional token -&gt; IDF table from <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_token_idf.html" class="external-link">np_token_idf()</a></code>. When given,
 the <code>name_*_tokenized</code> fields annotate each content token with its reference
 IDF (rarest first), exposing which tokens carry the match.</p></dd>
 
@@ -189,7 +191,22 @@ network calls are made.</p>
 
 
 
-
-
-  </body></html>
+  <script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
+  document.querySelectorAll("pre.mermaid > code").forEach(function (code) {
+    code.parentNode.textContent = code.textContent;
+  });
+  mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: "loose",
+    theme: "base",
+    themeVariables: {
+      lineColor: "#888888",
+      textColor: "#111111",
+      edgeLabelBackground: "#ffffff",
+      fontFamily: "inherit"
+    }
+  });
+  await mermaid.run({ querySelector: "pre.mermaid" });
+</script></body></html>
 

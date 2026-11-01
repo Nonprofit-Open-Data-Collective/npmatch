@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">npmatch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -143,7 +143,7 @@
       </dl></div><div class="section level2">
       <h2 id="match-pipeline">Match pipeline<a class="anchor" aria-label="anchor" href="#match-pipeline"></a></h2>
 
-      <div class="section-desc"><p>Block, compare, score, veto, select, and tier candidate pairs.</p></div>
+      <div class="section-desc"><p>Tiers 3–6: pre-prep the reference corpus, generate candidates by blocking, compare and score them, apply the veto rules, select and tier. <code><a href="../reference/np_cascade.html">np_cascade()</a></code> orchestrates all of it, and takes a matchdb reference directly.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -227,6 +227,29 @@
         </dt>
         <dd>Route a tiered result to accept / review / unmatched</dd>
       </dl></div><div class="section level2">
+      <h2 id="entity-families">Entity families<a class="anchor" aria-label="anchor" href="#entity-families"></a></h2>
+
+      <div class="section-desc"><p>Roll a query up to the family its candidates belong to — a chapter of a federation, a hospital system, a school and its PTO — and tell a contest between strangers from one within a family. Both take cluster membership from <a href="https://nonprofit-open-data-collective.github.io/matchdb/" class="external-link">matchdb</a> (<code>cluster_member</code> joined to <code>cluster</code>).</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="np_cluster_rollup.html">np_cluster_rollup()</a></code>
+
+        </dt>
+        <dd>Match one level up: roll candidates up to their family</dd>
+
+        <dt>
+
+          <code><a href="np_pair_links.html">np_pair_links()</a></code>
+
+        </dt>
+        <dd>Are a query's top two candidates one family?</dd>
+      </dl></div><div class="section level2">
       <h2 id="batched-matching">Batched matching<a class="anchor" aria-label="anchor" href="#batched-matching"></a></h2>
 
       <div class="section-desc"><p>Run the stage-1 cascade over a large source in evenly sized chunks.</p></div>
@@ -250,9 +273,9 @@
         </dt>
         <dd>Run stage-1 matching in batches against a shared reference</dd>
       </dl></div><div class="section level2">
-      <h2 id="setup-normalization">Setup &amp; normalization<a class="anchor" aria-label="anchor" href="#setup-normalization"></a></h2>
+      <h2 id="setup-standardization">Setup &amp; standardization<a class="anchor" aria-label="anchor" href="#setup-standardization"></a></h2>
 
-      <div class="section-desc"><p>Map raw datasets onto canonical fields and normalize names and addresses.</p></div>
+      <div class="section-desc"><p>Tier 2: map any dataset onto the canonical fields, from which every later tier works. The standardization itself — <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize.html" class="external-link">np_normalize()</a></code>, <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_name_core.html" class="external-link">np_name_core()</a></code>, the name, token and address statistics, and the signature that pins them — lives in <a href="https://nonprofit-open-data-collective.github.io/npnormalize/" class="external-link">npnormalize</a> and is re-exported here unchanged. <code><a href="../reference/np_maps.html">np_map_sam()</a></code> / <code><a href="../reference/np_maps.html">np_map_bmf()</a></code> are the maps for the SAM-to-BMF deployment; write your own for another one.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -289,31 +312,10 @@
 
         <dt>
 
-          <code><a href="np_normalize.html">np_normalize()</a></code>
+          <code><a href="reexports.html">reexports</a></code> <code><a href="reexports.html">np_normalize</a></code> <code><a href="reexports.html">np_normalize_signature</a></code> <code><a href="reexports.html">np_name_core</a></code> <code><a href="reexports.html">np_name_placeholder</a></code> <code><a href="reexports.html">np_name_rules</a></code> <code><a href="reexports.html">np_stopwords</a></code> <code><a href="reexports.html">np_name_freq</a></code> <code><a href="reexports.html">np_token_idf</a></code> <code><a href="reexports.html">np_addr_freq</a></code>
 
         </dt>
-        <dd>Normalize a query or reference frame</dd>
-
-        <dt>
-
-          <code><a href="np_normalize_signature.html">np_normalize_signature()</a></code>
-
-        </dt>
-        <dd>Fingerprint the normalizer</dd>
-
-        <dt>
-
-          <code><a href="np_name_core.html">np_name_core()</a></code> <code><a href="np_name_core.html">np_name_placeholder()</a></code>
-
-        </dt>
-        <dd>Exact-lookup name key and placeholder check for raw name strings</dd>
-
-        <dt>
-
-          <code><a href="np_name_rules.html">np_name_rules()</a></code>
-
-        </dt>
-        <dd>Name-normalization rule tables</dd>
+        <dd>Objects exported from other packages</dd>
 
         <dt>
 
@@ -375,27 +377,6 @@
 
         <dt>
 
-          <code><a href="np_stopwords.html">np_stopwords()</a></code>
-
-        </dt>
-        <dd>Blocking stopwords</dd>
-
-        <dt>
-
-          <code><a href="np_name_freq.html">np_name_freq()</a></code>
-
-        </dt>
-        <dd>Name-key frequency table for a reference corpus</dd>
-
-        <dt>
-
-          <code><a href="np_token_idf.html">np_token_idf()</a></code>
-
-        </dt>
-        <dd>Per-token inverse document frequency for a reference corpus</dd>
-
-        <dt>
-
           <code><a href="np_default_weights.html">np_default_weights()</a></code>
 
         </dt>
@@ -445,7 +426,7 @@
       </dl></div><div class="section level2">
       <h2 id="review-labeling-hand-off">Review &amp; labeling hand-off<a class="anchor" aria-label="anchor" href="#review-labeling-hand-off"></a></h2>
 
-      <div class="section-desc"><p>Build review frames, LLM prompts, and calibration/labeling tools.</p></div>
+      <div class="section-desc"><p>Tier 6: package what the algorithm could not settle. Review frames, LLM prompts, and calibration/labeling tools.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -524,7 +505,7 @@
       </dl></div><div class="section level2">
       <h2 id="data-management-fetching-reporting">Data management, fetching &amp; reporting<a class="anchor" aria-label="anchor" href="#data-management-fetching-reporting"></a></h2>
 
-      <div class="section-desc"><p>Resolve data assets, fetch/prepare source files, run incremental diffs, and report on a run.</p></div>
+      <div class="section-desc"><p>Resolve data assets, fetch/prepare source files, run incremental diffs, and report on a run. These build a reference from raw NCCS BMF and SAM files; <a href="https://nonprofit-open-data-collective.github.io/matchdb/" class="external-link">matchdb</a> is the shorter path to a reference, and supplies tier 1 (alias enumeration) as well.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -712,7 +693,22 @@
 
 
 
-
-
-  </body></html>
+  <script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
+  document.querySelectorAll("pre.mermaid > code").forEach(function (code) {
+    code.parentNode.textContent = code.textContent;
+  });
+  mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: "loose",
+    theme: "base",
+    themeVariables: {
+      lineColor: "#888888",
+      textColor: "#111111",
+      edgeLabelBackground: "#ffffff",
+      fontFamily: "inherit"
+    }
+  });
+  await mermaid.run({ querySelector: "pre.mermaid" });
+</script></body></html>
 

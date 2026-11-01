@@ -15,7 +15,7 @@ ordinary columns."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">npmatch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -68,7 +68,8 @@ ordinary columns.</p>
 <span>  profile <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  candidates <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  name_freq <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  token_idf <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  token_idf <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  addr_freq <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -97,6 +98,21 @@ ordinary columns.</p>
 <dd><p>Optional <code>np_blocks</code> from <code><a href="np_block.html">np_block()</a></code>. When given, these
 candidate pairs are compared instead of blocking on <code>block</code> — the scalable
 path (name-token / progressive blocking).</p></dd>
+
+
+<dt id="arg-name-freq-token-idf">name_freq, token_idf<a class="anchor" aria-label="anchor" href="#arg-name-freq-token-idf"></a></dt>
+<dd><p>Optional pre-computed reference tables from
+<code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_name_freq.html" class="external-link">np_name_freq()</a></code> / <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_token_idf.html" class="external-link">np_token_idf()</a></code>.</p></dd>
+
+
+<dt id="arg-addr-freq">addr_freq<a class="anchor" aria-label="anchor" href="#arg-addr-freq"></a></dt>
+<dd><p>Optional <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_addr_freq.html" class="external-link">np_addr_freq()</a></code> table for the reference. Used to
+read a suite match in context: <code>addr_shared</code>, <code>addr_units</code>,
+<code>addr_unit_shared</code> and <code>addr_note</code> are added to the result, and
+<code>np_score(method = "hier")</code> credits a matching suite only where the
+address is genuinely multi-tenant. Computed from <code>reference</code> when <code>NULL</code>,
+which is wrong if <code>reference</code> is a slice of the real corpus — build it
+once from the whole reference and pass it in (as <code><a href="np_cascade.html">np_cascade()</a></code> does).</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -128,7 +144,22 @@ through for both sides with <code>_x</code> / <code>_y</code> suffixes.</p>
 
 
 
-
-
-  </body></html>
+  <script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
+  document.querySelectorAll("pre.mermaid > code").forEach(function (code) {
+    code.parentNode.textContent = code.textContent;
+  });
+  mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: "loose",
+    theme: "base",
+    themeVariables: {
+      lineColor: "#888888",
+      textColor: "#111111",
+      edgeLabelBackground: "#ffffff",
+      fontFamily: "inherit"
+    }
+  });
+  await mermaid.run({ querySelector: "pre.mermaid" });
+</script></body></html>
 

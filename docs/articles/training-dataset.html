@@ -24,7 +24,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">npmatch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -302,7 +302,7 @@
 </div>
 </div>
 </div>
-<p>So ~81% of SAM “nonprofit” registrations are matchable to the BMF; the ~19% remainder are correctly <em>not</em> matched — and a NO here can be a <strong>true negative</strong> (the record is not in fact a nonprofit), not a failed match. Two denominators therefore matter: <strong>recall among the linkable <sub>81%** (</sub>95%), and </strong>yield over the whole population** (~77% of all source orgs receive a correct link).</p>
+<p>So ~81% of SAM “nonprofit” registrations are matchable to the BMF; the ~19% remainder are correctly <em>not</em> matched — and a NO here can be a <strong>true negative</strong> (the record is not in fact a nonprofit), not a failed match. Two denominators therefore matter: <strong>recall among the linkable ~81%</strong> (~95%), and <strong>yield over the whole population</strong> (~77% of all source orgs receive a correct link).</p>
 </section><section class="level2"><h2 id="the-dataset-files">4. The dataset files<a class="anchor" aria-label="anchor" href="#the-dataset-files"></a>
 </h2>
 <div class="cell">
@@ -515,7 +515,23 @@
 
 
 
-
-
-  </body>
+  <script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
+  document.querySelectorAll("pre.mermaid > code").forEach(function (code) {
+    code.parentNode.textContent = code.textContent;
+  });
+  mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: "loose",
+    theme: "base",
+    themeVariables: {
+      lineColor: "#888888",
+      textColor: "#111111",
+      edgeLabelBackground: "#ffffff",
+      fontFamily: "inherit"
+    }
+  });
+  await mermaid.run({ querySelector: "pre.mermaid" });
+</script>
+</body>
 </html>

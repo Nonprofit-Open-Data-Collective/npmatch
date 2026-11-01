@@ -15,7 +15,7 @@ so correlated fields are never double-counted and a redundant noisy field
 
     <a class="navbar-brand me-2" href="../index.html">npmatch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -69,9 +69,16 @@ so correlated fields are never double-counted and a redundant noisy field
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>Ordered strongest to weakest: full ZIP+4 (<code>zip9</code>), same street
-(<code>street</code> = number + body), 5-digit ZIP, matching PO box, 3-digit ZIP
-(SCF region), city, state.</p>
+    <p>Ordered strongest to weakest: full ZIP+4 (<code>zip9</code>), same street and suite
+(<code>unit</code>), same street (<code>street</code> = number + body), 5-digit ZIP, matching PO
+box, 3-digit ZIP (SCF region), city, state.</p>
+<p><code>unit</code> sits just above <code>street</code> and below <code>zip9</code>: a confirmed suite in a
+multi-tenant building is a more precise location than the street alone, but
+it is not claimed to beat a full ZIP+4. It is credited only where the suite
+is informative — see <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_addr_freq.html" class="external-link">np_addr_freq()</a></code> — and, because the terms combine with
+<code><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max()</a></code>, never subtracts when a suite is absent, differing, or shared by a
+crowd. A weight vector without <code>unit</code> (one saved before this existed) falls
+back to 0.97.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
@@ -90,7 +97,22 @@ so correlated fields are never double-counted and a redundant noisy field
 
 
 
-
-
-  </body></html>
+  <script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
+  document.querySelectorAll("pre.mermaid > code").forEach(function (code) {
+    code.parentNode.textContent = code.textContent;
+  });
+  mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: "loose",
+    theme: "base",
+    themeVariables: {
+      lineColor: "#888888",
+      textColor: "#111111",
+      edgeLabelBackground: "#ffffff",
+      fontFamily: "inherit"
+    }
+  });
+  await mermaid.run({ querySelector: "pre.mermaid" });
+</script></body></html>
 

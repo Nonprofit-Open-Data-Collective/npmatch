@@ -1,14 +1,23 @@
+<div id="main" class="col-md-9" role="main">
+
 # Render a review frame as a static HTML report
 
-Turns the `review` queue from
-[`np_route()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_route.md)
-into a self-contained HTML report for human review: one section per
-source entity (UEI), each candidate laid out as a side-by-side "matching
-form" (id, name, nonprofit type, age, size, affiliate, address, point of
-contact, and the match-score block). Candidates are ordered with the
-pipeline's selected pick first, then by descending `total_score`.
+<div class="ref-description section level2">
+
+Turns the `review` queue from `np_route()` into a self-contained HTML
+report for human review: one section per source entity (UEI), each
+candidate laid out as a side-by-side "matching form" (id, name,
+nonprofit type, age, size, affiliate, address, point of contact, and the
+match-score block). Candidates are ordered with the pipeline's selected
+pick first, then by descending `total_score`.
+
+</div>
+
+<div class="section level2">
 
 ## Usage
+
+<div class="sourceCode">
 
 ``` r
 np_review_report(
@@ -22,49 +31,63 @@ np_review_report(
 )
 ```
 
+</div>
+
+</div>
+
+<div class="section level2">
+
 ## Arguments
 
-- x:
+-   x:
 
-  One of: an `np_routing` object from
-  [`np_route()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_route.md)
-  (its `review` element is used); an `np_review` frame or plain data
-  frame in the review schema; or a path to a CSV of one.
+    One of: an `np_routing` object from `np_route()` (its `review`
+    element is used); an `np_review` frame or plain data frame in the
+    review schema; or a path to a CSV of one.
 
-- output:
+-   output:
 
-  Path for the HTML file to write. Default `"match-review-report.html"`
-  in the working directory. A `.html` extension is added if missing.
+    Path for the HTML file to write. Default
+    `"match-review-report.html"` in the working directory. A `.html`
+    extension is added if missing.
 
-- decision:
+-   decision:
 
-  Which `match_decision` tiers to include: `"ALL"`, `"YES"`, `"NO"`, or
-  `"MAYBE"` (comma-separate to combine, e.g. `"MAYBE,NO"`). Default
-  `"MAYBE"` — the human-review hand-off queue.
+    Which `match_decision` tiers to include: `"ALL"`, `"YES"`, `"NO"`,
+    or `"MAYBE"` (comma-separate to combine, e.g. `"MAYBE,NO"`). Default
+    `"MAYBE"` — the human-review hand-off queue.
 
-- max_ueis:
+-   max_ueis:
 
-  Cap on the number of UEI sections rendered; `0` or `NA` means no cap.
-  When the pool is larger than `max_ueis`, a deterministic random sample
-  (see `seed`) is drawn. Default `0`.
+    Cap on the number of UEI sections rendered; `0` or `NA` means no
+    cap. When the pool is larger than `max_ueis`, a deterministic random
+    sample (see `seed`) is drawn. Default `0`.
 
-- only_missing_gt:
+-   only_missing_gt:
 
-  Logical; when the frame carries ground-truth columns, restrict to UEIs
-  whose ground-truth EIN is not among the candidates (recall misses).
-  Ignored on frames without ground truth. Default `FALSE`.
+    Logical; when the frame carries ground-truth columns, restrict to
+    UEIs whose ground-truth EIN is not among the candidates (recall
+    misses). Ignored on frames without ground truth. Default `FALSE`.
 
-- seed:
+-   seed:
 
-  Sampling seed used when `max_ueis` truncates the pool. Default 42.
+    Sampling seed used when `max_ueis` truncates the pool. Default 42.
 
-- quiet:
+-   quiet:
 
-  Suppress Quarto's rendering progress output. Default `TRUE`.
+    Suppress Quarto's rendering progress output. Default `TRUE`.
+
+</div>
+
+<div class="section level2">
 
 ## Value
 
 The path to the written HTML file, invisibly.
+
+</div>
+
+<div class="section level2">
 
 ## Details
 
@@ -73,22 +96,33 @@ The report is read-only. If the frame also carries evaluation columns
 produced by the benchmarking harness — the ground-truth candidate is
 highlighted and floated to the top of its section, and UEIs whose true
 EIN is missing from the candidate set are flagged. On an ordinary
-[`np_route()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_route.md)
-frame those columns are simply absent and the report renders without
-them.
+`np_route()` frame those columns are simply absent and the report
+renders without them.
 
 Rendering requires the quarto package and a Quarto CLI installation (the
 same dependency the vignettes use). The bundled template lives at
 `system.file("report", "match-review-report.qmd", package = "npmatch")`.
 
+</div>
+
+<div class="section level2">
+
 ## See also
 
-[`np_route()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_route.md)
-for producing the review frame;
-[`np_run_report()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_run_report.md)
-for a Markdown run summary.
+<div class="dont-index">
+
+`np_route()` for producing the review frame; `np_run_report()` for a
+Markdown run summary.
+
+</div>
+
+</div>
+
+<div class="section level2">
 
 ## Examples
+
+<div class="sourceCode">
 
 ``` r
 if (FALSE) { # \dontrun{
@@ -101,3 +135,9 @@ np_review_report("EVAL-FRAME-MERGED.csv", decision = "ALL",
                  only_missing_gt = TRUE, output = "misses.html")
 } # }
 ```
+
+</div>
+
+</div>
+
+</div>

@@ -24,7 +24,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">npmatch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -76,6 +76,7 @@
 
 
     <p><em>How a matching run is organized on disk, and the order of operations that turns a raw source extract into a finished crosswalk. This is the operational companion to the <a href="reviewer-guide.html">Reviewer’s Guide</a>: that article explains what the matcher decides, this one explains where everything lives and which function to call next.</em></p>
+<p>npmatch is a workflow rather than a single matching algorithm: it manages alias enumeration (matchdb), input standardization (npnormalize), corpus pre-prep, candidate generation (blocking plus reclin2), tiered adjudication, and packaging the residual for review. Those steps are generic. The run below is the deployment npmatch ships wired for — federal registrants keyed by <code>uei</code> against the IRS Business Master File keyed by <code>ein</code> — and the file names say <code>sam</code> and <code>bmf</code> because of it. Swap the schema maps and the same six stages run against any source list and any reference.</p>
 <section class="level2"><h2 id="the-workflow-at-a-glance">1. The workflow at a glance<a class="anchor" aria-label="anchor" href="#the-workflow-at-a-glance"></a>
 </h2>
 <p>A run is <strong>one directory</strong>, scaffolded up front and filled in as you go. Six numbered stage folders, each producing files with the same shape, ending in a crosswalk.</p>
@@ -223,7 +224,14 @@ Figure 1
 <p><strong>Every stage writes the same columns.</strong> <code>stage1_yes</code>, <code>stage2_no</code> and <code>stage3_yes</code> are the same shape, so <code><a href="../reference/np_final_run.html">np_final_run()</a></code> is a plain <code><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind()</a></code> and any stage can be skipped without the rollup noticing. See <a href="#sec-schema">§4</a>.</p>
 </section></section><section class="level2"><h2 id="building-the-data-assets">2. Building the data assets<a class="anchor" aria-label="anchor" href="#building-the-data-assets"></a>
 </h2>
-<p>Before any of that runs, the reference data has to exist. npmatch keeps data out of the package, in <strong>two separate places</strong> that are easy to confuse:</p>
+<p>Before any of that runs, the reference data has to exist. There are two ways to get it, and the first one is much shorter.</p>
+<p><strong>Download a published reference from matchdb.</strong> matchdb holds every name and address the IRS and 990 filers have recorded for each EIN, and compiles them into a reference frame with the corpus statistics already computed. It is the default path, and it covers alias enumeration — the names an organization is <em>known by</em>, which are routinely not the legal name a BMF extract carries:</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">b</span> <span class="op">&lt;-</span> <span class="fu">matchdb</span><span class="fu">::</span><span class="fu">md_reference</span><span class="op">(</span><span class="st">"active-observed"</span>, fetch <span class="op">=</span> <span class="st">"missing"</span><span class="op">)</span>   <span class="co"># ~260 MB, once</span></span>
+<span><span class="fu"><a href="../reference/np_stage1_run.html">np_stage1_run</a></span><span class="op">(</span>reference <span class="op">=</span> <span class="va">b</span>, compute_size <span class="op">=</span> <span class="fl">2500</span>, review_size <span class="op">=</span> <span class="fl">250</span>, k <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span></code></pre></div>
+<p>Passing the matchdb object straight through hands npmatch the frame plus whichever of <code>name_freq</code>, <code>token_idf</code>, <code>ref_index</code> and <code>addr_freq</code> it carries, so none of them is recomputed. A bundle stamped with a different normalizer signature than the installed npnormalize is refused rather than matched against — see <a href="#reference-drift-is-a-stop-condition">Reference drift is a stop condition</a>.</p>
+<p><strong>Or build one from raw files</strong>, which is what the rest of this section describes: a BMF extract from the NCCS catalog, normalized once and cached. Do this when you need a vintage, a slice or a schema matchdb does not publish.</p>
+<p>Either way, npmatch keeps data out of the package, in <strong>two separate places</strong> that are easy to confuse:</p>
 <table class="table caption-top">
 <colgroup>
 <col style="width: 33%">
@@ -261,7 +269,7 @@ Figure 1
 <p>The BMF is roughly 3.5 GB raw plus a ~470 MB normalized bundle, and it is reused by every run. Copying it per run is not an option, so the two are joined <strong>by pointers, not copies</strong>. Build the store first, then point a run at it.</p>
 <section class="level3"><h3 id="create-the-store">2.1 Create the store<a class="anchor" aria-label="anchor" href="#create-the-store"></a>
 </h3>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/np_data.html">np_data_init</a></span><span class="op">(</span><span class="op">)</span>          <span class="co"># creates raw/ normalized/ results/ + MANIFEST.csv</span></span>
 <span><span class="fu"><a href="../reference/np_data.html">np_data_root</a></span><span class="op">(</span><span class="op">)</span>          <span class="co"># where it landed</span></span></code></pre></div>
 <p>Three tiers, and the distinction is about how expensive each is to lose:</p>
@@ -274,7 +282,7 @@ Figure 1
 <strong><code>results/</code></strong> — outputs that outlive a single run.</li>
 </ul>
 <p><code>MANIFEST.csv</code> at the root is what makes a run reproducible: one row per asset recording where it came from, when it was fetched, its MD5 and its row count. Record every input as you fetch it.</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/np_fetch_bmf.html">np_fetch_bmf</a></span><span class="op">(</span><span class="st">"unified"</span>, dest <span class="op">=</span> <span class="fu"><a href="../reference/np_data.html">np_data_path</a></span><span class="op">(</span><span class="st">"raw"</span>, create <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/np_manifest.html">np_manifest_add</a></span><span class="op">(</span><span class="st">"bmf-unified-2026-01"</span>, tier <span class="op">=</span> <span class="st">"raw"</span>,</span>
 <span>                source <span class="op">=</span> <span class="st">"NCCS BMF catalog"</span>,</span>
@@ -283,10 +291,13 @@ Figure 1
 <p>The store’s location resolves from <code>getOption("npmatch.data")</code>, then the <code>NPMATCH_DATA</code> environment variable, then the <code>~/npmatch-data</code> default.</p>
 </section><section class="level3"><h3 id="sec-normalize">2.2 What normalization actually does<a class="anchor" aria-label="anchor" href="#sec-normalize"></a>
 </h3>
-<p>The expensive asset in <code>normalized/</code> is the reference put through <code><a href="../reference/np_normalize.html">np_normalize()</a></code>. This is where most of the matching leverage comes from: the scorer only sees fields this step produced, so anything not fixed here has to be recovered later by a human or an LLM.</p>
+<p>The expensive asset in <code>normalized/</code> is the reference put through <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize.html" class="external-link">np_normalize()</a></code>. This is where most of the matching leverage comes from: the scorer only sees fields this step produced, so anything not fixed here has to be recovered later by a human or an LLM.</p>
+<p><code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize.html" class="external-link">np_normalize()</a></code> is <a href="https://nonprofit-open-data-collective.github.io/npnormalize/" class="external-link">npnormalize</a>’s, re-exported by npmatch unchanged. It lives in its own package because both sides of a match must be normalized by the same code: npmatch normalizes each query at run time, matchdb stores the same keys for every EIN it holds, and pfmatch normalizes grant recipients. One copy of the rules, one signature, and a mismatch is an error instead of a silent loss of matches. npnormalize’s reference is authoritative on the rules; what follows is what they mean for a run.</p>
 <p><strong>Cleaned onto a common form</strong> — the goal is parity with the BMF’s own <code>org_name_join</code> field, so both sides are damaged identically:</p>
 <ul>
-<li>uppercased and de-accented (<code>Latin-ASCII</code>), so <code>Muñoz</code> and <code>Munoz</code> agree</li>
+<li>de-accented (<code>Latin-ASCII</code>) and then uppercased, so <code>Muñoz</code> and <code>Munoz</code> agree</li>
+<li>
+<strong>letters with no accent to drop folded to their ASCII spelling</strong> — <code>ß</code> → <code>SS</code>, <code>Ø</code> → <code>O</code>, <code>Ł</code> → <code>L</code>, <code>Đ</code> → <code>D</code>, <code>Æ</code> → <code>AE</code>, <code>Œ</code> → <code>OE</code>, <code>Þ</code> → <code>TH</code>. De-accenting cannot reach these, and an unmapped letter is replaced by a space, which splits the word it sits in (<code>Straße Fund</code> → <code>STRA E FUND</code>). This is the same list matchdb’s <code>md_light_key()</code> folds, so the cached reference key and the run-time query key agree character for character; <code>np_name_rules()$special_letters</code> returns it for a port to another engine</li>
 <li>
 <code>&amp;</code> expanded to <code>AND</code>
 </li>
@@ -299,6 +310,8 @@ Figure 1
 </li>
 <li>legal suffixes detected, recorded, then <strong>stripped from the match key</strong> — <code>INC</code>, <code>CORP</code>, <code>LLC</code>, <code>FOUNDATION</code>, <code>TRUST</code>, <code>SOCIETY</code>, <code>INSTITUTE</code> and the rest inflate similarity between unrelated organizations</li>
 <li>street types USPS-standardized (<code>STREET</code> → <code>ST</code>, <code>AVENUE</code> → <code>AVE</code>, <code>NORTH</code> → <code>N</code>)</li>
+<li>
+<strong>the suite / floor / unit split off</strong> into <code>street_unit</code> (“STE 320”) and <code>street_unit_id</code> (“320”), read from the street line or from a second address line, and removed from <code>street_key</code> so street similarity is suite-blind. The designator is spelling, not information: <code>STE 320</code>, <code>Suite 320</code> and <code># 320</code> are one office, while 320 and 380 are simply different offices and never partially similar</li>
 <li>full state names mapped to two-letter codes; ZIP leading zeros restored</li>
 </ul>
 <p><strong>Added as features</strong> — the columns the scorer and the veto layer read:</p>
@@ -320,10 +333,15 @@ Figure 1
 <p><strong>Corpus statistics</strong> built alongside, because distinctiveness is a property of the reference, not of a pair:</p>
 <ul>
 <li>
-<code><a href="../reference/np_name_freq.html">np_name_freq()</a></code> — how many reference records share each exact <code>name_key</code>. An exact match to a name held by one organization is trustworthy without any address corroboration; an exact match to <code>FIRST BAPTIST CHURCH</code> is not.</li>
+<code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_name_freq.html" class="external-link">np_name_freq()</a></code> — how many reference records share each exact <code>name_key</code>. An exact match to a name held by one organization is trustworthy without any address corroboration; an exact match to <code>FIRST BAPTIST CHURCH</code> is not.</li>
 <li>
-<code><a href="../reference/np_token_idf.html">np_token_idf()</a></code> — per-token <code>log(N / df)</code>. Rare tokens are what the name-token blocking leverages; corpus-common tokens are not.</li>
+<code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_token_idf.html" class="external-link">np_token_idf()</a></code> — per-token <code>log(N / df)</code>. Rare tokens are what the name-token blocking leverages; corpus-common tokens are not.</li>
+<li>
+<code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_addr_freq.html" class="external-link">np_addr_freq()</a></code> — how many records share an address and an address + suite, how many distinct suites an address carries, and what kind of place it is: <code>federated</code> (thousands of chapters filing from one national office, where the address matches every chapter equally and is therefore anti-evidence), <code>sponsor</code> (a fiscal sponsor or registered agent, where it is noise), <code>multi_tenant</code> (where a matching suite is real evidence).</li>
+<li>
+<code><a href="../reference/np_ref_index.html">np_ref_index()</a></code> — the tokenized reference, built once rather than per blocking pass.</li>
 </ul>
+<p><strong>Count them over the whole reference, not over a slice.</strong> A table built from a state partition or a shard under-reports every shared address and every common name, and the scores shift with no error — the quiet kind of failure. Pass the full-reference tables through <code>np_cascade(..., name_freq =, token_idf =, ref_index =, addr_freq =)</code> when matching against part of a reference. <code><a href="../reference/np_run_batches.html">np_run_batches()</a></code> counts them once per run and keeps them in its <code>cache =</code> file, and a matchdb reference arrives with them already computed.</p>
 <p>One caveat when reading the data dictionary: <code>name_gen</code> / <code>name_gen_rank</code> (a <code>JR</code>/<code>SR</code> person-name generation marker) are <strong>vestigial</strong>, inherited from npmatch’s person-matching lineage. Organizations do not have generations, nothing consumes these columns, and they are retained only so existing labeled extracts keep their layout. The organization-level equivalents are <code>name_nums</code>, <code>name_ord</code> and <code>name_dir</code> above.</p>
 </section><section class="level3"><h3 id="index-the-assets-into-the-run">2.3 Index the assets into the run<a class="anchor" aria-label="anchor" href="#index-the-assets-into-the-run"></a>
 </h3>
@@ -341,7 +359,7 @@ Figure 1
     ├── sam_query.csv          *  np_prepare_sam(); what stage 1 reads
     ├── interim/
     └── logs/</code></pre>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/np_project_init.html">np_project_init</a></span><span class="op">(</span><span class="st">"runs/2026MAY"</span>, run_id <span class="op">=</span> <span class="st">"2026MAY"</span>,</span>
 <span>                bmf <span class="op">=</span> <span class="fu"><a href="../reference/np_data.html">np_data_path</a></span><span class="op">(</span><span class="st">"normalized"</span>, <span class="st">"bmf-unified-2026-01.rds"</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
@@ -353,12 +371,13 @@ Figure 1
 <p><code><a href="../reference/np_prepare_sam.html">np_prepare_sam()</a></code> reads the headerless pipe-delimited extract, names its 142 columns, keeps the nonprofit business-type codes, and writes <code>sam_query.csv</code> — the file every later stage reads.</p>
 </section><section class="level3"><h3 id="reference-drift-is-a-stop-condition">Reference drift is a stop condition<a class="anchor" aria-label="anchor" href="#reference-drift-is-a-stop-condition"></a>
 </h3>
-<p>A normalized bundle is only valid for the normalization code that produced it. <code><a href="../reference/np_normalize_signature.html">np_normalize_signature()</a></code> hashes that code path, and the run stores the hash it saw in <code>00_bmf/SIGNATURE.txt</code>. If the signature stops matching the cached bundle, the cache has drifted from the current rules — everything in <a href="#sec-normalize">§2.2</a> may have changed underneath it. Rebuild before matching, or the run is not reproducible. Stop; do not work around it.</p>
+<p>A normalized bundle is only valid for the normalization code that produced it. <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize_signature.html" class="external-link">np_normalize_signature()</a></code> — npnormalize’s, re-exported — hashes that code path, and the run stores the hash it saw in <code>00_bmf/SIGNATURE.txt</code>. If the signature stops matching the cached bundle, the cache has drifted from the current rules — everything in <a href="#sec-normalize">§2.2</a> may have changed underneath it. Rebuild before matching, or the run is not reproducible. Stop; do not work around it.</p>
+<p>A <strong>matchdb reference enforces this for you</strong>: it carries the signature it was compiled under, and <code><a href="../reference/np_cascade.html">np_cascade()</a></code> refuses it outright when that differs from the installed npnormalize’s rather than matching against keys it cannot reproduce. Recompile the bundle, or install the npnormalize it was built with. Record the signature your run reported; never copy one out of documentation, because it moves whenever the rules do.</p>
 </section></section><section class="level2"><h2 id="inside-a-run-project">3. Inside a run project<a class="anchor" aria-label="anchor" href="#inside-a-run-project"></a>
 </h2>
 <p>Every stage folder repeats the same three subdirectories, and the distinction between them is the one operational rule worth memorizing:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/list.files.html" class="external-link">list.files</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">run</span>, <span class="st">"01_stage1"</span><span class="op">)</span>, recursive <span class="op">=</span> <span class="cn">TRUE</span>, include.dirs <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code><span><span class="co">#&gt; [1] "batches"        "batches/shards" "interim"        "logs"</span></span>
@@ -375,24 +394,24 @@ Figure 1
 </ul>
 <p><code><a href="../reference/np_project_path.html">np_project_path()</a></code> takes a stage name — canonical (<code>"01_stage1"</code>), short alias (<code>"stage1"</code>, <code>"bmf"</code>, <code>"final"</code>), or a bare number — plus an optional file below it, so paths never have to be assembled by hand.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">old</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">options</a></span><span class="op">(</span>npmatch.project <span class="op">=</span> <span class="st">"runs/2026MAY"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/np_project_path.html">np_project_path</a></span><span class="op">(</span><span class="st">"stage1"</span>, <span class="st">"stage1_yes.csv"</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code><span><span class="co">#&gt; [1] "runs/2026MAY/01_stage1/stage1_yes.csv"</span></span></code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/np_project_path.html">np_project_path</a></span><span class="op">(</span><span class="st">"final"</span>,  <span class="st">"crosswalk.csv"</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code><span><span class="co">#&gt; [1] "runs/2026MAY/04_final/crosswalk.csv"</span></span></code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/np_project_path.html">np_project_path</a></span><span class="op">(</span><span class="st">"03_stage3"</span>, <span class="st">"batches/packets"</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code><span><span class="co">#&gt; [1] "runs/2026MAY/03_stage3/batches/packets"</span></span></code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">options</a></span><span class="op">(</span><span class="va">old</span><span class="op">)</span></span></code></pre></div>
 </div>
 <p>Pointing a later session back at a run is <code>np_project_use("runs/2026MAY")</code>, which sets the same option <code><a href="../reference/np_project_init.html">np_project_init()</a></code> did.</p>
@@ -400,7 +419,7 @@ Figure 1
 </h2>
 <p>Every <code>stage*_yes</code> / <code>stage*_maybe</code> / <code>stage*_no</code> file carries the same columns, in the same order, with <strong>exactly one row per source id</strong>:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/np_stage_schema.html">np_stage_schema</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code><span><span class="co">#&gt;  [1] "uei"            "run_id"         "stage"          "outcome"</span></span>
@@ -429,8 +448,9 @@ Figure 1
 │   └── shards/                *  review-sized parts handed to stage 2
 ├── interim/                   *  res-NN.rds · pairs-NN.rds — EXPENSIVE, keep
 └── logs/                      *  run-&lt;timestamp&gt;.log · .err · progress.log</code></pre>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/np_stage1_run.html">np_stage1_run</a></span><span class="op">(</span>reference <span class="op">=</span> <span class="va">bmf</span>, compute_size <span class="op">=</span> <span class="fl">2500</span>, review_size <span class="op">=</span> <span class="fl">250</span>, k <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span></code></pre></div>
+<p><code>reference</code> takes a raw frame, a normalized one, or a matchdb reference — <code>matchdb::md_reference("active-observed")</code> — in which case its precomputed <code>name_freq</code>, <code>token_idf</code>, <code>ref_index</code> and <code>addr_freq</code> are used as they are and the normalization step is skipped entirely.</p>
 <section class="level3"><h3 id="what-happens-to-a-candidate-pair">What happens to a candidate pair<a class="anchor" aria-label="anchor" href="#what-happens-to-a-candidate-pair"></a>
 </h3>
 <div class="cell" data-layout-align="default">
@@ -545,7 +565,7 @@ Figure 2
 ├── interim/
 └── logs/</code></pre>
 <p>Two calls, with an adjudicator in the middle:</p>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/np_stage2_run.html">np_stage2_run</a></span><span class="op">(</span>shard_size <span class="op">=</span> <span class="fl">250</span><span class="op">)</span>   <span class="co"># 1st call: writes batches/slim/*.csv, stops</span></span>
 <span><span class="co"># ... point an agent at 02_stage2/PROMPT.md; it writes one</span></span>
 <span><span class="co"># ... decision-&lt;shard&gt;.csv per shard into 02_stage2/batches/decisions/</span></span>
@@ -554,7 +574,7 @@ Figure 2
 </h3>
 <p>Here is a real MAYBE from the shipped benchmark — the SAM registrant <strong>Alston Wilkes Society</strong> of Columbia, SC, and the three candidates stage 1 surfaced for it:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb22"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">ex</span> <span class="op">&lt;-</span> <span class="va">npmatch_eval</span><span class="op">[</span><span class="va">npmatch_eval</span><span class="op">$</span><span class="va">uei</span> <span class="op">==</span> <span class="st">"C5DVNAHN8F94"</span>, <span class="op">]</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">rownames</a></span><span class="op">(</span><span class="va">ex</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="cn">NULL</span></span>
 <span></span>
@@ -611,7 +631,7 @@ Figure 2
 </div>
 <p>Every candidate scores <strong>0.98</strong>. All three have identical name similarity, identical address similarity, and sit at the same street address in Columbia. The margin between first and second place is <strong>0.00</strong>:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb23"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">ex</span><span class="op">$</span><span class="va">decision_reason</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code><span><span class="co">#&gt; [1] "near-tie: runner-up 0.98 (margin 0.00); name/address views differ (name-&gt;23-7219283, addr-&gt;23-7219283)"</span></span></code></pre>
@@ -642,7 +662,7 @@ C5DVNAHN8F94,57-0477907,YES,high,"legal name matches exactly; Foundation and Ass
 ├── interim/                      *  stage3_seed.csv, cache/
 └── logs/</code></pre>
 <p>Same two-call shape. By default it pools the NO cases from both stage 1 and stage 2; pass <code>sources = "stage1_no"</code> to research only what the matcher rejected outright.</p>
-<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/np_stage3_run.html">np_stage3_run</a></span><span class="op">(</span>source_data <span class="op">=</span> <span class="va">sam_query</span>, bmf_index <span class="op">=</span> <span class="va">bmf</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ein"</span>, <span class="st">"name"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
 <span><span class="co"># ... agent follows 03_stage3/PROMPT.md, writing run-&lt;NNNN&gt;.tsv into batches/out/</span></span>
 <span><span class="fu"><a href="../reference/np_stage3_run.html">np_stage3_run</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
@@ -657,13 +677,13 @@ C5DVNAHN8F94,57-0477907,YES,high,"legal name matches exactly; Foundation and Ass
 ├── FINAL-REPORT.md   *  the end-to-end funnel
 ├── interim/
 └── logs/</code></pre>
-<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/np_final_run.html">np_final_run</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <p>Stage 3 recovers matches the matcher never surfaced, so a final EIN is often absent from <code>stage1_k_candidates</code>. Those rows are not dropped — a synthetic row carries the EIN with its similarity columns empty, and <code>final_ein_in_candset</code> records which case it is. That flag splits recall loss into <strong>blocking failure</strong> (never surfaced; no threshold change recovers it) and <strong>scoring failure</strong> (surfaced but under the floor; recoverable by recalibration). Collapsing the two would hide the only number that says which to work on.</p>
 </section><section class="level2"><h2 id="knowing-where-you-are">9. Knowing where you are<a class="anchor" aria-label="anchor" href="#knowing-where-you-are"></a>
 </h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb30"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb31"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">s</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/np_project_status.html">np_project_status</a></span><span class="op">(</span><span class="va">run</span>, write <span class="op">=</span> <span class="cn">TRUE</span>, quiet <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">s</span>, <span class="st">"stages"</span><span class="op">)</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"stage"</span>, <span class="st">"title"</span>, <span class="st">"status"</span>, <span class="st">"present"</span>, <span class="st">"expected"</span><span class="op">)</span><span class="op">]</span></span></code></pre></div>
 <div class="cell-output-display">
@@ -734,7 +754,7 @@ C5DVNAHN8F94,57-0477907,YES,high,"legal name matches exactly; Foundation and Ass
 <p><code><a href="../reference/np_project_status.html">np_project_status()</a></code> is a <strong>scanner, not a ledger</strong>. It reads the directory every time it is called, so it cannot drift out of sync with reality the way a stored state file would: delete an output and the stage reports as incomplete on the next call. <code>RUN-STATUS.md</code> at the project root is the written form of the same scan, regenerated on every call.</p>
 <p>A stage is <code>complete</code> when every expected output is present, <code>partial</code> when some are, and <code>not run</code> when none are.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb31"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb32"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">s</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"stage"</span>, <span class="st">"file"</span>, <span class="st">"exists"</span><span class="op">)</span><span class="op">]</span>, <span class="fl">8</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output-display">
 <div class="kable-table">
@@ -805,7 +825,7 @@ C5DVNAHN8F94,57-0477907,YES,high,"legal name matches exactly; Foundation and Ass
 <strong>Stop rather than improvise</strong> when: the signature does not match the cached reference; a stage’s outputs exist but its row counts do not reconcile with the previous stage (<code>stage2_yes</code> + <code>stage2_no</code> should equal <code>stage1_maybe</code>); or a queued batch returns no output file.</li>
 </ul></section><section class="level2"><h2 id="the-whole-run">11. The whole run<a class="anchor" aria-label="anchor" href="#the-whole-run"></a>
 </h2>
-<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/Nonprofit-Open-Data-Collective/npmatch" class="external-link">npmatch</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># once per machine</span></span>
@@ -829,7 +849,7 @@ C5DVNAHN8F94,57-0477907,YES,high,"legal name matches exactly; Foundation and Ass
 </section><section class="level2"><h2 id="the-next-vintage">12. The next vintage<a class="anchor" aria-label="anchor" href="#the-next-vintage"></a>
 </h2>
 <p>A new source extract does not mean a new run from scratch. <code><a href="../reference/np_diff_unmatched.html">np_diff_unmatched()</a></code> takes a fresh extract and an existing crosswalk and returns the ids that are genuinely new or still unmatched — the only ones worth paying to match again.</p>
-<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fresh</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/np_prepare_sam.html">np_prepare_sam</a></span><span class="op">(</span><span class="st">"path/to/SAM_PUBLIC_MONTHLY_2026_AUG.dat"</span><span class="op">)</span></span>
 <span><span class="va">todo</span>  <span class="op">&lt;-</span> <span class="fu"><a href="../reference/np_diff_unmatched.html">np_diff_unmatched</a></span><span class="op">(</span><span class="va">fresh</span>, crosswalk <span class="op">=</span> <span class="st">"runs/2026MAY/04_final/crosswalk.csv"</span><span class="op">)</span></span>
 <span></span>
@@ -948,7 +968,23 @@ C5DVNAHN8F94,57-0477907,YES,high,"legal name matches exactly; Foundation and Ass
 
 
 
-
-
-  </body>
+  <script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
+  document.querySelectorAll("pre.mermaid > code").forEach(function (code) {
+    code.parentNode.textContent = code.textContent;
+  });
+  mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: "loose",
+    theme: "base",
+    themeVariables: {
+      lineColor: "#888888",
+      textColor: "#111111",
+      edgeLabelBackground: "#ffffff",
+      fontFamily: "inherit"
+    }
+  });
+  await mermaid.run({ querySelector: "pre.mermaid" });
+</script>
+</body>
 </html>

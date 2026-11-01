@@ -27,6 +27,7 @@
 <url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_cascade.html</loc></url>
 <url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_city_aliases.html</loc></url>
 <url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_clean_geo.html</loc></url>
+<url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_cluster_rollup.html</loc></url>
 <url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_compare.html</loc></url>
 <url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_config.html</loc></url>
 <url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_data.html</loc></url>
@@ -56,11 +57,7 @@
 <url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_maps.html</loc></url>
 <url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_match.html</loc></url>
 <url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_merge_decisions.html</loc></url>
-<url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_name_core.html</loc></url>
-<url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_name_freq.html</loc></url>
-<url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_name_rules.html</loc></url>
-<url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_normalize.html</loc></url>
-<url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_normalize_signature.html</loc></url>
+<url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_pair_links.html</loc></url>
 <url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_prepare_sam.html</loc></url>
 <url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_preview_pair.html</loc></url>
 <url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_project_init.html</loc></url>
@@ -87,12 +84,11 @@
 <url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_stage2_run.html</loc></url>
 <url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_stage3_run.html</loc></url>
 <url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_stage_schema.html</loc></url>
-<url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_stopwords.html</loc></url>
 <url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_tier.html</loc></url>
-<url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_token_idf.html</loc></url>
 <url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_train.html</loc></url>
 <url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_tune_thresholds.html</loc></url>
 <url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_veto.html</loc></url>
 <url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/np_veto_audit.html</loc></url>
+<url><loc>https://nonprofit-open-data-collective.github.io/npmatch/reference/reexports.html</loc></url>
 </urlset>
 
