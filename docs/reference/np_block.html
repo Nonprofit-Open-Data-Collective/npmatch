@@ -9,7 +9,7 @@ np_compare() never has to score every same-state pair. Three modes:"></head><bod
 
     <a class="navbar-brand me-2" href="../index.html">npmatch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -59,7 +59,7 @@ np_compare() never has to score every same-state pair. Three modes:"></head><bod
 <span>  by_y <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  token <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  token_col <span class="op">=</span> <span class="st">"name_key"</span>,</span>
-<span>  stopwords <span class="op">=</span> <span class="fu"><a href="np_stopwords.html">np_stopwords</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  stopwords <span class="op">=</span> <span class="fu"><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_stopwords.html" class="external-link">np_stopwords</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  min_token_len <span class="op">=</span> <span class="fl">2L</span>,</span>
 <span>  max_ref_freq <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  min_pair_idf <span class="op">=</span> <span class="cn">NULL</span>,</span>
@@ -97,7 +97,7 @@ position-for-position, so the two must be the same length.</p></dd>
 
 
 <dt id="arg-stopwords">stopwords<a class="anchor" aria-label="anchor" href="#arg-stopwords"></a></dt>
-<dd><p>Tokens to drop (see <code><a href="np_stopwords.html">np_stopwords()</a></code>).</p></dd>
+<dd><p>Tokens to drop (see <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_stopwords.html" class="external-link">np_stopwords()</a></code>).</p></dd>
 
 
 <dt id="arg-min-token-len">min_token_len<a class="anchor" aria-label="anchor" href="#arg-min-token-len"></a></dt>
@@ -154,7 +154,7 @@ same-state orgs that share a rare token, not all ~40k orgs in the state.</p></li
 <li><p><strong>token, cross-key</strong> (<code>by = NULL</code>, <code>token = TRUE</code>) — shared token only, no
 exact key. The loose recall-recovery pass (finds a same-name org in another
 state — the firm-vs-establishment case).</p></li>
-</ul><p>Both frames must be normalized (<code><a href="np_normalize.html">np_normalize()</a></code>). Combine passes by
+</ul><p>Both frames must be normalized (<code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize.html" class="external-link">np_normalize()</a></code>). Combine passes by
 <code>rbind</code>-ing results and de-duplicating (see <code><a href="np_block_union.html">np_block_union()</a></code>).</p>
 <p>Query rows whose <code>name_placeholder</code> is <code>TRUE</code> ("SEE SCHEDULE O", "N/A") get
 no candidates. Reference rows are not filtered. Frames normalized before that
@@ -177,7 +177,22 @@ column existed are blocked as before.</p>
 
 
 
-
-
-  </body></html>
+  <script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
+  document.querySelectorAll("pre.mermaid > code").forEach(function (code) {
+    code.parentNode.textContent = code.textContent;
+  });
+  mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: "loose",
+    theme: "base",
+    themeVariables: {
+      lineColor: "#888888",
+      textColor: "#111111",
+      edgeLabelBackground: "#ffffff",
+      fontFamily: "inherit"
+    }
+  });
+  await mermaid.run({ querySelector: "pre.mermaid" });
+</script></body></html>
 

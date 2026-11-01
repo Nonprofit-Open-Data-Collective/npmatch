@@ -13,7 +13,7 @@ it yourself:"></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">npmatch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -91,7 +91,7 @@ it yourself:</p>
 or the <code>zipcodeR</code> package's <code>zip_code_db</code>.</p></li>
 <li><p><strong>urban / rural:</strong> USDA ERS ZIP-code RUCA codes (then <code><a href="np_ruca_urban.html">np_ruca_urban()</a></code>).</p></li>
 </ul><p>The crosswalk must have a <code>zip5</code> (or <code>by</code>) key column; all other columns are
-added to <code>data</code>. Join first on the record's own <code>zip5</code> from <code><a href="np_normalize.html">np_normalize()</a></code>.</p>
+added to <code>data</code>. Join first on the record's own <code>zip5</code> from <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize.html" class="external-link">np_normalize()</a></code>.</p>
     </div>
 
     <div class="section level2">
@@ -121,7 +121,22 @@ added to <code>data</code>. Join first on the record's own <code>zip5</code> fro
 
 
 
-
-
-  </body></html>
+  <script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
+  document.querySelectorAll("pre.mermaid > code").forEach(function (code) {
+    code.parentNode.textContent = code.textContent;
+  });
+  mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: "loose",
+    theme: "base",
+    themeVariables: {
+      lineColor: "#888888",
+      textColor: "#111111",
+      edgeLabelBackground: "#ffffff",
+      fontFamily: "inherit"
+    }
+  });
+  await mermaid.run({ querySelector: "pre.mermaid" });
+</script></body></html>
 

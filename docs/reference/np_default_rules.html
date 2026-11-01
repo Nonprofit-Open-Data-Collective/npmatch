@@ -11,7 +11,7 @@ candidate-pair frame — both-sided features are suffixed _x (query) and _y
 
     <a class="navbar-brand me-2" href="../index.html">npmatch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -171,7 +171,7 @@ wrong thing to reach for when explaining it.</p>
 case, <code>direction_conflict</code> the regional one, <code>number_conflict</code> the
 chapter/local one, and <code>affiliate_suffix</code> / <code>forprofit_form</code> the
 legal-form-and-affiliation one. Cite those.</p>
-<p><code><a href="np_normalize.html">np_normalize()</a></code> still emits <code>name_gen</code> / <code>name_gen_rank</code> (JR/SR only) and
+<p><code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize.html" class="external-link">np_normalize()</a></code> still emits <code>name_gen</code> / <code>name_gen_rank</code> (JR/SR only) and
 <code><a href="np_compare.html">np_compare()</a></code> still carries them through as pair features, so they appear in
 the training frames and data dictionaries. Nothing consumes them, and they are
 retained only so existing labeled extracts keep their column layout.</p>
@@ -199,7 +199,22 @@ for how severity translates into a tier.</p></div>
 
 
 
-
-
-  </body></html>
+  <script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
+  document.querySelectorAll("pre.mermaid > code").forEach(function (code) {
+    code.parentNode.textContent = code.textContent;
+  });
+  mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: "loose",
+    theme: "base",
+    themeVariables: {
+      lineColor: "#888888",
+      textColor: "#111111",
+      edgeLabelBackground: "#ffffff",
+      fontFamily: "inherit"
+    }
+  });
+  await mermaid.run({ querySelector: "pre.mermaid" });
+</script></body></html>
 

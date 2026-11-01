@@ -24,8 +24,19 @@
   `street_num` and `street_name` values from before that must be rebuilt —
   matchdb's database, bundles and tranches included
   ([matchdb#29](https://github.com/Nonprofit-Open-Data-Collective/matchdb/issues/29)).
-  npmatch now requires `npnormalize (>= 0.1.3)`, so an install cannot quietly
+  npmatch carries a version floor on npnormalize, so an install cannot quietly
   compute keys with an older normalizer than the one it is pinned to.
+* **The floor is `npnormalize (>= 0.1.4)`**, ahead of that release landing.
+  0.1.4 adds `street_has_box` — whether a street *carries* a box component,
+  which `is_po_box` cannot answer because it is the gate that blanks the address
+  key — and moves the signature again
+  ([npnormalize#9](https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/9)).
+  Two consequences, both deliberate: an npmatch install resolves npnormalize
+  from GitHub, so it cannot be satisfied until 0.1.4 is on npnormalize's `main`;
+  and `tests/testthat/test-signature.R` still pins 0.1.3's value, so it must be
+  re-pinned from the merged release rather than from a value copied out of a
+  branch. Stored keys and the statistics built on them need rebuilding once
+  more, matchdb's published data included.
 * **Why.** Both sides of a match depend on the normalizer: matchdb stores its
   keys, and npmatch computes them for each query. With the normalizer in its own
   package, matchdb no longer needs npmatch, and npmatch can depend on matchdb in
@@ -40,6 +51,24 @@
     `np_tokenize()`, `np_doc_freq()`, `np_addr_key()` and `np_state_abb()`.
 * **Dependencies:** stringi is no longer imported (only the normalizer used it);
   npnormalize is, from GitHub (`Remotes:`).
+
+## matchdb references and precomputed address counts
+
+* **`np_cascade()` and `np_run_batches()` take a matchdb reference directly.**
+  Pass the object `matchdb::md_compile()` or `matchdb::md_reference()` returns
+  as `reference`, and npmatch uses its frame plus whichever of `name_freq`,
+  `token_idf`, `ref_index` and `addr_freq` it carries, instead of recomputing
+  them. Explicit arguments still take precedence. A reference whose normalizer
+  signature differs from the installed one is refused. npmatch recognises the
+  object by its shape, so matchdb is not a dependency, not even a suggested one.
+* **Both take an `addr_freq` argument**, a precomputed `np_addr_freq()` table.
+  `np_cascade()` used to recount it on every call, over whatever reference it
+  was given. Pass one counted over the full reference when matching against
+  part of it, so crowded addresses are not under-counted. matchdb's bundles
+  ship one counted over exactly the bundle's rows.
+* `np_run_batches()` counts addresses once for the whole run and keeps the
+  table in its `cache =` file. A cache written before this version gains it
+  on first use, as an older cache already gained `ref_index`.
 
 ## The suite a reviewer is shown
 
@@ -79,6 +108,44 @@
   deliberately stays in npmatch: which designators count as the same door is a
   matching policy, while npnormalize's tables feed the normalizer signature
   that stamps every published artifact.
+## Documentation reframed around the six tiers
+
+* **npmatch is documented as a tiered workflow, not as a SAM-to-BMF matcher.**
+  The README, the landing page, the package help and the articles now name the
+  six steps the package manages — alias enumeration (matchdb), input
+  standardization (npnormalize), data pre-prep (tokenization, inverse document
+  frequency, name and address frequency), candidate generation by blocking and
+  fuzzy comparison (reclin2), tiered adjudication, and packaging for human or
+  LLM review — and present federal registrants against the IRS Business Master
+  File as the deployment npmatch ships wired for rather than as what it is for.
+  `np_map_sam()` / `np_map_bmf()` and the SAM helpers are described as that
+  deployment's conveniences; pfmatch is named as another deployment.
+* **The README and landing page carry a dependency diagram** of npmatch,
+  npnormalize, matchdb and reclin2, with a table saying what each owns and why
+  it is separate. pkgdown now renders mermaid blocks on the home page.
+* **matchdb is documented as the default reference path.** The quick start
+  downloads a published bundle and passes it straight to the cascade; building a
+  reference from raw NCCS files is kept as the path for a vintage, slice or
+  schema matchdb does not publish. The Workflow article leads with it.
+* **The README no longer restates npnormalize's rules.** The subroutine-level
+  walkthrough of the normalizer is replaced by the columns it produces and a
+  pointer to npnormalize's own reference, which is authoritative. The tier-3
+  corpus statistics get a section of their own, including the warning against
+  counting them over a slice.
+* **The prose quotes no normalizer signature.** The entry above names the values
+  deliberately, as the record of what moved, and `tests/testthat/test-signature.R`
+  pins the current one so an unintended move cannot pass unnoticed. Prose that
+  merely asserts a signature is unchanged goes stale instead, which is what had
+  happened here: the README and the Workflow article now say to read the value
+  from `np_normalize_signature()` and to record what a run reported.
+* The nine normalizer topics collapsed into one `reexports` page when the
+  normalizer moved, so `_pkgdown.yml` redirects their old URLs to it, and
+  `np_cluster_rollup()` / `np_pair_links()` are in the reference index for the
+  first time.
+* `dev/BENCHMARK-RANK-DEFICIENCY.md` records the long-standing
+  rank-deficient-fit warning in the `np_benchmark()` test — which fold
+  degenerates and why, that `np_train()`'s blanket `suppressWarnings()` is the
+  part worth fixing, and a plan. `dev/probe-rank-deficiency.R` reproduces it.
 
 # npmatch 0.1.1
 

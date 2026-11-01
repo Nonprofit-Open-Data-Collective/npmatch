@@ -5,14 +5,14 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Probabilistic Record Linkage of Nonprofit Data to the IRS Business Master File • npmatch</title>
+<title>A Tiered Workflow for Probabilistic Record Linkage of Organization Data • npmatch</title>
 <script src="deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
 <script src="deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Probabilistic Record Linkage of Nonprofit Data to the IRS Business Master File">
-<meta name="description" content='Tools for building crosswalks between arbitrary nonprofit datasets (entity name plus variable geographic detail) and the IRS Business Master File (BMF) of exempt organizations. Wraps reclin2 for blocked pairing and comparison, and adds nonprofit-specific normalization, a hard "do-not-match" veto engine, geography-adaptive weighting, and tiered (YES / MAYBE / NO) sorting with a structured hand-off for human or LLM refinement.'>
-<meta property="og:description" content='Tools for building crosswalks between arbitrary nonprofit datasets (entity name plus variable geographic detail) and the IRS Business Master File (BMF) of exempt organizations. Wraps reclin2 for blocked pairing and comparison, and adds nonprofit-specific normalization, a hard "do-not-match" veto engine, geography-adaptive weighting, and tiered (YES / MAYBE / NO) sorting with a structured hand-off for human or LLM refinement.'>
+<script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="A Tiered Workflow for Probabilistic Record Linkage of Organization Data">
+<meta name="description" content='Manages the steps of matching organization records (entity name plus variable geographic detail) to a reference database when no shared identifier exists: alias enumeration, input standardization, corpus pre-preparation (tokenization and inverse document frequency), candidate generation by blocking and fuzzy comparison, tiered adjudication, and packaging the residual for human or LLM review. Standardization comes from npnormalize and alias enumeration from matchdb; reclin2 supplies blocked pairing and comparison. Adds a hard "do-not-match" veto engine, geography-adaptive weighting, and tiered (YES / MAYBE / NO) sorting with a structured hand-off. Ships wired for federal registrants (SAM) to the IRS Business Master File of exempt organizations, which is one deployment of the framework rather than a requirement of it.'>
+<meta property="og:description" content='Manages the steps of matching organization records (entity name plus variable geographic detail) to a reference database when no shared identifier exists: alias enumeration, input standardization, corpus pre-preparation (tokenization and inverse document frequency), candidate generation by blocking and fuzzy comparison, tiered adjudication, and packaging the residual for human or LLM review. Standardization comes from npnormalize and alias enumeration from matchdb; reclin2 supplies blocked pairing and comparison. Adds a hard "do-not-match" veto engine, geography-adaptive weighting, and tiered (YES / MAYBE / NO) sorting with a structured hand-off. Ships wired for federal registrants (SAM) to the IRS Business Master File of exempt organizations, which is one deployment of the framework rather than a requirement of it.'>
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="index.html">npmatch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -60,44 +60,223 @@
   <main id="main" class="col-md-9"><div class="section level1">
 <div class="page-header"><h1 id="npmatch">npmatch<a class="anchor" aria-label="anchor" href="#npmatch"></a>
 </h1></div>
-<p>A package for matching nonprofit organizations to the IRS BMF database when EINs are not available.</p>
+<p>A tiered workflow for matching organization records to a reference database when no shared identifier is available.</p>
+<p>npmatch is not a single matching algorithm. It is the <strong>harness that manages the steps</strong> of a match — enumerating the names an entity is known by, standardizing both sides, precomputing the corpus statistics that make a token informative, generating candidates, adjudicating them into tiers, and packaging what is left for a human or an LLM. Those steps are generic. The nonprofit case npmatch ships wired for — federal registrants (SAM / USASpending) to the IRS Business Master File — is one deployment of the framework, not its definition; the same six tiers are deployed elsewhere, such as <a href="https://github.com/Nonprofit-Open-Data-Collective/pfmatch" class="external-link">pfmatch</a> matching 990-PF grant recipients.</p>
+<div class="section level2">
+<h2 id="the-stack">The stack<a class="anchor" aria-label="anchor" href="#the-stack"></a>
+</h2>
+<p>npmatch owns the workflow and borrows every part that is better owned elsewhere: the normalizer, the alias database, and the pair-generation engine each live in their own package.</p>
+<pre class="mermaid"><code>flowchart TD
+    SRC["&lt;b&gt;your source list&lt;/b&gt;&lt;br/&gt;names + partial addresses"]
+    NPN["&lt;b&gt;npnormalize&lt;/b&gt;&lt;br/&gt;name and address keys,&lt;br/&gt;and a signature that pins them"]
+    MDB["&lt;b&gt;matchdb&lt;/b&gt;&lt;br/&gt;every name and address ever recorded&lt;br/&gt;for an EIN, compiled into a reference"]
+    NPM["&lt;b&gt;npmatch&lt;/b&gt;&lt;br/&gt;&lt;b&gt;the tiered workflow&lt;/b&gt;&lt;br/&gt;pre-prep · blocking · scoring&lt;br/&gt;vetoes · tiering · review packaging"]
+    RC["&lt;b&gt;reclin2&lt;/b&gt; · &lt;b&gt;stringdist&lt;/b&gt;&lt;br/&gt;pair generation and&lt;br/&gt;string comparison"]
+    OUT["&lt;b&gt;crosswalk&lt;/b&gt; + review queue&lt;br/&gt;+ evaluation frame"]
+
+    NPN --&gt;|"stores the same keys"| MDB
+    NPN --&gt;|"normalizes every query"| NPM
+    MDB --&gt;|"reference frame, plus precomputed&lt;br/&gt;name_freq · token_idf · ref_index · addr_freq"| NPM
+    RC --&gt;|"compare_pairs() · cmp_jarowinkler()"| NPM
+    SRC --&gt; NPM
+    NPM --&gt; OUT
+
+    classDef own fill:#f8d7d7,stroke:#B22222,color:#111;
+    classDef dep fill:#eeeeee,stroke:#777,color:#111;
+    classDef io fill:#fdf2d9,stroke:#AF7817,color:#111;
+    class NPM own;
+    class NPN,MDB,RC dep;
+    class SRC,OUT io;</code></pre>
+<table class="table">
+<colgroup>
+<col width="33%">
+<col width="33%">
+<col width="33%">
+</colgroup>
+<thead><tr class="header">
+<th>package</th>
+<th>role</th>
+<th>why it is separate</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><a href="https://github.com/Nonprofit-Open-Data-Collective/npnormalize" class="external-link"><strong>npnormalize</strong></a></td>
+<td>turns names and addresses into match keys, and fingerprints the code that made them</td>
+<td>both sides of a match must be normalized by the <em>same</em> code, or matches quietly stop being found. One package holds it; <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize_signature.html" class="external-link">np_normalize_signature()</a></code> makes a mismatch an error instead of a silent loss. Imported, and re-exported here unchanged.</td>
+</tr>
+<tr class="even">
+<td><a href="https://github.com/Nonprofit-Open-Data-Collective/matchdb" class="external-link"><strong>matchdb</strong></a></td>
+<td>alias enumeration: every name and address the IRS and 990 filers have recorded for each EIN, compiled on demand into a reference frame</td>
+<td>an organization’s <em>legal</em> name is often not the name a source list wrote down. Enumerating aliases is a data-curation problem with its own cadence and its own 10 GB, not a matching problem. Recognized by shape, so it is not a formal dependency.</td>
+</tr>
+<tr class="odd">
+<td>
+<a href="https://cran.r-project.org/package=reclin2" class="external-link"><strong>reclin2</strong></a> · <a href="https://cran.r-project.org/package=stringdist" class="external-link"><strong>stringdist</strong></a>
+</td>
+<td>pair generation and field-level string comparison</td>
+<td>mature implementations of the mechanical part. npmatch supplies the blocking that keeps the pair set tractable and the scoring that interprets the comparisons. Under <code>Suggests</code>; install them before running a match.</td>
+</tr>
+</tbody>
+</table>
+</div>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
-<p>The current release is <strong>v0 (version 0.1.0)</strong>, git tag <a href="https://github.com/Nonprofit-Open-Data-Collective/npmatch/releases/tag/v0.1.0" class="external-link"><code>v0.1.0</code></a>. It pins the code behind the combined 2025NOV + 2026MAY SAM-to-BMF crosswalk; see <a href="NEWS.html">NEWS.md</a> for what it contains and its known issues.</p>
-<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># install.packages("remotes")</span></span>
-<span><span class="fu">remotes</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"Nonprofit-Open-Data-Collective/npmatch@v0.1.0"</span><span class="op">)</span>  <span class="co"># the v0 release</span></span>
-<span><span class="fu">remotes</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"Nonprofit-Open-Data-Collective/npmatch"</span><span class="op">)</span>         <span class="co"># development version</span></span></code></pre></div>
-<p>Pin <code>@v0.1.0</code> in any analysis that should reproduce the v0 crosswalk exactly: <code>main</code> keeps changing, and a change to normalization, blocking or scoring changes which EINs are matched. <code>packageVersion("npmatch")</code> reports <code>0.1.0</code> for the release and a <code>.9000</code> suffix for the development version.</p>
-<p>Stage 1 compares names and addresses with <a href="https://cran.r-project.org/package=reclin2" class="external-link">reclin2</a> and <a href="https://cran.r-project.org/package=stringdist" class="external-link">stringdist</a>, which are listed under Suggests; install them before running a match.</p>
+<span><span class="fu">remotes</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"Nonprofit-Open-Data-Collective/npmatch"</span><span class="op">)</span>         <span class="co"># development version</span></span>
+<span><span class="fu">remotes</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"Nonprofit-Open-Data-Collective/npmatch@v0.1.1"</span><span class="op">)</span>  <span class="co"># the last release</span></span>
+<span><span class="fu">remotes</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"Nonprofit-Open-Data-Collective/npmatch@v0.1.0"</span><span class="op">)</span>  <span class="co"># v0, the crosswalk release</span></span></code></pre></div>
+<p>npnormalize installs with npmatch (from GitHub, via <code>Remotes:</code>). Add matchdb to download a published reference, and reclin2 + stringdist to run a match:</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu">remotes</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"Nonprofit-Open-Data-Collective/matchdb"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"reclin2"</span>, <span class="st">"stringdist"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<div class="section level3">
+<h3 id="releases-and-reproducibility">Releases and reproducibility<a class="anchor" aria-label="anchor" href="#releases-and-reproducibility"></a>
+</h3>
+<p>The current release is <strong>0.1.1</strong>, git tag <a href="https://github.com/Nonprofit-Open-Data-Collective/npmatch/releases/tag/v0.1.1" class="external-link"><code>v0.1.1</code></a>. It is the last version that carries its own normalizer; the development version imports it from npnormalize. The first release, <strong>v0 (0.1.0)</strong>, pins the code behind the combined 2025NOV + 2026MAY SAM-to-BMF crosswalk. See <a href="NEWS.html">NEWS.md</a> for what each contains and their known issues.</p>
+<p>Pin a release in any analysis that must reproduce its results exactly. <code>main</code> keeps changing, and a change to normalization, blocking or scoring changes which EINs are matched. <code>packageVersion("npmatch")</code> reports the release number, and a <code>.9000</code> suffix for the development version.</p>
+<p>Pin the <strong>normalizer</strong> too. <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize_signature.html" class="external-link">np_normalize_signature()</a></code> fingerprints the code that builds the keys, and every stored artifact — a cached normalized reference, a matchdb bundle — carries the signature it was built under. npmatch refuses a reference whose signature differs from the installed npnormalize’s, rather than matching against keys it cannot reproduce. Record the signature your run reported; do not copy one out of documentation, because it changes whenever the rules do.</p>
+</div>
 </div>
 <div class="section level2">
-<h2 id="package-overview">Package Overview<a class="anchor" aria-label="anchor" href="#package-overview"></a>
+<h2 id="the-six-tiers">The six tiers<a class="anchor" aria-label="anchor" href="#the-six-tiers"></a>
 </h2>
-<p><code>npmatch</code> builds a crosswalk from arbitrary source organization records (name + variable geographic detail) to the IRS Business Master File (BMF). It is a two-part process: match as much as possible <strong>algorithmically</strong> using only information in the BMF, then hand the residual (MAYBE / NO cases) to humans or LLM agents for investigation.</p>
-<p>The pipeline is a sequence of stages, orchestrated end-to-end by <code><a href="reference/np_cascade.html">np_cascade()</a></code> (scalable, multi-pass) or <code><a href="reference/np_match.html">np_match()</a></code> (single-pass). Each stage below lists the internal subroutines it calls and the ordered process steps, with the function that performs each step noted as <code>:: fx()</code>.</p>
-<pre><code>raw data -&gt; np_normalize -&gt; np_block -&gt; np_compare -&gt; np_score -&gt; np_veto -&gt; np_select -&gt; np_tier -&gt; np_route</code></pre>
-<div class="section level3">
-<h3 id="raw-data-sources">Raw data sources<a class="anchor" aria-label="anchor" href="#raw-data-sources"></a>
-</h3>
-<ul>
-<li>
-<strong>USASpending / SAM organizations</strong> — the query (source) side. Key fields: <code>legal_business_name</code>, <code>dba_name</code>, <code>entity_division_name</code>, physical address, and the Unique Entity Identifier (<code>uei</code>).</li>
-<li>
-<strong>Standardized IRS EO Business Master File (BMF)</strong> — from NCCS; the reference (candidate) side, keyed by <code>ein</code>. Carries <code>org_name_join</code>, <code>dba_name</code>, address, NTEE, 501(c) subsection, foundation code, ruling date, assets/revenue, filing requirement, affiliation and group-exemption codes.</li>
-</ul>
+<p>Each tier is a separable concern with its own failure mode. A deployment can replace any one of them — a different alias source, a different scorer, a different reviewer — without touching the others.</p>
+<table class="table">
+<colgroup>
+<col width="25%">
+<col width="25%">
+<col width="25%">
+<col width="25%">
+</colgroup>
+<thead><tr class="header">
+<th>#</th>
+<th>tier</th>
+<th>owner</th>
+<th>npmatch entry points</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>1</td>
+<td>
+<strong>alias enumeration</strong> — every name and address the entity is known by</td>
+<td>matchdb</td>
+<td>
+<code><a href="reference/np_cascade.html">np_cascade()</a></code>, <code><a href="reference/np_run_batches.html">np_run_batches()</a></code> and <code><a href="reference/np_stage1_run.html">np_stage1_run()</a></code> take a matchdb reference as <code>reference</code>
+</td>
+</tr>
+<tr class="even">
+<td>2</td>
+<td>
+<strong>input standardization</strong> — names and addresses onto common keys</td>
+<td>npnormalize</td>
+<td>
+<code><a href="reference/np_query.html">np_query()</a></code> / <code><a href="reference/np_reference.html">np_reference()</a></code> → <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize.html" class="external-link">np_normalize()</a></code>
+</td>
+</tr>
+<tr class="odd">
+<td>3</td>
+<td>
+<strong>data pre-prep</strong> — tokenization, inverse document frequency, name and address frequency</td>
+<td>npmatch, or precomputed by matchdb</td>
+<td>
+<code><a href="reference/np_ref_index.html">np_ref_index()</a></code>, <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_token_idf.html" class="external-link">np_token_idf()</a></code>, <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_name_freq.html" class="external-link">np_name_freq()</a></code>, <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_addr_freq.html" class="external-link">np_addr_freq()</a></code>
+</td>
+</tr>
+<tr class="even">
+<td>4</td>
+<td>
+<strong>candidate generation</strong> — blocking, then fuzzy comparison</td>
+<td>npmatch + reclin2</td>
+<td>
+<code><a href="reference/np_block.html">np_block()</a></code>, <code><a href="reference/np_block_union.html">np_block_union()</a></code>, <code><a href="reference/np_compare.html">np_compare()</a></code>
+</td>
+</tr>
+<tr class="odd">
+<td>5</td>
+<td>
+<strong>tiered adjudication</strong> — score, veto, select, sort into YES / MAYBE / NO</td>
+<td>npmatch</td>
+<td>
+<code><a href="reference/np_score.html">np_score()</a></code>, <code><a href="reference/np_veto.html">np_veto()</a></code>, <code><a href="reference/np_select.html">np_select()</a></code>, <code><a href="reference/np_tier.html">np_tier()</a></code>
+</td>
+</tr>
+<tr class="even">
+<td>6</td>
+<td>
+<strong>packaging for review</strong> — spreadsheets, LLM prompts, reports</td>
+<td>npmatch</td>
+<td>
+<code><a href="reference/np_route.html">np_route()</a></code>, <code><a href="reference/np_label_frame.html">np_label_frame()</a></code>, <code><a href="reference/np_as_prompt.html">np_as_prompt()</a></code>, <code><a href="reference/np_review_report.html">np_review_report()</a></code>
+</td>
+</tr>
+</tbody>
+</table>
+<p><code><a href="reference/np_cascade.html">np_cascade()</a></code> orchestrates tiers 2–5 end to end as progressive passes (the scalable path) and <code><a href="reference/np_match.html">np_match()</a></code> in a single pass; <code><a href="reference/np_route.html">np_route()</a></code> then does tier 6 on the result. The stage drivers (<code><a href="reference/np_stage1_run.html">np_stage1_run()</a></code> … <code><a href="reference/np_final_run.html">np_final_run()</a></code>) wrap that in an on-disk run project, with tiers 5 and 6 handing off to LLM adjudication and research stages. See the <a href="https://nonprofit-open-data-collective.github.io/npmatch/articles/workflow.html">Workflow article</a>.</p>
+<pre><code>source records -&gt; np_normalize -&gt; np_block -&gt; np_compare -&gt; np_score -&gt; np_veto -&gt; np_select -&gt; np_tier -&gt; np_route</code></pre>
 </div>
+<div class="section level2">
+<h2 id="quick-start">Quick start<a class="anchor" aria-label="anchor" href="#quick-start"></a>
+</h2>
+<p>The reference side comes from matchdb, which ships the pre-prep of tier 3 already computed:</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/Nonprofit-Open-Data-Collective/npmatch" class="external-link">npmatch</a></span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">b</span> <span class="op">&lt;-</span> <span class="fu">matchdb</span><span class="fu">::</span><span class="fu">md_reference</span><span class="op">(</span><span class="st">"active-observed"</span>, fetch <span class="op">=</span> <span class="st">"missing"</span><span class="op">)</span>   <span class="co"># ~260 MB, once</span></span>
+<span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/np_cascade.html">np_cascade</a></span><span class="op">(</span><span class="va">my_query</span>, <span class="va">b</span><span class="op">)</span>                                     <span class="co"># frame + its precomputed tables</span></span>
+<span><span class="va">out</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/np_route.html">np_route</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">out</span><span class="op">$</span><span class="va">accepted</span>      <span class="co"># the auto-matched crosswalk (YES)</span></span>
+<span><span class="va">out</span><span class="op">$</span><span class="va">review</span>        <span class="co"># the MAYBE queue, one row per candidate</span></span>
+<span><span class="va">out</span><span class="op">$</span><span class="va">unmatched</span>     <span class="co"># the NO tier, each with its best near-miss</span></span></code></pre></div>
+<p>Passing the matchdb object as <code>reference</code> is the shortest path: npmatch takes its frame plus whichever of <code>name_freq</code>, <code>token_idf</code>, <code>ref_index</code> and <code>addr_freq</code> it carries instead of recomputing them, and refuses it outright if it was built by a different normalizer. Any data frame works too — a plain BMF extract, a state registry, a membership list — in which case npmatch computes the tier-3 tables itself.</p>
+<p>For a large source, <code><a href="reference/np_run_batches.html">np_run_batches()</a></code> chunks the query, caches the normalized reference and its tables, and writes per-chunk outputs that can be resumed.</p>
 <div class="section level3">
-<h3 id="np_querydf-map--np_referencedf-map--canonicalize">
-<code>np_query(df, map)</code> / <code>np_reference(df, map)</code> — canonicalize<a class="anchor" aria-label="anchor" href="#np_querydf-map--np_referencedf-map--canonicalize"></a>
+<h3 id="data-sources-and-what-is-pre-wired">Data sources, and what is pre-wired<a class="anchor" aria-label="anchor" href="#data-sources-and-what-is-pre-wired"></a>
 </h3>
+<table class="table">
+<colgroup>
+<col width="33%">
+<col width="33%">
+<col width="33%">
+</colgroup>
+<thead><tr class="header">
+<th>side</th>
+<th>pre-wired source</th>
+<th>what else fits</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><strong>query</strong></td>
+<td>USASpending / SAM registrants, keyed by <code>uei</code> — <code><a href="reference/np_maps.html">np_map_sam()</a></code>, <code><a href="reference/np_prepare_sam.html">np_prepare_sam()</a></code>
+</td>
+<td>any list of organization names with variable geographic detail; supply a schema map</td>
+</tr>
+<tr class="even">
+<td><strong>reference</strong></td>
+<td>matchdb bundles (default), or a standardized IRS EO Business Master File from NCCS, keyed by <code>ein</code> — <code><a href="reference/np_maps.html">np_map_bmf()</a></code>, <code><a href="reference/np_fetch_bmf.html">np_fetch_bmf()</a></code>
+</td>
+<td>any reference frame with a name, an address and an id</td>
+</tr>
+</tbody>
+</table>
+<p>The SAM and BMF helpers are conveniences for the deployment npmatch was built for, not requirements of the framework. <code>np_query(df, map)</code> / <code>np_reference(df, map)</code> rename any dataset’s columns onto the canonical schema (<code>name</code>, <code>dba</code>, <code>division</code>, <code>street</code>, <code>city</code>, <code>state</code>, <code>zip5</code>, <code>.id</code>), and every tier downstream works on those names alone.</p>
+<hr>
+</div>
+</div>
+</div>
+<div class="section level1">
+<h1 id="the-pipeline-in-detail">The pipeline in detail<a class="anchor" aria-label="anchor" href="#the-pipeline-in-detail"></a>
+</h1>
+<p>Each section below lists the internal subroutines a stage calls and its ordered process steps, with the function that performs each step noted as <code>:: fx()</code>.</p>
+<div class="section level2">
+<h2 id="tier-2--np_querydf-map--np_referencedf-map--canonicalize">Tier 2 · <code>np_query(df, map)</code> / <code>np_reference(df, map)</code> — canonicalize<a class="anchor" aria-label="anchor" href="#tier-2--np_querydf-map--np_referencedf-map--canonicalize"></a>
+</h2>
 <p>Rename raw source columns onto the canonical schema so every downstream stage works on common column names.</p>
 <p><strong>subroutines</strong></p>
-<ul>
-<li>
-<code>.np_canonicalize()</code> :: apply a schema map (<code><a href="reference/np_maps.html">np_map_sam()</a></code> / <code><a href="reference/np_maps.html">np_map_bmf()</a></code>) that maps canonical fields (<code>name</code>, <code>dba</code>, <code>division</code>, <code>street</code>, <code>city</code>, <code>state</code>, <code>zip5</code>, <code>.id</code>/<code>.ein</code>) to source columns</li>
-</ul>
+<ul><li>
+<code>.np_canonicalize()</code> :: apply a schema map (<code><a href="reference/np_maps.html">np_map_sam()</a></code> / <code><a href="reference/np_maps.html">np_map_bmf()</a></code>) that maps canonical fields (<code>name</code>, <code>dba</code>, <code>division</code>, <code>street</code>, <code>city</code>, <code>state</code>, <code>zip5</code>, <code>.id</code>/<code>.ein</code>) to source columns</li></ul>
 <p><strong>process:</strong></p>
 <ol style="list-style-type: decimal">
 <li>map each source column onto its canonical field :: <code>.np_canonicalize()</code>
@@ -106,97 +285,55 @@
 </li>
 </ol>
 </div>
-<div class="section level3">
-<h3 id="np_normalizedf--clean-standardize-and-extract-features">
-<code>np_normalize(df)</code> — clean, standardize, and extract features<a class="anchor" aria-label="anchor" href="#np_normalizedf--clean-standardize-and-extract-features"></a>
-</h3>
-<p>Brings names and addresses onto a common matchable form and extracts the token-level features the veto layer needs. Adds <code>name_key</code>, <code>dba_key</code>, <code>division_key</code>, <code>name_full</code>, <code>name_form</code>, <code>name_gen</code>, <code>name_nums</code>, <code>name_ord</code>, <code>name_dir</code>, <code>street_key</code>, <code>street_num/name/type/unit</code>, <code>is_po_box</code>, <code>zip5/zip3/zip9</code>, <code>state_abb</code>.</p>
-<p><strong>subroutines</strong></p>
+<div class="section level2">
+<h2 id="tier-2--np_normalizedf--standardize-names-and-addresses">Tier 2 · <code>np_normalize(df)</code> — standardize names and addresses<a class="anchor" aria-label="anchor" href="#tier-2--np_normalizedf--standardize-names-and-addresses"></a>
+</h2>
+<p>Lives in <a href="https://nonprofit-open-data-collective.github.io/npnormalize/" class="external-link">npnormalize</a> and is re-exported here unchanged, so <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize.html" class="external-link">npmatch::np_normalize()</a></code> and anything built on it keeps working. It brings names and addresses onto a common matchable form and extracts the token-level features the veto layer needs. npnormalize’s own documentation is authoritative on the rules; what matters downstream is the columns it adds:</p>
 <ul>
 <li>
-<code>.np_basic_clean()</code> :: uppercase, de-accent, <code>&amp;</code> -&gt; <code>AND</code>, strip punctuation, squish space</li>
-<li>
-<code>.np_replace_tokens(dict)</code> :: whole-word dictionary substitution (abbreviations, USPS types)</li>
-<li>
-<code>.np_strip_lead_the()</code> :: drop a single leading <code>THE</code>
+<strong>name keys</strong> — <code>name_key</code> (the match key: cleaned, abbreviations expanded, leading <code>THE</code> and trailing legal suffixes stripped), <code>name_full</code> (suffix retained), <code>name_core</code>, <code>dba_key</code>, <code>division_key</code>
 </li>
 <li>
-<code>.np_strip_suffix()</code> :: strip trailing legal suffixes to form the match key</li>
+<strong>name features the veto layer reads</strong> — <code>name_form</code> (the detected legal form), <code>name_nums</code> (embedded chapter / local numbers), <code>name_ord</code> (ordinals folded to a rank), <code>name_dir</code> (directionals canonicalized), <code>name_placeholder</code>
+</li>
 <li>
-<code>.np_extract_form()</code> / <code>.np_canon_form()</code> :: detect and canonicalize the legal form</li>
+<strong>address parts</strong> — <code>street_key</code> (USPS-standardized, suite removed), <code>street_num</code> / <code>street_name</code> / <code>street_type</code>, <code>street_unit</code> and <code>street_unit_id</code> (the identifier alone, so <code>STE D-2</code> and <code>Suite D2</code> agree), <code>is_po_box</code>
+</li>
 <li>
-<code>.np_extract_generation()</code> :: JR / SR marker — <strong>vestigial</strong>, a person-name concept from the SAM/USASpending lineage; nothing consumes it</li>
-<li>
-<code>.np_extract_numbers()</code> :: embedded digit tokens (chapter / local numbers)</li>
-<li>
-<code>.np_extract_ordinals()</code> :: FIRST / SECOND / … -&gt; canonical rank</li>
-<li>
-<code>.np_extract_direction()</code> :: NORTH / SOUTHWEST / … -&gt; N / SW</li>
-<li>
-<code>.np_street_key()</code> :: cleaned street with unit dropped and USPS types standardized</li>
-<li>
-<code>.np_extract_unit()</code> :: pull the suite / apt / unit token</li>
-<li>
-<code>.np_is_pobox()</code> :: detect PO-box variants (<code>PO BOX</code>, <code>POB</code>, <code>P O</code>, <code>BOX</code>, …)</li>
-<li>
-<code>.np_parse_street()</code> :: split the street key into number / name / type</li>
-<li>
-<code>.np_parse_zip()</code> :: build the nested <code>zip3</code> &lt; <code>zip5</code> &lt; <code>zip9</code> family, restoring leading zeros</li>
-<li>
-<code>.np_to_state_abb()</code> :: map a full state name to its 2-letter code</li>
+<strong>ZIP and state</strong> — <code>zip5</code>, <code>zip3</code>, <code>zip9</code> as a nested prefix family, and <code>state_abb</code>
+</li>
 </ul>
-<p><strong>process (name):</strong></p>
-<ol style="list-style-type: decimal">
-<li>convert name to upper case :: <code>.np_basic_clean()</code>
-</li>
-<li>de-accent to ASCII (<code>N~</code> -&gt; <code>N</code>) :: <code>.np_basic_clean()</code>
-</li>
-<li>expand <code>&amp;</code> to <code>AND</code> :: <code>.np_basic_clean()</code>
-</li>
-<li>strip punctuation, keep <code>A-Z 0-9</code> only :: <code>.np_basic_clean()</code>
-</li>
-<li>squish repeated white space :: <code>.np_basic_clean()</code>
-</li>
-<li>expand abbreviations whole-word (<code>NATL</code> -&gt; <code>NATIONAL</code>, <code>ST</code> -&gt; <code>SAINT</code>, <code>CTR</code> -&gt; <code>CENTER</code>, …) :: <code>.np_replace_tokens(.np_abbrev)</code> -&gt; <strong><code>name_full</code></strong>
-</li>
-<li>remove a leading <code>THE</code> :: <code>.np_strip_lead_the()</code>
-</li>
-<li>strip trailing legal suffixes (<code>INC</code>, <code>CORP</code>, <code>LLC</code>, <code>FOUNDATION</code>, <code>TRUST</code>, …) :: <code>.np_strip_suffix()</code> -&gt; <strong><code>name_key</code></strong> (the match key)</li>
-<li>apply the same normalization to the DBA name -&gt; <strong><code>dba_key</code></strong> and to the division name -&gt; <strong><code>division_key</code></strong>
-</li>
-<li>detect and record the legal form (<code>INC</code> / <code>LLC</code> / <code>CORP</code> / …) — stripped but held for the veto layer :: <code>.np_extract_form()</code>
-</li>
-<li>record embedded numbers, ordinals, and directional markers for veto tests :: <code>.np_extract_numbers()</code>, <code>.np_extract_ordinals()</code>, <code>.np_extract_direction()</code> (<code>.np_extract_generation()</code> also runs, but <code>name_gen</code> is vestigial — see below)</li>
-</ol>
-<p><strong>process (address):</strong></p>
-<ol style="list-style-type: decimal">
-<li>clean the street, drop the unit portion, standardize USPS street types (<code>STREET</code> -&gt; <code>ST</code>) :: <code>.np_street_key()</code>
-</li>
-<li>extract the unit (<code>STE</code> / <code>APT</code> / <code>#</code>) :: <code>.np_extract_unit()</code>
-</li>
-<li>flag PO-box addresses :: <code>.np_is_pobox()</code>
-</li>
-<li>split the street into house number / street name / street type :: <code>.np_parse_street()</code>
-</li>
-<li>parse the ZIP: restore dropped leading zeros, derive <code>zip5</code> and its <code>zip3</code> prefix, and build <code>zip9</code> from the +4 add-on :: <code>.np_parse_zip()</code>
-</li>
-<li>map the state to a 2-letter code (pass through valid codes, translate full names) :: <code>.np_to_state_abb()</code>
-</li>
-</ol>
+<p>Two decisions worth knowing because they are worth real recall: apostrophes are <strong>deleted, not spaced</strong> (the BMF holds <code>ST LUKES</code>, so <code>ST LUKE S</code> would never clear an exact-name pass), and letters with no accent to drop are folded to their ASCII spelling (<code>ß</code> → <code>SS</code>, <code>Ø</code> → <code>O</code>, <code>Æ</code> → <code>AE</code>, <code>Þ</code> → <code>TH</code>) rather than being replaced by a space that splits the word.</p>
+<p><code>name_gen</code> / <code>name_gen_rank</code> (a <code>JR</code>/<code>SR</code> generation marker) are <strong>vestigial</strong> — a person-name concept from the SAM / USASpending lineage. Organizations do not have generations, nothing consumes the columns, and they are retained only so existing labeled extracts keep their layout.</p>
 </div>
-<div class="section level3">
-<h3 id="np_blockquery-reference--generate-candidate-pairs">
-<code>np_block(query, reference)</code> — generate candidate pairs<a class="anchor" aria-label="anchor" href="#np_blockquery-reference--generate-candidate-pairs"></a>
-</h3>
+<div class="section level2">
+<h2 id="tier-3--corpus-statistics--what-makes-a-token-or-an-address-informative">Tier 3 · corpus statistics — what makes a token or an address informative<a class="anchor" aria-label="anchor" href="#tier-3--corpus-statistics--what-makes-a-token-or-an-address-informative"></a>
+</h2>
+<p>Distinctiveness is a property of the reference corpus, not of a pair, so these tables are built once over the whole reference and reused by every pass, batch and worker. <code><a href="reference/np_cascade.html">np_cascade()</a></code> builds any that are missing; matchdb’s bundles ship them precomputed, counted over exactly the bundle’s rows.</p>
+<ul>
+<li>
+<code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_name_freq.html" class="external-link">np_name_freq()</a></code> :: how many reference records share each exact <code>name_key</code>. An exact match to a name held by one organization is trustworthy with no address corroboration; an exact match to <code>FIRST BAPTIST CHURCH</code> is not.</li>
+<li>
+<code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_token_idf.html" class="external-link">np_token_idf()</a></code> :: per-token <code>log(N / df)</code>. Rare tokens are what name-token blocking leverages; corpus-common tokens are not.</li>
+<li>
+<code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_addr_freq.html" class="external-link">np_addr_freq()</a></code> :: how many records share an address, and an address + suite, how many distinct suites an address carries, and <strong>what kind of place it is</strong> — <code>federated</code> (thousands of chapters filing from one national office, where the address is anti-evidence), <code>sponsor</code> (a fiscal sponsor or registered agent, where it is noise), <code>multi_tenant</code> (where a suite match is real evidence).</li>
+<li>
+<code><a href="reference/np_ref_index.html">np_ref_index()</a></code> :: the tokenized reference, built once rather than per pass.</li>
+</ul>
+<p>Pass a table counted over the <strong>full</strong> reference when matching against part of it (one state, say) via <code>addr_freq =</code> / <code>name_freq =</code> / <code>token_idf =</code>, so crowded addresses and common names are not under-counted. A per-slice table shifts scores with no error — the quiet kind of failure.</p>
+</div>
+<div class="section level2">
+<h2 id="tier-4--np_blockquery-reference--generate-candidate-pairs">Tier 4 · <code>np_block(query, reference)</code> — generate candidate pairs<a class="anchor" aria-label="anchor" href="#tier-4--np_blockquery-reference--generate-candidate-pairs"></a>
+</h2>
 <p>Produces only the (query, reference) pairs worth comparing, so <code><a href="reference/np_compare.html">np_compare()</a></code> never scores every same-state pair. This is where <strong>inverse document frequency (IDF) tokenization</strong> lives.</p>
 <p><strong>subroutines</strong></p>
 <ul>
 <li>
 <code>.np_bykey()</code> :: build a composite exact-block key (e.g. <code>state</code>, or <code>state</code> + <code>name_key</code>)</li>
 <li>
-<code><a href="reference/np_stopwords.html">np_stopwords()</a></code> :: the non-discriminating tokens dropped before token blocking</li>
+<code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_stopwords.html" class="external-link">np_stopwords()</a></code> :: the non-discriminating tokens dropped before token blocking</li>
 <li>
-<code><a href="reference/np_token_idf.html">np_token_idf()</a></code> :: per-token IDF, <code>log(N / df)</code>, over the reference corpus</li>
+<code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_token_idf.html" class="external-link">np_token_idf()</a></code> :: per-token IDF, <code>log(N / df)</code>, over the reference corpus</li>
 </ul>
 <p><strong>process:</strong></p>
 <ol style="list-style-type: decimal">
@@ -211,10 +348,9 @@
 </ol>
 <p><code><a href="reference/np_cascade.html">np_cascade()</a></code> runs blocking as <strong>progressive passes</strong> — exact name, exact name/DBA, exact DBA/name, exact DBA/DBA, shared-token same-state, shared-token cross-state — pruning each query out of later (looser, costlier) passes once it is resolved (<strong>residual pruning</strong>).</p>
 </div>
-<div class="section level3">
-<h3 id="np_comparequery-reference--per-field-similarity">
-<code>np_compare(query, reference)</code> — per-field similarity<a class="anchor" aria-label="anchor" href="#np_comparequery-reference--per-field-similarity"></a>
-</h3>
+<div class="section level2">
+<h2 id="tier-4--np_comparequery-reference--per-field-similarity">Tier 4 · <code>np_compare(query, reference)</code> — per-field similarity<a class="anchor" aria-label="anchor" href="#tier-4--np_comparequery-reference--per-field-similarity"></a>
+</h2>
 <p><strong>subroutines</strong></p>
 <ul>
 <li>
@@ -224,7 +360,9 @@
 <li>
 <code>.np_collapse_initials()</code> :: collapse single-letter runs (<code>F O R</code> -&gt; <code>FOR</code>)</li>
 <li>
-<code><a href="reference/np_name_freq.html">np_name_freq()</a></code> :: how many reference records share a normalized name</li>
+<code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_name_freq.html" class="external-link">np_name_freq()</a></code> :: how many reference records share a normalized name</li>
+<li>
+<code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_addr_freq.html" class="external-link">np_addr_freq()</a></code> :: how many reference records share an address, and an address + suite, and how many distinct suites an address carries — what makes a suite match informative (a multi-tenant building) or meaningless (a fiscal sponsor’s mail drop)</li>
 </ul>
 <p><strong>process:</strong></p>
 <ol style="list-style-type: decimal">
@@ -239,19 +377,16 @@
 <li>name-blind recovery: token-set + acronym overlap when JW and DBA both score 0 <strong>and</strong> the address is confirmed :: <code>.np_name_overlap()</code>
 </li>
 <li>record which name <strong>version</strong> matched on each side (<code>main</code> / <code>dba</code> / <code>division</code> / <code>token_overlap</code> / <code>none</code>)</li>
-<li>compute the name distinctiveness count (<code>normalized_match_count</code>) :: <code><a href="reference/np_name_freq.html">np_name_freq()</a></code>
+<li>compute the name distinctiveness count (<code>normalized_match_count</code>) :: <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_name_freq.html" class="external-link">np_name_freq()</a></code>
 </li>
 </ol>
 </div>
-<div class="section level3">
-<h3 id="np_scorepairs-method--hier--combine-into-one-score">
-<code>np_score(pairs, method = "hier")</code> — combine into one score<a class="anchor" aria-label="anchor" href="#np_scorepairs-method--hier--combine-into-one-score"></a>
-</h3>
+<div class="section level2">
+<h2 id="tier-5--np_scorepairs-method--hier--combine-into-one-score">Tier 5 · <code>np_score(pairs, method = "hier")</code> — combine into one score<a class="anchor" aria-label="anchor" href="#tier-5--np_scorepairs-method--hier--combine-into-one-score"></a>
+</h2>
 <p><strong>subroutines</strong></p>
-<ul>
-<li>
-<code>.np_hier_score()</code> :: name similarity + a hierarchical geo sub-score</li>
-</ul>
+<ul><li>
+<code>.np_hier_score()</code> :: name similarity + a hierarchical geo sub-score</li></ul>
 <p><strong>process:</strong></p>
 <ol style="list-style-type: decimal">
 <li>name sub-score = the effective name similarity from <code><a href="reference/np_compare.html">np_compare()</a></code>
@@ -264,10 +399,9 @@
 </li>
 </ol>
 </div>
-<div class="section level3">
-<h3 id="np_vetopairs--do-not-match-rules">
-<code>np_veto(pairs)</code> — do-not-match rules<a class="anchor" aria-label="anchor" href="#np_vetopairs--do-not-match-rules"></a>
-</h3>
+<div class="section level2">
+<h2 id="tier-5--np_vetopairs--do-not-match-rules">Tier 5 · <code>np_veto(pairs)</code> — do-not-match rules<a class="anchor" aria-label="anchor" href="#tier-5--np_vetopairs--do-not-match-rules"></a>
+</h2>
 <p><strong>subroutines</strong></p>
 <ul>
 <li>
@@ -294,10 +428,9 @@
 <p>Why the layer exists: fuzzy similarity is worst exactly where org names differ by one short decisive token. <code>First Presbyterian Church</code> and <code>Second Presbyterian Church</code> are ~95% similar as strings and are two different congregations — likewise <code>Southwest</code> vs <code>Southeast Community Center</code>, <code>Local 32</code> vs <code>Local 45</code>, and an org vs its fundraising foundation. Scorer tuning cannot separate those; the rules encode the token as a constraint instead.</p>
 <p>Steps 4 and 6 fold the old Tier-1 legal-form / entity screen into the cascade. <code>legal_form_conflict</code> (INC vs CORP) ships <strong>inactive</strong> — enable with <code>rbind(np_default_rules(), np_rule_legal_form())</code>. The internal generation predicates (<code>.np_rule_generation*</code>, Jr vs Sr) are <strong>vestigial and must not be wired in or cited as examples</strong>: generational suffixes distinguish two <em>people</em>, not two organisations, and are an artifact of the SAM / USASpending person-matching lineage. Rules 1–6 are the organisation-level equivalents.</p>
 </div>
-<div class="section level3">
-<h3 id="np_selectpairs--best-candidate-per-query">
-<code>np_select(pairs)</code> — best candidate per query<a class="anchor" aria-label="anchor" href="#np_selectpairs--best-candidate-per-query"></a>
-</h3>
+<div class="section level2">
+<h2 id="tier-5--np_selectpairs--best-candidate-per-query">Tier 5 · <code>np_select(pairs)</code> — best candidate per query<a class="anchor" aria-label="anchor" href="#tier-5--np_selectpairs--best-candidate-per-query"></a>
+</h2>
 <p><strong>subroutines</strong></p>
 <ul>
 <li>
@@ -318,10 +451,9 @@
 <li>flag near-ties (<code>n_close</code>, <code>tie</code>) and whether the views agree (<code>views_agree</code>)</li>
 </ol>
 </div>
-<div class="section level3">
-<h3 id="np_tierselection--yes--maybe--no">
-<code>np_tier(selection)</code> — YES / MAYBE / NO<a class="anchor" aria-label="anchor" href="#np_tierselection--yes--maybe--no"></a>
-</h3>
+<div class="section level2">
+<h2 id="tier-5--np_tierselection--yes--maybe--no">Tier 5 · <code>np_tier(selection)</code> — YES / MAYBE / NO<a class="anchor" aria-label="anchor" href="#tier-5--np_tierselection--yes--maybe--no"></a>
+</h2>
 <p><strong>process:</strong></p>
 <ol style="list-style-type: decimal">
 <li>
@@ -331,10 +463,9 @@
 <li>demote YES -&gt; MAYBE on a soft veto on the selected pair (<code>affiliate_suffix</code>, <code>government_entity</code>) — never demotes MAYBE to NO</li>
 </ol>
 </div>
-<div class="section level3">
-<h3 id="np_routetiered--hand-off-products">
-<code>np_route(tiered)</code> — hand-off products<a class="anchor" aria-label="anchor" href="#np_routetiered--hand-off-products"></a>
-</h3>
+<div class="section level2">
+<h2 id="tier-6--np_routetiered--hand-off-products">Tier 6 · <code>np_route(tiered)</code> — hand-off products<a class="anchor" aria-label="anchor" href="#tier-6--np_routetiered--hand-off-products"></a>
+</h2>
 <p><strong>subroutines</strong></p>
 <ul>
 <li>
@@ -342,22 +473,22 @@
 <li>
 <code>.np_review_layout()</code> / <code>.np_rename_review()</code> :: assemble the human review / evaluation frame</li>
 <li>
-<code><a href="reference/np_bmf_review_fields.html">np_bmf_review_fields()</a></code> :: import BMF context (NTEE, subsection, foundation flag, ruling year, assets/revenue, 990 form type, affiliation, group exemption)</li>
+<code><a href="reference/np_bmf_review_fields.html">np_bmf_review_fields()</a></code> :: import reference context (for the BMF: NTEE, subsection, foundation flag, ruling year, assets/revenue, 990 form type, affiliation, group exemption)</li>
 <li>
-<code><a href="reference/np_token_idf.html">np_token_idf()</a></code> :: annotate the tokenized name fields with each token’s rarity</li>
+<code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_token_idf.html" class="external-link">np_token_idf()</a></code> :: annotate the tokenized name fields with each token’s rarity</li>
 </ul>
 <p><strong>process:</strong></p>
 <ol style="list-style-type: decimal">
 <li>
 <strong><code>accepted</code></strong> — the auto-matched crosswalk (YES tier)</li>
 <li>
-<strong><code>review</code></strong> — the candidate-level evaluation spreadsheet: match strength + outcome (<code>match_decision</code>, <code>is_top_candidate</code>, <code>match_layer</code>, <code>decision_reason</code>, veto flags), the name-match summary and cleaning progression, the aligned address fields, and the imported BMF context — the same schema a human sheet and an LLM prompt (<code><a href="reference/np_as_prompt.html">np_as_prompt()</a></code>) both consume</li>
+<strong><code>review</code></strong> — the candidate-level evaluation spreadsheet: match strength + outcome (<code>match_decision</code>, <code>is_top_candidate</code>, <code>match_layer</code>, <code>decision_reason</code>, veto flags), the name-match summary and cleaning progression, the aligned address fields, and the imported reference context — the same schema a human sheet and an LLM prompt (<code><a href="reference/np_as_prompt.html">np_as_prompt()</a></code>) both consume</li>
 <li>
 <strong><code>unmatched</code></strong> — the NO tier, each with its best near-miss for reference</li>
 </ol>
 </div>
 </div>
-</div>
+
   </main><aside class="col-md-3"><div class="links">
 <h2 data-toc-skip>Links</h2>
 <ul class="list-unstyled">
@@ -409,7 +540,23 @@
 
 
 
-
-
-  </body>
+  <script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
+  document.querySelectorAll("pre.mermaid > code").forEach(function (code) {
+    code.parentNode.textContent = code.textContent;
+  });
+  mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: "loose",
+    theme: "base",
+    themeVariables: {
+      lineColor: "#888888",
+      textColor: "#111111",
+      edgeLabelBackground: "#ffffff",
+      fontFamily: "inherit"
+    }
+  });
+  await mermaid.run({ querySelector: "pre.mermaid" });
+</script>
+</body>
 </html>

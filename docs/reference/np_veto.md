@@ -1,4 +1,8 @@
+<div id="main" class="col-md-9" role="main">
+
 # Apply veto rules to candidate pairs
+
+<div class="ref-description section level2">
 
 Flags pairs that violate a do-not-match rule. Runs *after* scoring, so a
 rule can override a strong fuzzy match: the rules encode facts about
@@ -7,37 +11,54 @@ for-profit legal form), rather than adjusting the score. Every rule in
 `config$rules` is evaluated on every pair — there is no short-circuit —
 and the hits are accumulated by severity into four new columns:
 
+</div>
+
+<div class="section level2">
+
 ## Usage
+
+<div class="sourceCode">
 
 ``` r
 np_veto(pairs, config = np_config())
 ```
 
+</div>
+
+</div>
+
+<div class="section level2">
+
 ## Arguments
 
-- pairs:
+-   pairs:
 
-  An `np_pairs` frame (typically already scored).
+    An `np_pairs` frame (typically already scored).
 
-- config:
+-   config:
 
-  An
-  [`np_config()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_config.md)
-  whose `rules` are applied. Defaults to
-  [`np_default_rules()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_default_rules.md);
-  supply your own with
-  `np_config(rules = rbind(np_default_rules(), np_rule(...)))`.
+    An `np_config()` whose `rules` are applied. Defaults to
+    `np_default_rules()`; supply your own with
+    `np_config(rules = rbind(np_default_rules(), np_rule(...)))`.
+
+</div>
+
+<div class="section level2">
 
 ## Value
 
 `pairs` with the four veto columns.
 
+</div>
+
+<div class="section level2">
+
 ## Details
 
-- `veto` (logical) / `veto_reason` (character) — any **hard** rule
-  fired.
+-   `veto` (logical) / `veto_reason` (character) — any **hard** rule
+    fired.
 
-- `veto_soft` / `veto_soft_reason` — any **soft** rule fired.
+-   `veto_soft` / `veto_soft_reason` — any **soft** rule fired.
 
 The two are independent: a pair can carry both. When several rules of
 the same severity fire, their ids are joined with `;` in the reason
@@ -47,15 +68,23 @@ degrades rather than aborting the run. Rules with a missing `severity`
 are treated as hard.
 
 What each severity costs the pair happens downstream, not here —
-[`np_select()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_select.md)
-drops hard-vetoed pairs from candidate selection, and
-[`np_tier()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_tier.md)
-caps a soft-vetoed selected pair at MAYBE. See
-[`np_default_rules()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_default_rules.md)
-for the shipped rules and the reasoning behind each.
+`np_select()` drops hard-vetoed pairs from candidate selection, and
+`np_tier()` caps a soft-vetoed selected pair at MAYBE. See
+`np_default_rules()` for the shipped rules and the reasoning behind
+each.
+
+</div>
+
+<div class="section level2">
 
 ## See also
 
-[`np_default_rules()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_default_rules.md),
-[`np_rule()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_rule.md),
-[`np_veto_audit()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_veto_audit.md).
+<div class="dont-index">
+
+`np_default_rules()`, `np_rule()`, `np_veto_audit()`.
+
+</div>
+
+</div>
+
+</div>

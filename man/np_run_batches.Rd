@@ -23,6 +23,7 @@ np_run_batches(
   review_tiers = "MAYBE",
   save_interim = NULL,
   threads = NULL,
+  addr_freq = NULL,
   verbose = TRUE
 )
 }
@@ -31,8 +32,11 @@ np_run_batches(
 uppercase SAM headers are normalized to the names \code{\link[=np_map_sam]{np_map_sam()}} expects; an
 \code{np_query} is used as-is.}
 
-\item{reference}{The reference BMF: a raw data frame, an \code{\link[=np_reference]{np_reference()}}, or a
-pre-normalized reference (the latter two skip the corresponding step).}
+\item{reference}{The reference (the BMF, in the shipped deployment): a raw
+data frame, an \code{\link[=np_reference]{np_reference()}}, a
+pre-normalized reference (the latter two skip the corresponding step), or a
+matchdb reference from \code{matchdb::md_compile()} or \code{matchdb::md_reference()},
+whose precomputed tables are used as they are (see \code{\link[=np_cascade]{np_cascade()}}).}
 
 \item{compute_size}{Queries per \strong{compute chunk} — one \code{\link[=np_cascade]{np_cascade()}} call.
 This is the memory-bound knob (candidate pairs scale with chunk size); make
@@ -59,7 +63,9 @@ to run just the first chunk as a demo). Default: all chunks.}
 \item{seed}{Passed to \code{\link[=np_batch]{np_batch()}} to shuffle before chunking.}
 
 \item{cache}{Optional \code{.rds} path to cache/reuse the normalized reference and
-its \code{name_freq}/\code{token_idf} tables and blocking \code{ref_index}.}
+its \code{name_freq}/\code{token_idf} tables, blocking \code{ref_index} and \code{addr_freq}.
+When the file exists it is used in place of \code{reference}. A cache written
+before a table existed gains that table on its next use.}
 
 \item{sam_context}{Optional raw SAM frame passed to \code{\link[=np_route]{np_route()}} (\verb{sam =}) to
 add \code{SAM_}-prefixed context columns to the review queue.}
@@ -82,6 +88,10 @@ the candidate sets cannot be rebuilt except by re-running the match.}
 \code{NULL} uses all detected cores for the run and restores the prior setting on
 exit; pass an integer to pin it, or \code{0} to leave the global setting untouched.}
 
+\item{addr_freq}{Optional precomputed \code{\link[=np_addr_freq]{np_addr_freq()}} table, passed to every
+\code{\link[=np_cascade]{np_cascade()}} call. Takes precedence over the one in a matchdb reference
+or the cache; otherwise counted once over the whole reference.}
+
 \item{verbose}{Print progress. Default \code{TRUE}.}
 }
 \value{
@@ -101,6 +111,7 @@ run summary across batches.
 \details{
 The reference is normalized once via \code{\link[=np_reference]{np_reference()}} + \code{\link[=np_normalize]{np_normalize()}} (or
 reused if already normalized). When \code{cache} is a path, the normalized
-reference and its \code{name_freq}/\code{token_idf} tables are saved there and reloaded
-on the next run, so a resumed or re-run job skips normalization entirely.
+reference and its \code{name_freq}/\code{token_idf}, \code{ref_index} and \code{addr_freq} tables
+are saved there and reloaded on the next run, so a resumed or re-run job skips
+normalization entirely.
 }

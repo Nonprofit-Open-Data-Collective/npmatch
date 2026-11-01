@@ -23,7 +23,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">npmatch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -91,6 +91,7 @@
 <strong>Imported context</strong> — descriptive fields carried verbatim from each source, flagged by a <code>SAM_</code> / <code>BMF_</code> prefix.</li>
 </ol>
 <p>Two conventions run throughout: a <strong><code>_uss</code> / <code>_bmf</code> suffix</strong> marks which side a field describes (source vs. reference), and a <strong><code>SAM_</code> / <code>BMF_</code> prefix</strong> marks a field <em>imported</em> from that dataset rather than <em>derived</em> by npmatch.</p>
+<p>The <code>_uss</code> / <code>_bmf</code> and <code>SAM_</code> / <code>BMF_</code> names come from the deployment npmatch ships wired for — federal registrants against the IRS Business Master File. Read them as <em>source</em> and <em>reference</em>: the derived fields and the layout are the same whatever the two datasets are, and <code><a href="../reference/np_route.html">np_route()</a></code> takes the context frames to import as arguments.</p>
 </section><section class="level2"><h2 id="field-dictionary">Field dictionary<a class="anchor" aria-label="anchor" href="#field-dictionary"></a>
 </h2>
 <section class="level3"><h3 id="match-strength-outcome">1 · Match strength &amp; outcome<a class="anchor" aria-label="anchor" href="#match-strength-outcome"></a>
@@ -403,26 +404,30 @@
 <td style="text-align: right;">1.00</td>
 </tr>
 <tr class="even">
+<td style="text-align: left;">unit</td>
+<td style="text-align: right;">0.97</td>
+</tr>
+<tr class="odd">
 <td style="text-align: left;">street</td>
 <td style="text-align: right;">0.95</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;">zip5</td>
 <td style="text-align: right;">0.90</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">pobox</td>
 <td style="text-align: right;">0.90</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;">zip3</td>
 <td style="text-align: right;">0.55</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">city</td>
 <td style="text-align: right;">0.50</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;">state</td>
 <td style="text-align: right;">0.20</td>
 </tr>
@@ -540,7 +545,23 @@
 
 
 
-
-
-  </body>
+  <script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
+  document.querySelectorAll("pre.mermaid > code").forEach(function (code) {
+    code.parentNode.textContent = code.textContent;
+  });
+  mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: "loose",
+    theme: "base",
+    themeVariables: {
+      lineColor: "#888888",
+      textColor: "#111111",
+      edgeLabelBackground: "#ffffff",
+      fontFamily: "inherit"
+    }
+  });
+  await mermaid.run({ querySelector: "pre.mermaid" });
+</script>
+</body>
 </html>

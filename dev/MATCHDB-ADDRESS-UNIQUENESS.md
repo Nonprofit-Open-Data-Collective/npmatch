@@ -258,8 +258,14 @@ What the federated case actually needs is the chapter identifier, which
 `name_nums` already extracts and `np_veto()` already consumes, plus the
 reviewer-facing label now shipped. That is a name-side question, not a geo one.
 
-**Remaining.** Teach `np_addr_freq()` to read a matchdb table and verify the
-signature; add the `cmra` and care-of labels of section 6, which need the
-suite-composition statistics matchdb would precompute; and, if the MAYBE queue
+**Done since.** matchdb now publishes `addr_freq.parquet` with every bundle
+and returns it from `md_reference()` (matchdb `dev/PLACES.md`, step 7).
+`np_cascade()` and `np_run_batches()` take it through a new `addr_freq`
+argument, or straight from the matchdb reference passed as `reference`, which
+is refused when its normalizer signature differs from the installed one.
+
+**Remaining.** Add the `cmra` and care-of labels of section 6. matchdb now
+computes the flags they need (`flag_cmra`, `flag_care_of` in its `place`
+table), but npmatch does not read them yet. And, if the MAYBE queue
 at federated addresses proves expensive, cap or collapse those candidate sets
 in `np_route()` rather than in the score.

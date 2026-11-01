@@ -155,11 +155,13 @@
 #'   [np_match()].
 #' @param k Candidates to surface per review case. Default 3.
 #' @param source Suffix for the query-side (source) columns, replacing `_x`.
-#'   Default `"uss"` (USASpending). The source varies; the reference is the BMF.
+#'   Default `"uss"` (USASpending), the shipped deployment's source.
 #' @param reference Suffix for the candidate-side (reference) columns, replacing
-#'   `_y`. Default `"bmf"`.
+#'   `_y`. Default `"bmf"`. Set both for another pair of datasets — the layout
+#'   and the derived fields do not change.
 #' @param id_label Column name for the query key (`.id`), which is ambiguous.
-#'   Default `"uei"` (Unique Entity Identifier). The reference key is `ein`.
+#'   Default `"uei"` (Unique Entity Identifier), the key of the shipped
+#'   deployment's source; its reference key is `ein`.
 #' @param bmf Optional raw processed BMF. When supplied, the default context
 #'   fields from [np_bmf_review_fields()] (NTEE, 501(c) subsection, foundation
 #'   flag, ruling year, assets, revenue, 990 form type) are joined onto each

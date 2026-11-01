@@ -48,6 +48,12 @@ Two conventions run throughout: a **`_uss` / `_bmf` suffix** marks which side a
 field describes (source vs. reference), and a **`SAM_` / `BMF_` prefix** marks a
 field *imported* from that dataset rather than *derived* by npmatch.
 
+The `_uss` / `_bmf` and `SAM_` / `BMF_` names come from the deployment npmatch
+ships wired for — federal registrants against the IRS Business Master File. Read
+them as *source* and *reference*: the derived fields and the layout are the
+same whatever the two datasets are, and `np_route()` takes the context frames to
+import as arguments.
+
 ## Field dictionary
 
 ### 1 · Match strength & outcome

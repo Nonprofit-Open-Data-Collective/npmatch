@@ -30,6 +30,15 @@ companion to the [Reviewer's Guide](reviewer-guide.html): that article explains
 what the matcher decides, this one explains where everything lives and which
 function to call next.*
 
+npmatch is a workflow rather than a single matching algorithm: it manages alias
+enumeration (matchdb), input standardization (npnormalize), corpus pre-prep,
+candidate generation (blocking plus reclin2), tiered adjudication, and packaging
+the residual for review. Those steps are generic. The run below is the
+deployment npmatch ships wired for — federal registrants keyed by `uei` against
+the IRS Business Master File keyed by `ein` — and the file names say `sam` and
+`bmf` because of it. Swap the schema maps and the same six stages run against
+any source list and any reference.
+
 ## 1. The workflow at a glance
 
 A run is **one directory**, scaffolded up front and filled in as you go. Six
@@ -164,8 +173,32 @@ stage can be skipped without the rollup noticing. See [§4](#sec-schema).
 
 ## 2. Building the data assets
 
-Before any of that runs, the reference data has to exist. npmatch keeps data out
-of the package, in **two separate places** that are easy to confuse:
+Before any of that runs, the reference data has to exist. There are two ways to
+get it, and the first one is much shorter.
+
+**Download a published reference from matchdb.** matchdb holds every name and
+address the IRS and 990 filers have recorded for each EIN, and compiles them
+into a reference frame with the corpus statistics already computed. It is the
+default path, and it covers alias enumeration — the names an organization is
+*known by*, which are routinely not the legal name a BMF extract carries:
+
+```r
+b <- matchdb::md_reference("active-observed", fetch = "missing")   # ~260 MB, once
+np_stage1_run(reference = b, compute_size = 2500, review_size = 250, k = 3)
+```
+
+Passing the matchdb object straight through hands npmatch the frame plus
+whichever of `name_freq`, `token_idf`, `ref_index` and `addr_freq` it carries,
+so none of them is recomputed. A bundle stamped with a different normalizer
+signature than the installed npnormalize is refused rather than matched
+against — see [Reference drift is a stop condition](#reference-drift-is-a-stop-condition).
+
+**Or build one from raw files**, which is what the rest of this section
+describes: a BMF extract from the NCCS catalog, normalized once and cached. Do
+this when you need a vintage, a slice or a schema matchdb does not publish.
+
+Either way, npmatch keeps data out of the package, in **two separate places**
+that are easy to confuse:
 
 | | shared asset store | run project |
 |---|---|---|
@@ -215,6 +248,16 @@ The expensive asset in `normalized/` is the reference put through
 `np_normalize()`. This is where most of the matching leverage comes from: the
 scorer only sees fields this step produced, so anything not fixed here has to be
 recovered later by a human or an LLM.
+
+`np_normalize()` is
+[npnormalize](https://nonprofit-open-data-collective.github.io/npnormalize/)'s,
+re-exported by npmatch unchanged. It lives in its own package because both sides
+of a match must be normalized by the same code: npmatch normalizes each query at
+run time, matchdb stores the same keys for every EIN it holds, and pfmatch
+normalizes grant recipients. One copy of the rules, one signature, and a
+mismatch is an error instead of a silent loss of matches. npnormalize's
+reference is authoritative on the rules; what follows is what they mean for a
+run.
 
 **Cleaned onto a common form** — the goal is parity with the BMF's own
 `org_name_join` field, so both sides are damaged identically:
@@ -275,6 +318,22 @@ the reference, not of a pair:
   address corroboration; an exact match to `FIRST BAPTIST CHURCH` is not.
 - `np_token_idf()` — per-token `log(N / df)`. Rare tokens are what the name-token
   blocking leverages; corpus-common tokens are not.
+- `np_addr_freq()` — how many records share an address and an address + suite,
+  how many distinct suites an address carries, and what kind of place it is:
+  `federated` (thousands of chapters filing from one national office, where the
+  address matches every chapter equally and is therefore anti-evidence),
+  `sponsor` (a fiscal sponsor or registered agent, where it is noise),
+  `multi_tenant` (where a matching suite is real evidence).
+- `np_ref_index()` — the tokenized reference, built once rather than per
+  blocking pass.
+
+**Count them over the whole reference, not over a slice.** A table built from a
+state partition or a shard under-reports every shared address and every common
+name, and the scores shift with no error — the quiet kind of failure. Pass the
+full-reference tables through `np_cascade(..., name_freq =, token_idf =,
+ref_index =, addr_freq =)` when matching against part of a reference.
+`np_run_batches()` counts them once per run and keeps them in its `cache =`
+file, and a matchdb reference arrives with them already computed.
 
 One caveat when reading the data dictionary: `name_gen` / `name_gen_rank` (a
 `JR`/`SR` person-name generation marker) are **vestigial**, inherited from
@@ -323,11 +382,18 @@ the file every later stage reads.
 ### Reference drift is a stop condition
 
 A normalized bundle is only valid for the normalization code that produced it.
-`np_normalize_signature()` hashes that code path, and the run stores the hash it
-saw in `00_bmf/SIGNATURE.txt`. If the signature stops matching the cached bundle,
-the cache has drifted from the current rules — everything in
-[§2.2](#sec-normalize) may have changed underneath it. Rebuild before matching,
-or the run is not reproducible. Stop; do not work around it.
+`np_normalize_signature()` — npnormalize's, re-exported — hashes that code path,
+and the run stores the hash it saw in `00_bmf/SIGNATURE.txt`. If the signature
+stops matching the cached bundle, the cache has drifted from the current rules —
+everything in [§2.2](#sec-normalize) may have changed underneath it. Rebuild
+before matching, or the run is not reproducible. Stop; do not work around it.
+
+A **matchdb reference enforces this for you**: it carries the signature it was
+compiled under, and `np_cascade()` refuses it outright when that differs from
+the installed npnormalize's rather than matching against keys it cannot
+reproduce. Recompile the bundle, or install the npnormalize it was built with.
+Record the signature your run reported; never copy one out of documentation,
+because it moves whenever the rules do.
 
 ## 3. Inside a run project
 
@@ -409,6 +475,11 @@ by `uei`**:
 ```r
 np_stage1_run(reference = bmf, compute_size = 2500, review_size = 250, k = 3)
 ```
+
+`reference` takes a raw frame, a normalized one, or a matchdb reference —
+`matchdb::md_reference("active-observed")` — in which case its precomputed
+`name_freq`, `token_idf`, `ref_index` and `addr_freq` are used as they are and
+the normalization step is skipped entirely.
 
 ### What happens to a candidate pair
 
