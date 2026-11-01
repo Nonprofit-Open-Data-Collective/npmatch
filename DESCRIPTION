@@ -27,7 +27,7 @@ Depends:
 Imports:
     data.table,
     datasets,
-    npnormalize,
+    npnormalize (>= 0.1.3),
     parallel,
     stats,
     stringr,

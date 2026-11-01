@@ -99,7 +99,8 @@
     paste0("street_unit_", s), paste0("street_unit_", r),
     "addr_note", "addr_class", "addr_shared", "addr_units", "addr_unit_shared",
     "addr_unit_coverage", "addr_top_name_share",
-    "geo_unit", "geo_stnum", "geo_zip9", "geo_zip5", "geo_zip3", "geo_state",
+    "geo_unit", "geo_unit_same_kind",
+    "geo_stnum", "geo_zip9", "geo_zip5", "geo_zip3", "geo_state",
     "geo_pobox")
   # derived fields first (front-ordered, then any remaining derived features),
   # then every imported field (BMF_ / SAM_) at the very end.
@@ -305,16 +306,29 @@ np_route <- function(tiered, config = attr(tiered, "config"),
 # address line does not say so -- the suite may be written on one side only, or
 # written differently ("STE 320" vs "# 320"), which is not a disagreement.
 # Silent on both sides prints nothing, which is the common case.
+#
+# Agreement is read from two columns, not one. geo_unit compares the identifier
+# with the designator stripped, which is what lets "STE 320" and "# 320" agree;
+# on its own it would also call "FL 2" the same suite as "STE 2", and a verdict
+# is believed in a way two printed strings are not -- by a reviewer skimming a
+# queue, and by the model in np_as_prompt()'s stage. So geo_unit_same_kind has
+# to agree too before this says the suites are the same (npmatch#23).
 .np_prompt_suite <- function(r, src, ref) {
   qs <- r[[paste0("street_unit_", src)]]; cs <- r[[paste0("street_unit_", ref)]]
   if (is.null(qs) && is.null(cs)) return("")
   qs <- if (is.null(qs) || is.na(qs)) NULL else as.character(qs)
   cs <- if (is.null(cs) || is.na(cs)) NULL else as.character(cs)
   if (is.null(qs) && is.null(cs)) return("")
-  gu <- r[["geo_unit"]]
+  gu <- r[["geo_unit"]]; gk <- r[["geo_unit_same_kind"]]
+  # A review frame built before that column existed still gets the right words:
+  # both canonical values are in hand here, so the kinds can be read off them.
+  if (is.null(gk) && !is.null(qs) && !is.null(cs))
+    gk <- .np_unit_same_kind(qs, cs)
   verdict <- if (is.null(qs) || is.null(cs))
     "named on one side only -- no evidence either way"
-  else if (!is.null(gu) && !is.na(gu) && gu == 1) "same suite"
+  else if (isTRUE(gu == 1) && isTRUE(gk == 0))
+    "the same number, but not the same kind of unit -- not evidence of one office"
+  else if (isTRUE(gu == 1)) "same suite"
   else "different suites -- weak evidence, a BMF suite is often stale"
   sprintf("\n      Suite: %s (%s) / %s (%s) -- %s",
           if (is.null(qs)) "none given" else qs, src,

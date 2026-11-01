@@ -13,13 +13,19 @@
   * `np_normalize_signature()`.
 * **Nothing changes for callers.** npmatch re-exports those nine functions, so
   `npmatch::np_normalize()`, scripts, pfmatch and networked990 work as before.
-  The move itself did not touch a rule: npnormalize 0.1.0 reproduces the
-  signature npmatch 0.1.1 reported, so every stored artifact built under 0.1.1
-  stayed valid across it — matchdb's database, bundles and tranches included.
-  npnormalize has moved the signature since, in 0.1.2 and 0.1.3 (both
-  unit-parsing fixes), and matchdb's published data was rebuilt under 0.1.3 on
-  2026-11-01. Read the value your install reports from
-  `np_normalize_signature()`; it is not a constant to quote.
+* **The move itself kept every stored artifact valid**, because
+  `np_normalize_signature()` still reported `v1-3e7b9f9d59bbb19e` on both sides
+  of it — npmatch 0.1.1 and npnormalize 0.1.0 and 0.1.1.
+* **npnormalize has since moved the signature on purpose**, to
+  `v1-592912060053c4c3`: 0.1.2 made `BUILDING` a unit designator
+  ([npnormalize#7](https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/7)),
+  and 0.1.3 made a line naming several units keep the most specific one and the
+  house number a whole token. Stored `street_unit`, `street_unit_id`,
+  `street_num` and `street_name` values from before that must be rebuilt —
+  matchdb's database, bundles and tranches included
+  ([matchdb#29](https://github.com/Nonprofit-Open-Data-Collective/matchdb/issues/29)).
+  npmatch now requires `npnormalize (>= 0.1.3)`, so an install cannot quietly
+  compute keys with an older normalizer than the one it is pinned to.
 * **Why.** Both sides of a match depend on the normalizer: matchdb stores its
   keys, and npmatch computes them for each query. With the normalizer in its own
   package, matchdb no longer needs npmatch, and npmatch can depend on matchdb in
@@ -53,6 +59,44 @@
   table in its `cache =` file. A cache written before this version gains it
   on first use, as an older cache already gained `ref_index`.
 
+## The suite a reviewer is shown
+
+* A bare `#` now agrees with `PMB` in `geo_unit_same_kind`, as well as with
+  the room-level designators. Since npnormalize 0.1.3 a line naming several
+  units keeps the most specific, so a mail store's `STE 204 # 22915` keeps the
+  customer's box as `# 22915`; against a record written `PMB 22915`, the
+  reviewer was told "not the same kind of unit" about one mailbox. `#` is
+  either a door or a box, so it agrees with both, while `PMB 136` against
+  `STE 136` and `FL 2` against `STE 2` still do not. No score moves.
+
+* A reviewer is no longer told that a floor is the same suite as a suite
+  ([#23](https://github.com/Nonprofit-Open-Data-Collective/npmatch/issues/23),
+  reported from pfmatch via
+  [npnormalize#7](https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/7)).
+  `geo_unit` compares npnormalize's `street_unit_id`, which drops the
+  designator — that is what makes `STE 320` and `# 320` agree, one office
+  written two ways, and it is right. The same drop made `FL 2` agree with
+  `STE 2`, and `PMB 136` with `STE 136`:
+
+  | query | reference | `geo_unit` | prompt, before | prompt, now |
+  |---|---|---|---|---|
+  | `FL 2` | `STE 2` | `1` | same suite | not the same kind of unit |
+  | `PMB 136` | `STE 136` | `1` | same suite | not the same kind of unit |
+  | `STE 320` | `# 320` | `1` | same suite | same suite |
+
+  `np_compare()` now also returns `geo_unit_same_kind` — `1` both sides name
+  the same kind of place, `0` they do not, `NA` either side names no unit —
+  and `np_as_prompt()` requires it before it says the suites are the same. The
+  room-level designators (`STE` `APT` `UNIT` `RM` `SPC` `TRLR` `LOT` `#`) are
+  one kind; a floor, a mailbox, a department, a building and a basement are
+  each their own. A review frame saved before the column existed reads
+  correctly too, because the canonical values are in the frame.
+* **No score moves.** `np_score()` reads `geo_unit` and nothing else, so the
+  0.97 suite credit and its multi-tenant gate are exactly as they were; a test
+  asserts the scores are identical with the new column dropped. The grouping
+  deliberately stays in npmatch: which designators count as the same door is a
+  matching policy, while npnormalize's tables feed the normalizer signature
+  that stamps every published artifact.
 ## Documentation reframed around the six tiers
 
 * **npmatch is documented as a tiered workflow, not as a SAM-to-BMF matcher.**
@@ -77,10 +121,16 @@
   pointer to npnormalize's own reference, which is authoritative. The tier-3
   corpus statistics get a section of their own, including the warning against
   counting them over a slice.
-* **No normalizer signature literal is quoted anywhere.** The development-version
-  entry above said the signature was unchanged and named the value; npnormalize
-  0.1.2 and 0.1.3 have moved it since. Read it from
-  `np_normalize_signature()`.
+* **The prose quotes no normalizer signature.** The entry above names the values
+  deliberately, as the record of what moved, and `tests/testthat/test-signature.R`
+  pins the current one so an unintended move cannot pass unnoticed. Prose that
+  merely asserts a signature is unchanged goes stale instead, which is what had
+  happened here: the README and the Workflow article now say to read the value
+  from `np_normalize_signature()` and to record what a run reported.
+* The nine normalizer topics collapsed into one `reexports` page when the
+  normalizer moved, so `_pkgdown.yml` redirects their old URLs to it, and
+  `np_cluster_rollup()` / `np_pair_links()` are in the reference index for the
+  first time.
 
 # npmatch 0.1.1
 

@@ -10,6 +10,51 @@
   pm
 }
 
+# Which designators name the same KIND of place. The identifier geo_unit
+# compares (npnormalize's street_unit_id) deliberately drops the designator,
+# which is what makes "STE 320" and "# 320" agree -- one office written two
+# ways. The same drop makes "FL 2" agree with "STE 2", a floor against a suite,
+# which is harmless in the score and wrong in the words a reviewer is given
+# (npmatch#23).
+#
+# The room-level designators fold together, because a suite, an apartment, a
+# unit, a room, a space, a trailer, a lot and a bare "#" are all one door
+# written differently. Every other designator stands alone: a floor, a mailbox,
+# a department, a building and a basement are different kinds of place, and the
+# same number on two of them is a coincidence rather than an agreement.
+#
+# The grouping is the one npnormalize's internal unit ranking uses (building <
+# floor or area < door < mailbox) -- the same reading of the USPS designators,
+# arrived at for a different purpose. It is kept HERE on purpose: which
+# designators count as the same door is a matching policy, while npnormalize's
+# tables feed the normalizer signature that stamps every published artifact.
+.np_unit_door <- c("STE", "APT", "UNIT", "RM", "SPC", "TRLR", "LOT", "#")
+
+# The kind of place a canonical street_unit names: the room-level designators as
+# one class, every other designator as itself. npnormalize writes the canonical
+# designator as the first token ("STE 320", "# 320", "FL 2"), so that is what is
+# read; a unit with no designator at all is NA, like an absent one.
+.np_unit_kind <- function(u) {
+  u <- as.character(u)
+  u[is.na(u) | !nzchar(u)] <- NA_character_
+  d <- sub(" .*$", "", u)
+  ifelse(is.na(d), NA_character_, ifelse(d %in% .np_unit_door, "DOOR", d))
+}
+
+# Do two canonical units name the same kind of place? 1 / 0, NA where either
+# side names none. One exception to the kinds above: a bare "#" is either a
+# door or a mailbox, because a mail store's address writes the customer's box
+# as "# 22915" after its own suite ("STE 204 # 22915"), and npnormalize 0.1.3
+# keeps that box as the unit. So "#" also agrees with PMB: "# 22915" and
+# "PMB 22915" are one mailbox written two ways, as "# 320" and "STE 320" are
+# one office.
+.np_unit_same_kind <- function(qu, ru) {
+  qk <- .np_unit_kind(qu); rk <- .np_unit_kind(ru)
+  qd <- sub(" .*$", "", as.character(qu)); rd <- sub(" .*$", "", as.character(ru))
+  box <- (qd == "#" & rk == "PMB") | (rd == "#" & qk == "PMB")
+  ifelse(!is.na(qk) & !is.na(rk), as.integer(qk == rk | box), NA_integer_)
+}
+
 # Map canonical geo fields to the normalized column actually compared.
 .np_compare_col <- c(
   name   = "name_key",
@@ -51,7 +96,13 @@
 #'   once from the whole reference and pass it in (as [np_cascade()] does).
 #' @return A data frame of candidate pairs, one row per (query, reference) pair,
 #'   with class `np_pairs`. Columns include `.x`, `.y`, `.id`, `.ein`, a
-#'   similarity column per compared field, plus carried veto features.
+#'   similarity column per compared field, plus carried veto features. Two
+#'   columns report the suite, both three-valued (1 agree, 0 differ, `NA` either
+#'   side names no unit): `geo_unit` compares the unit identifier with the
+#'   designator stripped, which is the column `np_score()` credits and the
+#'   reason `STE 320` and `# 320` agree; `geo_unit_same_kind` says whether the
+#'   two sides name the same kind of place, so a reviewer reading a floor
+#'   against a suite is not told they are the same office.
 #' @export
 np_compare <- function(query, reference, config = np_config(),
                        block = "state", profile = NULL, candidates = NULL,
@@ -181,6 +232,14 @@ np_compare <- function(query, reference, config = np_config(),
   ux <- query$street_unit_id[ix]; uy <- reference$street_unit_id[iy]
   both <- !is.na(ux) & !is.na(uy) & nzchar(ux) & nzchar(uy)
   df$geo_unit <- ifelse(both, as.integer(ux == uy), NA_integer_)
+
+  # Same number, but the same kind of place? geo_unit cannot say, because the
+  # identifier it compares has the designator stripped off. Three-valued the
+  # same way, and read only by the reviewer-facing text: nothing in np_score()
+  # looks at it, so a suite earns exactly the credit it earned before.
+  df$geo_unit_same_kind <- .np_unit_same_kind(
+    if (is.null(query$street_unit)) NA_character_ else query$street_unit[ix],
+    if (is.null(reference$street_unit)) NA_character_ else reference$street_unit[iy])
 
   akey <- npnormalize::np_addr_key(reference$street_key[iy], reference$zip5[iy])
   cnt <- function(tab, key) {
