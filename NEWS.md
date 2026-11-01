@@ -51,6 +51,27 @@
     `np_tokenize()`, `np_doc_freq()`, `np_addr_key()` and `np_state_abb()`.
 * **Dependencies:** stringi is no longer imported (only the normalizer used it);
   npnormalize is, from GitHub (`Remotes:`).
+* **`street_has_box` is read by nothing, on purpose.** npnormalize 0.1.4 names
+  npmatch as the column's intended consumer, and the measurement says npmatch
+  has no use for it: on the 304,274-pair labeled benchmark, `street_has_box`
+  disagreeing across a pair while `geo_stnum == 1` selects 29 pairs, and they
+  are exactly the 29 that `is_po_box` — which npmatch already reads, as
+  `geo_pobox` — already selects. All 29 fail `.np_hier_score()`'s
+  `street_sim >= 0.9` floor, so `street_hit` cannot fire on one. The reason is
+  that the same release anchored `.np_parse_street()`'s gate, so a street that
+  merely *carries* a box keeps its house number: across the 3,687,435-row
+  unified BMF, `street_num` holds a box number on **0** rows where `is_po_box`
+  is `FALSE`. (Measured under both 0.1.4 and the 0.1.5 that landed during the
+  work, which only narrows the slice where the two columns differ, from 11,982
+  rows to 10,984.) A veto on a disagreeing flag would also be wrong, not idle —
+  it refuses `211 EMMET ST S PO BOX` against `211 EMMET ST S`, one building
+  whose house number is genuinely 211 on both sides. `tests/testthat/test-box-component.R`
+  pins all of that, including the must-still-match pair, so a regression in
+  npnormalize's parse fails npmatch's suite instead of passing quietly;
+  `dev/STREET-HAS-BOX.md` carries the full measurement and the two conditions
+  that would reopen it. Nothing in the compared field set, the scorer or the
+  veto rules changed, so `attr(pairs, "cmp_cols")` and stored models are
+  untouched.
 
 ## matchdb references and precomputed address counts
 
