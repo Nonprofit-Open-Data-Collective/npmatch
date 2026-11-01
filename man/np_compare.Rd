@@ -44,7 +44,13 @@ once from the whole reference and pass it in (as \code{\link[=np_cascade]{np_cas
 \value{
 A data frame of candidate pairs, one row per (query, reference) pair,
 with class \code{np_pairs}. Columns include \code{.x}, \code{.y}, \code{.id}, \code{.ein}, a
-similarity column per compared field, plus carried veto features.
+similarity column per compared field, plus carried veto features. Two
+columns report the suite, both three-valued (1 agree, 0 differ, \code{NA} either
+side names no unit): \code{geo_unit} compares the unit identifier with the
+designator stripped, which is the column \code{np_score()} credits and the
+reason \verb{STE 320} and \verb{# 320} agree; \code{geo_unit_same_kind} says whether the
+two sides name the same kind of place, so a reviewer reading a floor
+against a suite is not told they are the same office.
 }
 \description{
 Blocks the query against the reference, then scores each candidate pair on
