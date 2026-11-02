@@ -1,20 +1,13 @@
-<div id="main" class="col-md-9" role="main">
-
 # Download a data file
 
-<div class="ref-description section level2">
-
-Thin wrapper over `utils::download.file()` with sensible defaults for
-large files (binary mode, long timeout, resumable skip). Records the
-download in the data `np_manifest()` when `manifest = TRUE`.
-
-</div>
-
-<div class="section level2">
+Thin wrapper over
+[`utils::download.file()`](https://rdrr.io/r/utils/download.file.html)
+with sensible defaults for large files (binary mode, long timeout,
+resumable skip). Records the download in the data
+[`np_manifest()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_manifest.md)
+when `manifest = TRUE`.
 
 ## Usage
-
-<div class="sourceCode">
 
 ``` r
 np_fetch(
@@ -28,52 +21,39 @@ np_fetch(
 )
 ```
 
-</div>
-
-</div>
-
-<div class="section level2">
-
 ## Arguments
 
--   url:
+- url:
 
-    File URL.
+  File URL.
 
--   dest:
+- dest:
 
-    Destination path. Default: `raw/<basename>` under the data root.
+  Destination path. Default: `raw/<basename>` under the data root.
 
--   overwrite:
+- overwrite:
 
-    Re-download if the destination already exists. Default `FALSE`.
+  Re-download if the destination already exists. Default `FALSE`.
 
--   manifest:
+- manifest:
 
-    Record the download in the manifest. Default `TRUE`.
+  Record the download in the manifest. Default `TRUE`.
 
--   timeout:
+- timeout:
 
-    Download timeout in seconds. Default 3600.
+  Download timeout in seconds. Default 3600.
 
--   method:
+- method:
 
-    Download method passed to `utils::download.file()`. Default `"auto"`
-    (R picks a working transport); override with `"libcurl"`, `"curl"`,
-    or `"wininet"` if needed.
+  Download method passed to
+  [`utils::download.file()`](https://rdrr.io/r/utils/download.file.html).
+  Default `"auto"` (R picks a working transport); override with
+  `"libcurl"`, `"curl"`, or `"wininet"` if needed.
 
--   quiet:
+- quiet:
 
-    Suppress progress. Default `FALSE`.
-
-</div>
-
-<div class="section level2">
+  Suppress progress. Default `FALSE`.
 
 ## Value
 
 The destination path, invisibly.
-
-</div>
-
-</div>

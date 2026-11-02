@@ -1,8 +1,4 @@
-<div id="main" class="col-md-9" role="main">
-
 # Match one level up: roll candidates up to their family
-
-<div class="ref-description section level2">
 
 Some queries cannot be settled to one EIN but can be to a family: a
 chapter of a federation, a hospital system, a school and its PTO. Often
@@ -11,13 +7,7 @@ another - so no single candidate scores as a match, while the family
 plainly does. `np_cluster_rollup()` finds those cases among queries that
 did not reach `YES`, from the candidates the cascade already scored.
 
-</div>
-
-<div class="section level2">
-
 ## Usage
-
-<div class="sourceCode">
 
 ``` r
 np_cluster_rollup(
@@ -32,48 +22,40 @@ np_cluster_rollup(
 )
 ```
 
-</div>
-
-</div>
-
-<div class="section level2">
-
 ## Arguments
 
--   tiered:
+- tiered:
 
-    The result of `np_cascade()`, carrying `attr(, "pairs")`.
+  The result of
+  [`np_cascade()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_cascade.md),
+  carrying `attr(, "pairs")`.
 
--   clusters:
+- clusters:
 
-    Cluster membership: a data frame with `cluster_id`, `cluster_type`,
-    `.ein` (or `ein`), and optionally `size` and `brand_tokens` -
-    matchdb's `cluster_member` joined to `cluster`.
+  Cluster membership: a data frame with `cluster_id`, `cluster_type`,
+  `.ein` (or `ein`), and optionally `size` and `brand_tokens` -
+  matchdb's `cluster_member` joined to `cluster`.
 
--   pairs:
+- pairs:
 
-    The scored candidate pairs. Defaults to `attr(tiered, "pairs")`.
+  The scored candidate pairs. Defaults to `attr(tiered, "pairs")`.
 
--   query:
+- query:
 
-    Optional query frame with `.id` and `name_key`, for the brand test.
-    Without it, condition 3 is not used.
+  Optional query frame with `.id` and `name_key`, for the brand test.
+  Without it, condition 3 is not used.
 
--   min_name, min_addr:
+- min_name, min_addr:
 
-    Similarity each side must reach within the cluster.
+  Similarity each side must reach within the cluster.
 
--   max_size:
+- max_size:
 
-    Largest cluster accepted without the brand test.
+  Largest cluster accepted without the brand test.
 
--   types:
+- types:
 
-    Cluster types to use; `NULL` for all.
-
-</div>
-
-<div class="section level2">
+  Cluster types to use; `NULL` for all.
 
 ## Value
 
@@ -81,10 +63,6 @@ A data frame, one row per query that rolls up: `.id`, `cluster_id`,
 `cluster_type`, `cluster_size`, `cluster_name_sim`, `cluster_addr_sim`,
 `cluster_score`, `name_ein`, `addr_ein`, `n_members`, `basis` (which
 condition admitted it).
-
-</div>
-
-<div class="section level2">
 
 ## How a cluster qualifies
 
@@ -111,7 +89,3 @@ the evidence.
 
 The result annotates; it does not change the EIN-level `tier`. Whether a
 `CLUSTER` match counts as a resolution is the analysis's choice.
-
-</div>
-
-</div>

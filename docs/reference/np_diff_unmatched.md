@@ -1,21 +1,11 @@
-<div id="main" class="col-md-9" role="main">
-
 # Retain only source records not already matched (incremental matching)
-
-<div class="ref-description section level2">
 
 Compares a fresh source table against an existing crosswalk and returns
 the subset of fresh records that have **not** already been resolved — so
 a re-run only spends compute on new or previously-unmatched
 organisations.
 
-</div>
-
-<div class="section level2">
-
 ## Usage
-
-<div class="sourceCode">
 
 ``` r
 np_diff_unmatched(
@@ -29,53 +19,39 @@ np_diff_unmatched(
 )
 ```
 
-</div>
-
-</div>
-
-<div class="section level2">
-
 ## Arguments
 
--   fresh:
+- fresh:
 
-    Fresh source records (data frame) with an id key.
+  Fresh source records (data frame) with an id key.
 
--   crosswalk:
+- crosswalk:
 
-    Existing crosswalk (data frame) with an id key and, ideally, a
-    tier/status column.
+  Existing crosswalk (data frame) with an id key and, ideally, a
+  tier/status column.
 
--   key_fresh, key_cross:
+- key_fresh, key_cross:
 
-    Key column names. Auto-detected from `uei` / `UNIQUE ENTITY ID` /
-    `unique_entity_id` / `.id` if `NULL`.
+  Key column names. Auto-detected from `uei` / `UNIQUE ENTITY ID` /
+  `unique_entity_id` / `.id` if `NULL`.
 
--   status_col:
+- status_col:
 
-    Status/tier column in `crosswalk`. Auto-detected from `tier` /
-    `match_decision` / `status` if `NULL`.
+  Status/tier column in `crosswalk`. Auto-detected from `tier` /
+  `match_decision` / `status` if `NULL`.
 
--   matched_values:
+- matched_values:
 
-    Status values that count as already matched.
+  Status values that count as already matched.
 
--   quiet:
+- quiet:
 
-    Suppress the summary message.
-
-</div>
-
-<div class="section level2">
+  Suppress the summary message.
 
 ## Value
 
 The retained subset of `fresh`, with an integer `"diff"` attribute
 (`fresh`, `already_matched`, `retained`, `new_ids`).
-
-</div>
-
-<div class="section level2">
 
 ## Details
 
@@ -85,7 +61,3 @@ or named via `status_col`); if no status column is found, any appearance
 in the crosswalk counts as matched. Set
 `matched_values = c("YES","MAYBE")` to also retain (re-run)
 review-pending cases against a refreshed reference.
-
-</div>
-
-</div>

@@ -1,10 +1,11 @@
 url: https://nonprofit-open-data-collective.github.io/npmatch/
 
+destination: docs
+
+# Shared NODC site style (navbar, fonts, light/dark switch, search, GitHub).
+# Don't add bootstrap/bslib settings here: they override the template.
 template:
-  bootstrap: 5
-  bslib:
-    primary: "#B22222"        # firebrick, matching the guide accents
-    link-color: "#AF7817"
+  package: pkgstyle
   includes:
     # The README diagram only. GitHub renders ```mermaid fences natively;
     # pkgdown emits them as <pre class="mermaid"><code>...</code></pre> and
@@ -18,28 +19,83 @@ template:
     # source with an <svg>, then quarto window-load handler re-renders what is
     # left and dies with "No diagram type detected". The guard also keeps the
     # ~1 MB CDN bundle off the hundred-odd pages that have no diagram at all.
+    #
+    # Colours come from pkgstyle's --tc-* tokens, because the template turns on
+    # pkgdown's light switch: it rewrites data-bs-theme on <html>, and a
+    # diagram drawn with baked light values is unreadable on the dark ground
+    # (#15181c). The observer redraws on each switch. Measured, not guessed:
+    #   * edge labels follow primaryTextColor, NOT textColor;
+    #   * lineColor must be --tc-ink-mid, since --tc-rule-strong is itself dark
+    #     in dark mode and the edges disappear;
+    #   * classDef colours cannot be CSS var() (mermaid's parser rejects "(-")
+    #     and cannot be overridden from a stylesheet, because mermaid emits
+    #     them inline with !important. So the classDef lines are rewritten from
+    #     the tokens before each render, and README.md keeps literal values as
+    #     the fallback and for GitHub's own mermaid.
     after_body: >
       <script type="module">
         const blocks = document.querySelectorAll("pre.mermaid:not(.mermaid-js)");
         if (blocks.length) {
           const { default: mermaid } =
             await import("https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs");
+      
+          const PALETTE = {
+            own: ["--tc-accent-wash", "--tc-accent",     "--tc-ink"],
+            dep: ["--tc-surface",     "--tc-rule-strong", "--tc-ink"],
+            io:  ["--tc-ground",      "--tc-ink-mid",     "--tc-ink"]
+          };
+          const FALLBACK = {
+            own: ["#fbf0e7", "#bd5416", "#1f2429"],
+            dep: ["#f3f4f6", "#c3c8cf", "#1f2429"],
+            io:  ["#ffffff", "#4d565f", "#1f2429"]
+          };
+      
+          const sources = new Map();
           blocks.forEach(function (pre) {
             const code = pre.querySelector("code");
-            if (code) pre.textContent = code.textContent;
+            sources.set(pre, code ? code.textContent : pre.textContent);
           });
-          mermaid.initialize({
-            startOnLoad: false,
-            securityLevel: "loose",
-            theme: "base",
-            themeVariables: {
-              lineColor: "#888888",
-              textColor: "#111111",
-              edgeLabelBackground: "#ffffff",
-              fontFamily: "inherit"
-            }
+      
+          const draw = async function () {
+            const css = getComputedStyle(document.documentElement);
+            const token = function (name, fallback) {
+              return css.getPropertyValue(name).trim() || fallback;
+            };
+            const repaint = function (src) {
+              return src.replace(/^([ \t]*)classDef[ \t]+(\w+)[ \t]+[^;\n]*;?[ \t]*$/gm,
+                function (line, indent, name) {
+                  const t = PALETTE[name], f = FALLBACK[name];
+                  if (!t) { return line; }
+                  return indent + "classDef " + name
+                    + " fill:" + token(t[0], f[0])
+                    + ",stroke:" + token(t[1], f[1])
+                    + ",color:" + token(t[2], f[2]) + ";";
+                });
+            };
+            mermaid.initialize({
+              startOnLoad: false,
+              securityLevel: "loose",
+              theme: "base",
+              themeVariables: {
+                lineColor: token("--tc-ink-mid", "#888888"),
+                textColor: token("--tc-ink", "#111111"),
+                primaryTextColor: token("--tc-ink", "#111111"),
+                edgeLabelBackground: token("--tc-ground", "#ffffff"),
+                fontFamily: "inherit"
+              }
+            });
+            blocks.forEach(function (pre) {
+              pre.removeAttribute("data-processed");
+              pre.textContent = repaint(sources.get(pre));
+            });
+            await mermaid.run({ nodes: blocks });
+          };
+      
+          await draw();
+          new MutationObserver(draw).observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ["data-bs-theme"]
           });
-          await mermaid.run({ nodes: blocks });
         }
       </script>
 
@@ -58,13 +114,27 @@ redirects:
 
 navbar:
   structure:
-    left:  [workflow, reference, articles, news]
-    right: [search, github]
+    left:  [workflow, guides, reference, news]
   components:
     workflow:
       text: Workflow
       href: articles/workflow.html
-
+    guides:
+      text: Guides
+      menu:
+      - text: "Workflow & project structure"
+        href: articles/workflow.html
+      - text: "A reviewer's guide"
+        href: articles/reviewer-guide.html
+      - text: "The training & evaluation dataset"
+        href: articles/training-dataset.html
+      - text: "Building a stage-1 match classifier"
+        href: articles/building-a-classifier.html
+      - text: "The candidate evaluation frame"
+        href: articles/candidate-evaluation-frame.html
+      - text: -------
+      - text: All articles
+        href: articles/index.html
 articles:
 - title: Guides
   navbar: ~

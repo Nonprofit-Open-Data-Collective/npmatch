@@ -6,7 +6,6 @@ format:
     highlight-style: tango
     toc: true
     toc-location: right
-    css: clean.css
     embed-resources: true
 execute:
   echo: false

@@ -1,8 +1,4 @@
-<div id="main" class="col-md-9" role="main">
-
 # Generate and compare candidate pairs
-
-<div class="ref-description section level2">
 
 Blocks the query against the reference, then scores each candidate pair
 on the fields implied by the detected (or supplied) geographic profile.
@@ -10,13 +6,7 @@ reclin2 does the blocked pairing and per-field string comparison; the
 result is returned as a plain data frame so every downstream npmatch
 stage works on ordinary columns.
 
-</div>
-
-<div class="section level2">
-
 ## Usage
-
-<div class="sourceCode">
 
 ``` r
 np_compare(
@@ -32,56 +22,54 @@ np_compare(
 )
 ```
 
-</div>
-
-</div>
-
-<div class="section level2">
-
 ## Arguments
 
--   query, reference:
+- query, reference:
 
-    Normalized `np_query` / `np_reference` frames.
+  Normalized `np_query` / `np_reference` frames.
 
--   config:
+- config:
 
-    An `np_config()`.
+  An
+  [`np_config()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_config.md).
 
--   block:
+- block:
 
-    Character vector of canonical fields to block on when `candidates`
-    is not supplied. Defaults to `"state"`.
+  Character vector of canonical fields to block on when `candidates` is
+  not supplied. Defaults to `"state"`.
 
--   profile:
+- profile:
 
-    Optional profile name to force; otherwise `np_detect_geo()`.
+  Optional profile name to force; otherwise
+  [`np_detect_geo()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_detect_geo.md).
 
--   candidates:
+- candidates:
 
-    Optional `np_blocks` from `np_block()`. When given, these candidate
-    pairs are compared instead of blocking on `block` — the scalable
-    path (name-token / progressive blocking).
+  Optional `np_blocks` from
+  [`np_block()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_block.md).
+  When given, these candidate pairs are compared instead of blocking on
+  `block` — the scalable path (name-token / progressive blocking).
 
--   name_freq, token_idf:
+- name_freq, token_idf:
 
-    Optional pre-computed reference tables from `np_name_freq()` /
-    `np_token_idf()`.
+  Optional pre-computed reference tables from
+  [`np_name_freq()`](https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_name_freq.html)
+  /
+  [`np_token_idf()`](https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_token_idf.html).
 
--   addr_freq:
+- addr_freq:
 
-    Optional `np_addr_freq()` table for the reference. Used to read a
-    suite match in context: `addr_shared`, `addr_units`,
-    `addr_unit_shared` and `addr_note` are added to the result, and
-    `np_score(method = "hier")` credits a matching suite only where the
-    address is genuinely multi-tenant. Computed from `reference` when
-    `NULL`, which is wrong if `reference` is a slice of the real corpus
-    — build it once from the whole reference and pass it in (as
-    `np_cascade()` does).
-
-</div>
-
-<div class="section level2">
+  Optional
+  [`np_addr_freq()`](https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_addr_freq.html)
+  table for the reference. Used to read a suite match in context:
+  `addr_shared`, `addr_units`, `addr_unit_shared` and `addr_note` are
+  added to the result, and `np_score(method = "hier")` credits a
+  matching suite only where the address is genuinely multi-tenant.
+  Computed from `reference` when `NULL`, which is wrong if `reference`
+  is a slice of the real corpus — build it once from the whole reference
+  and pass it in (as
+  [`np_cascade()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_cascade.md)
+  does).
 
 ## Value
 
@@ -90,22 +78,15 @@ with class `np_pairs`. Columns include `.x`, `.y`, `.id`, `.ein`, a
 similarity column per compared field, plus carried veto features. Two
 columns report the suite, both three-valued (1 agree, 0 differ, `NA`
 either side names no unit): `geo_unit` compares the unit identifier with
-the designator stripped, which is the column `np_score()` credits and
-the reason `STE 320` and `# 320` agree; `geo_unit_same_kind` says
-whether the two sides name the same kind of place, so a reviewer reading
-a floor against a suite is not told they are the same office.
-
-</div>
-
-<div class="section level2">
+the designator stripped, which is the column
+[`np_score()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_score.md)
+credits and the reason `STE 320` and `# 320` agree; `geo_unit_same_kind`
+says whether the two sides name the same kind of place, so a reviewer
+reading a floor against a suite is not told they are the same office.
 
 ## Details
 
 The name is always compared (on `name_key`). Geographic comparison
 fields are taken from the profile. Name-feature columns needed by
-`np_veto()` are carried through for both sides with `_x` / `_y`
-suffixes.
-
-</div>
-
-</div>
+[`np_veto()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_veto.md)
+are carried through for both sides with `_x` / `_y` suffixes.

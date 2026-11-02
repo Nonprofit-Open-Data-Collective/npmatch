@@ -1,53 +1,29 @@
-<div id="main" class="col-md-9" role="main">
-
 # Evaluate scored pairs against known labels
-
-<div class="ref-description section level2">
 
 Pair-level classification metrics for a linkage scorer: threshold-free
 AUC plus precision / recall / F1 / accuracy at a decision threshold.
 Positives are true matches.
 
-</div>
-
-<div class="section level2">
-
 ## Usage
-
-<div class="sourceCode">
 
 ``` r
 np_evaluate(score, label, threshold = 0.5)
 ```
 
-</div>
-
-</div>
-
-<div class="section level2">
-
 ## Arguments
 
--   score:
+- score:
 
-    Numeric predicted match scores.
+  Numeric predicted match scores.
 
--   label:
+- label:
 
-    Truth (logical / 0-1 / character).
+  Truth (logical / 0-1 / character).
 
--   threshold:
+- threshold:
 
-    Decision threshold; predict match when `score >= threshold`.
-
-</div>
-
-<div class="section level2">
+  Decision threshold; predict match when `score >= threshold`.
 
 ## Value
 
 A one-row data frame of metrics.
-
-</div>
-
-</div>

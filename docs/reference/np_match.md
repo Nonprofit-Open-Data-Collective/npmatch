@@ -1,20 +1,10 @@
-<div id="main" class="col-md-9" role="main">
-
 # Run the full linkage pipeline
 
-<div class="ref-description section level2">
-
-Convenience wrapper chaining normalize -> compare -> score -> veto ->
-select -> tier. Intermediate objects are attached as attributes for
+Convenience wrapper chaining normalize -\> compare -\> score -\> veto
+-\> select -\> tier. Intermediate objects are attached as attributes for
 inspection.
 
-</div>
-
-<div class="section level2">
-
 ## Usage
-
-<div class="sourceCode">
 
 ``` r
 np_match(
@@ -31,52 +21,46 @@ np_match(
 )
 ```
 
-</div>
-
-</div>
-
-<div class="section level2">
-
 ## Arguments
 
--   query:
+- query:
 
-    A raw query data frame, or an `np_query` from `np_query()`.
+  A raw query data frame, or an `np_query` from
+  [`np_query()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_query.md).
 
--   reference:
+- reference:
 
-    A raw reference data frame, or an `np_reference`.
+  A raw reference data frame, or an `np_reference`.
 
--   config:
+- config:
 
-    An `np_config()`.
+  An
+  [`np_config()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_config.md).
 
--   method:
+- method:
 
-    Scoring method for `np_score()`.
+  Scoring method for
+  [`np_score()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_score.md).
 
--   model:
+- model:
 
-    A fitted `np_train()` model, required when `method = "model"`.
+  A fitted
+  [`np_train()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_train.md)
+  model, required when `method = "model"`.
 
--   block, profile, candidates:
+- block, profile, candidates:
 
-    Passed to `np_compare()`; supply `candidates` from `np_block()` for
-    the scalable name-token blocking path.
+  Passed to
+  [`np_compare()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_compare.md);
+  supply `candidates` from
+  [`np_block()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_block.md)
+  for the scalable name-token blocking path.
 
--   query_map, reference_map:
+- query_map, reference_map:
 
-    Schema maps used only if `query`/`reference` are raw data frames.
-
-</div>
-
-<div class="section level2">
+  Schema maps used only if `query`/`reference` are raw data frames.
 
 ## Value
 
 An `np_tiered` result. The scored candidate pairs are attached as
 `attr(result, "pairs")`.
-
-</div>
-
-</div>

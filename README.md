@@ -36,9 +36,9 @@ flowchart TD
     SRC --> NPM
     NPM --> OUT
 
-    classDef own fill:#f8d7d7,stroke:#B22222,color:#111;
-    classDef dep fill:#eeeeee,stroke:#777,color:#111;
-    classDef io fill:#fdf2d9,stroke:#AF7817,color:#111;
+    classDef own fill:#fbf0e7,stroke:#bd5416,color:#1f2429;
+    classDef dep fill:#f3f4f6,stroke:#c3c8cf,color:#1f2429;
+    classDef io fill:#ffffff,stroke:#4d565f,color:#1f2429;
     class NPM own;
     class NPN,MDB,RC dep;
     class SRC,OUT io;

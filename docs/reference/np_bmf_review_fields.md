@@ -1,77 +1,49 @@
-<div id="main" class="col-md-9" role="main">
-
 # Default BMF context fields for the review queue
-
-<div class="ref-description section level2">
 
 Builds the small set of IRS-BMF descriptive fields worth showing a human
 reviewer next to each candidate: what kind of nonprofit it is and how
 big. Pass the raw processed BMF and join the result onto a review frame
 by `ein` (this is what `np_route(bmf = ...)` does automatically).
 
-</div>
-
-<div class="section level2">
-
 ## Usage
-
-<div class="sourceCode">
 
 ``` r
 np_bmf_review_fields(bmf)
 ```
 
-</div>
-
-</div>
-
-<div class="section level2">
-
 ## Arguments
 
--   bmf:
+- bmf:
 
-    The raw processed BMF data frame.
-
-</div>
-
-<div class="section level2">
+  The raw processed BMF data frame.
 
 ## Value
 
 A data frame keyed by `ein` with `BMF_`-prefixed context fields.
 
-</div>
-
-<div class="section level2">
-
 ## Details
 
 Derived / imported fields:
 
--   `ntee_clean`, `nteev2` — cleaned NTEE code and NTEEv2 classification
+- `ntee_clean`, `nteev2` — cleaned NTEE code and NTEEv2 classification
 
--   `subsection` — 501(c) subsection number (3 = 501(c)(3), ...)
+- `subsection` — 501(c) subsection number (3 = 501(c)(3), ...)
 
--   `is_foundation` — TRUE for private (operating or non-operating)
-    foundations
+- `is_foundation` — TRUE for private (operating or non-operating)
+  foundations
 
--   `rule_year` — year of the IRS ruling (exemption) date
+- `rule_year` — year of the IRS ruling (exemption) date
 
--   `assets`, `revenue` — reported asset / revenue amounts
+- `assets`, `revenue` — reported asset / revenue amounts
 
--   `form_990` — filing requirement: 990PF / 990N / 990-EZ/990 / none /
-    group
+- `form_990` — filing requirement: 990PF / 990N / 990-EZ/990 / none /
+  group
 
--   `affiliation_code`, `affiliation_code_definition` —
-    central/subordinate status
+- `affiliation_code`, `affiliation_code_definition` —
+  central/subordinate status
 
--   `group_exemption_number`, `group_exemption_is_member` — group-ruling
-    membership
+- `group_exemption_number`, `group_exemption_is_member` — group-ruling
+  membership
 
 Imported columns are prefixed `BMF_` (capitalized source prefix) so they
 read as distinct from the pipeline's derived `_bmf` matching fields.
-
-</div>
-
-</div>

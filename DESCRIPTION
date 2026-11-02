@@ -45,6 +45,7 @@ Suggests:
     stringdist,
     zipcodeR,
     testthat (>= 3.0.0)
+Config/Needs/website: Nonprofit-Open-Data-Collective/pkgstyle
 Config/testthat/edition: 3
 VignetteBuilder: quarto
 Remotes:

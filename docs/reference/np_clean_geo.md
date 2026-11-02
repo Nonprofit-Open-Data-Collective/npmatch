@@ -1,18 +1,8 @@
-<div id="main" class="col-md-9" role="main">
-
 # Clean and standardize city and state fields
-
-<div class="ref-description section level2">
 
 Normalizes `city` and `state` in place. Two engines:
 
-</div>
-
-<div class="section level2">
-
 ## Usage
-
-<div class="sourceCode">
 
 ``` r
 np_clean_geo(
@@ -24,65 +14,49 @@ np_clean_geo(
 )
 ```
 
-</div>
-
-</div>
-
-<div class="section level2">
-
 ## Arguments
 
--   data:
+- data:
 
-    A data frame with `city` / `state` (and `zip5` for `zip_ref`).
+  A data frame with `city` / `state` (and `zip5` for `zip_ref`).
 
--   engine:
+- engine:
 
-    `"rules"` or `"campfin"`.
+  `"rules"` or `"campfin"`.
 
--   aliases:
+- aliases:
 
-    Whole-name city alias map (see `np_city_aliases()`).
+  Whole-name city alias map (see
+  [`np_city_aliases()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_city_aliases.md)).
 
--   zip_ref:
+- zip_ref:
 
-    Optional `zip5`-keyed crosswalk for misspelling correction.
+  Optional `zip5`-keyed crosswalk for misspelling correction.
 
--   max_dist:
+- max_dist:
 
-    Max edit distance to treat a city as a correctable near-miss.
-
-</div>
-
-<div class="section level2">
+  Max edit distance to treat a city as a correctable near-miss.
 
 ## Value
 
 `data` with `city` / `state` cleaned in place.
 
-</div>
-
-<div class="section level2">
-
 ## Details
 
--   `"rules"` (default, no dependency) — upper-case and squish, expand
-    the common abbreviated prefixes (`ST`->`SAINT`, `FT`->`FORT`,
-    `MT`->`MOUNT`), apply whole-name city aliases
-    (`NYC`->`NEW YORK CITY`), and coerce `state` to a two-letter code.
+- `"rules"` (default, no dependency) — upper-case and squish, expand the
+  common abbreviated prefixes (`ST`-\>`SAINT`, `FT`-\>`FORT`,
+  `MT`-\>`MOUNT`), apply whole-name city aliases
+  (`NYC`-\>`NEW YORK CITY`), and coerce `state` to a two-letter code.
 
--   `"campfin"` — delegate city/state normalization to the `campfin`
-    package (`normal_city()` / `normal_state()`), which validate against
-    USPS and Census place lists (expanding abbreviations, stripping
-    trailing state tokens, and nulling known-invalid entries). The alias
-    map is still applied on top.
+- `"campfin"` — delegate city/state normalization to the `campfin`
+  package (`normal_city()` / `normal_state()`), which validate against
+  USPS and Census place lists (expanding abbreviations, stripping
+  trailing state tokens, and nulling known-invalid entries). The alias
+  map is still applied on top.
 
-Correcting arbitrary *misspellings* (e.g. "PHOENex" -> "PHOENIX") needs
+Correcting arbitrary *misspellings* (e.g. "PHOENex" -\> "PHOENIX") needs
 a reference of valid place names. Supply `zip_ref` (a `zip5`-keyed
-crosswalk with a city column, e.g. from `np_load_zipcode_db()`): a
-missing city is filled from its ZIP, and a near-miss (edit distance \<=
-`max_dist`) is snapped to the ZIP's canonical city.
-
-</div>
-
-</div>
+crosswalk with a city column, e.g. from
+[`np_load_zipcode_db()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_load_zipcode_db.md)):
+a missing city is filled from its ZIP, and a near-miss (edit distance
+\<= `max_dist`) is snapped to the ZIP's canonical city.
