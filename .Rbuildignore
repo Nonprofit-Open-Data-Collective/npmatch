@@ -10,3 +10,4 @@
 ^\.gitignore$
 ^LICENSE\.md$
 ^cran-comments\.md$
+^pkgdown$
