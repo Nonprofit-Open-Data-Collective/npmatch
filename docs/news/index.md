@@ -40,7 +40,7 @@
   npmatch carries a version floor on npnormalize, so an install cannot
   quietly compute keys with an older normalizer than the one it is
   pinned to.
-- **The floor is `npnormalize (>= 0.1.7)`**, and the four releases it
+- **The floor is `npnormalize (>= 0.1.8)`**, and the five releases it
   reaches for have all landed on npnormalize’s `main`. 0.1.4 added
   `street_has_box` — whether a street *carries* a box component, which
   `is_po_box` cannot answer because it is the gate that blanks the
@@ -66,13 +66,19 @@
   now returns a `split_words` table that a port must apply *before*
   `abbrev`
   ([npnormalize#16](https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/16),
-  [npnormalize#17](https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/17)).
-  Each move changed the signature, so `tests/testthat/test-signature.R`
-  now pins `v1-59c6e84c5f38e9f5`, read off npnormalize’s merged `main`
-  rather than off a value copied out of a branch; the registry comment
-  beside it keeps every earlier value as part of the record. Stored keys
-  and the statistics built on them need rebuilding once more, matchdb’s
-  published data included.
+  [npnormalize#17](https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/17));
+  and 0.1.8 took one case back out of that join, because measuring it
+  against matchdb’s 22,026,817-row address table before adopting it
+  showed `1002-E SENECA ST` — 1002 East Seneca — keyed as
+  `1002E SENECA ST`, a house number that does not exist, apart from the
+  spelling of that door filed with a space. A lone `N`, `S`, `E` or `W`
+  is now a direction rather than part of the number; `123-A MAIN ST`
+  still joins. Each move changed the signature, so
+  `tests/testthat/test-signature.R` now pins `v1-5e901add4a04a5d6`, read
+  off npnormalize’s merged `main` rather than off a value copied out of
+  a branch; the registry comment beside it keeps every earlier value as
+  part of the record. Stored keys and the statistics built on them need
+  rebuilding once more, matchdb’s published data included.
 - **Why.** Both sides of a match depend on the normalizer: matchdb
   stores its keys, and npmatch computes them for each query. With the
   normalizer in its own package, matchdb no longer needs npmatch, and
