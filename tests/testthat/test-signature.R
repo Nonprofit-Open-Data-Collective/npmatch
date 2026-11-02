@@ -27,7 +27,13 @@ test_that("npmatch reports npnormalize's signature, whatever it now is", {
   #                        delivery, military mail, a bare drawer) blanks the
   #                        address key instead of keying it; and mail_key
   #                        carries the box plus its ZIP
-  expect_identical(np_normalize_signature(), "v1-d49b18cc81ab79fb")
+  #   v1-59c6e84c5f38e9f5  0.1.7 -- a hyphen in a leading house number is
+  #                        closed up rather than spaced, so the two filed
+  #                        spellings of one Queens or Hawaii address share a
+  #                        street_key; and eleven further spellings of
+  #                        FOUNDATION fold, three of them a word a line break
+  #                        split (FOUND is not one of them -- it is a word)
+  expect_identical(np_normalize_signature(), "v1-59c6e84c5f38e9f5")
 })
 
 test_that("the re-exported functions are npnormalize's own", {

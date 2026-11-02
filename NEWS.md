@@ -27,7 +27,7 @@
   ([matchdb#29](https://github.com/Nonprofit-Open-Data-Collective/matchdb/issues/29)).
   npmatch carries a version floor on npnormalize, so an install cannot quietly
   compute keys with an older normalizer than the one it is pinned to.
-* **The floor is `npnormalize (>= 0.1.6)`**, and the three releases it reaches
+* **The floor is `npnormalize (>= 0.1.7)`**, and the four releases it reaches
   for have all landed on npnormalize's `main`. 0.1.4 added `street_has_box` —
   whether a street *carries* a box component, which `is_po_box` cannot answer
   because it is the gate that blanks the address key
@@ -41,9 +41,17 @@
   bare drawer, none of which is a building two organizations share — and added
   `mail_key`, the box plus its ZIP, which is the one co-location signal a
   blanked box still carries
-  ([npnormalize#13](https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/13)).
+  ([npnormalize#13](https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/13));
+  and 0.1.7 made a hyphen inside a leading house number close up rather than
+  become a space, so the two filed spellings of one Queens or Hawaii address
+  reach one `street_key` and `street_num` stops truncating at the hyphen, and
+  folded eleven further spellings of `FOUNDATION` — three of them the word
+  broken across two tokens by a line break, which is why `np_name_rules()` now
+  returns a `split_words` table that a port must apply *before* `abbrev`
+  ([npnormalize#16](https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/16),
+  [npnormalize#17](https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/17)).
   Each move changed the signature, so `tests/testthat/test-signature.R` now
-  pins `v1-d49b18cc81ab79fb`, read off npnormalize's merged `main` rather than
+  pins `v1-59c6e84c5f38e9f5`, read off npnormalize's merged `main` rather than
   off a value copied out of a branch; the registry comment beside it keeps
   every earlier value as part of the record. Stored keys and the statistics
   built on them need rebuilding once more, matchdb's published data included.
