@@ -21,7 +21,13 @@ test_that("npmatch reports npnormalize's signature, whatever it now is", {
   #   v1-533f186c123357cf  0.1.5 -- one box vocabulary, published for the
   #                        packages that each kept their own, and a lettered
   #                        box (PO BOX A) is a box
-  expect_identical(np_normalize_signature(), "v1-533f186c123357cf")
+  #   v1-d49b18cc81ab79fb  0.1.6 -- the long-tail box spellings (PO BX, PB,
+  #                        P BOX, POSTAL DRAWER, POSTAL OFC BOX, APDO) joined
+  #                        the box vocabulary; a mail-only line (general
+  #                        delivery, military mail, a bare drawer) blanks the
+  #                        address key instead of keying it; and mail_key
+  #                        carries the box plus its ZIP
+  expect_identical(np_normalize_signature(), "v1-d49b18cc81ab79fb")
 })
 
 test_that("the re-exported functions are npnormalize's own", {
