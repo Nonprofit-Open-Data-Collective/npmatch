@@ -55,9 +55,11 @@ np_run_batches(
   an
   [`np_reference()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_reference.md),
   a pre-normalized reference (the latter two skip the corresponding
-  step), or a matchdb reference from `matchdb::md_compile()` or
-  `matchdb::md_reference()`, whose precomputed tables are used as they
-  are (see
+  step), or a matchdb reference from
+  [`matchdb::md_compile()`](https://nonprofit-open-data-collective.github.io/matchdb/reference/md_compile.html)
+  or
+  [`matchdb::md_reference()`](https://nonprofit-open-data-collective.github.io/matchdb/reference/md_publish.html),
+  whose precomputed tables are used as they are (see
   [`np_cascade()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_cascade.md)).
 
 - compute_size:
