@@ -1,8 +1,4 @@
-<div id="main" class="col-md-9" role="main">
-
 # npmatch
-
-<div class="section level1">
 
 A tiered workflow for matching organization records to a reference
 database when no shared identifier is available.
@@ -18,8 +14,6 @@ deployment of the framework, not its definition; the same six tiers are
 deployed elsewhere, such as
 [pfmatch](https://github.com/Nonprofit-Open-Data-Collective/pfmatch)
 matching 990-PF grant recipients.
-
-<div class="section level2">
 
 ## The stack
 
@@ -43,51 +37,39 @@ flowchart TD
     SRC --> NPM
     NPM --> OUT
 
-    classDef own fill:#f8d7d7,stroke:#B22222,color:#111;
-    classDef dep fill:#eeeeee,stroke:#777,color:#111;
-    classDef io fill:#fdf2d9,stroke:#AF7817,color:#111;
+    classDef own fill:#fbf0e7,stroke:#bd5416,color:#1f2429;
+    classDef dep fill:#f3f4f6,stroke:#c3c8cf,color:#1f2429;
+    classDef io fill:#ffffff,stroke:#4d565f,color:#1f2429;
     class NPM own;
     class NPN,MDB,RC dep;
     class SRC,OUT io;
 ```
 
-| package                                                                                                                     | role                                                                                                                                   | why it is separate                                                                                                                                                                                                                                   |
-|-----------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [**npnormalize**](https://github.com/Nonprofit-Open-Data-Collective/npnormalize)                                            | turns names and addresses into match keys, and fingerprints the code that made them                                                    | both sides of a match must be normalized by the *same* code, or matches quietly stop being found. One package holds it; `np_normalize_signature()` makes a mismatch an error instead of a silent loss. Imported, and re-exported here unchanged.     |
-| [**matchdb**](https://github.com/Nonprofit-Open-Data-Collective/matchdb)                                                    | alias enumeration: every name and address the IRS and 990 filers have recorded for each EIN, compiled on demand into a reference frame | an organization’s *legal* name is often not the name a source list wrote down. Enumerating aliases is a data-curation problem with its own cadence and its own 10 GB, not a matching problem. Recognized by shape, so it is not a formal dependency. |
-| [**reclin2**](https://cran.r-project.org/package=reclin2) · [**stringdist**](https://cran.r-project.org/package=stringdist) | pair generation and field-level string comparison                                                                                      | mature implementations of the mechanical part. npmatch supplies the blocking that keeps the pair set tractable and the scoring that interprets the comparisons. Under `Suggests`; install them before running a match.                               |
-
-</div>
-
-<div class="section level2">
+| package | role | why it is separate |
+|----|----|----|
+| [**npnormalize**](https://github.com/Nonprofit-Open-Data-Collective/npnormalize) | turns names and addresses into match keys, and fingerprints the code that made them | both sides of a match must be normalized by the *same* code, or matches quietly stop being found. One package holds it; [`np_normalize_signature()`](https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize_signature.html) makes a mismatch an error instead of a silent loss. Imported, and re-exported here unchanged. |
+| [**matchdb**](https://github.com/Nonprofit-Open-Data-Collective/matchdb) | alias enumeration: every name and address the IRS and 990 filers have recorded for each EIN, compiled on demand into a reference frame | an organization’s *legal* name is often not the name a source list wrote down. Enumerating aliases is a data-curation problem with its own cadence and its own 10 GB, not a matching problem. Recognized by shape, so it is not a formal dependency. |
+| [**reclin2**](https://cran.r-project.org/package=reclin2) · [**stringdist**](https://cran.r-project.org/package=stringdist) | pair generation and field-level string comparison | mature implementations of the mechanical part. npmatch supplies the blocking that keeps the pair set tractable and the scoring that interprets the comparisons. Under `Suggests`; install them before running a match. |
 
 ## Installation
 
-<div id="cb2" class="sourceCode">
-
 ``` r
+
 # install.packages("remotes")
 remotes::install_github("Nonprofit-Open-Data-Collective/npmatch")         # development version
 remotes::install_github("Nonprofit-Open-Data-Collective/npmatch@v0.1.1")  # the last release
 remotes::install_github("Nonprofit-Open-Data-Collective/npmatch@v0.1.0")  # v0, the crosswalk release
 ```
 
-</div>
-
 npnormalize installs with npmatch (from GitHub, via `Remotes:`). Add
 matchdb to download a published reference, and reclin2 + stringdist to
 run a match:
 
-<div id="cb3" class="sourceCode">
-
 ``` r
+
 remotes::install_github("Nonprofit-Open-Data-Collective/matchdb")
 install.packages(c("reclin2", "stringdist"))
 ```
-
-</div>
-
-<div class="section level3">
 
 ### Releases and reproducibility
 
@@ -106,19 +88,14 @@ scoring changes which EINs are matched. `packageVersion("npmatch")`
 reports the release number, and a `.9000` suffix for the development
 version.
 
-Pin the **normalizer** too. `np_normalize_signature()` fingerprints the
-code that builds the keys, and every stored artifact — a cached
-normalized reference, a matchdb bundle — carries the signature it was
-built under. npmatch refuses a reference whose signature differs from
-the installed npnormalize’s, rather than matching against keys it cannot
-reproduce. Record the signature your run reported; do not copy one out
-of documentation, because it changes whenever the rules do.
-
-</div>
-
-</div>
-
-<div class="section level2">
+Pin the **normalizer** too.
+[`np_normalize_signature()`](https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize_signature.html)
+fingerprints the code that builds the keys, and every stored artifact —
+a cached normalized reference, a matchdb bundle — carries the signature
+it was built under. npmatch refuses a reference whose signature differs
+from the installed npnormalize’s, rather than matching against keys it
+cannot reproduce. Record the signature your run reported; do not copy
+one out of documentation, because it changes whenever the rules do.
 
 ## The six tiers
 
@@ -126,36 +103,38 @@ Each tier is a separable concern with its own failure mode. A deployment
 can replace any one of them — a different alias source, a different
 scorer, a different reviewer — without touching the others.
 
-| #   | tier                                                                                     | owner                              | npmatch entry points                                                                             |
-|-----|------------------------------------------------------------------------------------------|------------------------------------|--------------------------------------------------------------------------------------------------|
-| 1   | **alias enumeration** — every name and address the entity is known by                    | matchdb                            | `np_cascade()`, `np_run_batches()` and `np_stage1_run()` take a matchdb reference as `reference` |
-| 2   | **input standardization** — names and addresses onto common keys                         | npnormalize                        | `np_query()` / `np_reference()` → `np_normalize()`                                               |
-| 3   | **data pre-prep** — tokenization, inverse document frequency, name and address frequency | npmatch, or precomputed by matchdb | `np_ref_index()`, `np_token_idf()`, `np_name_freq()`, `np_addr_freq()`                           |
-| 4   | **candidate generation** — blocking, then fuzzy comparison                               | npmatch + reclin2                  | `np_block()`, `np_block_union()`, `np_compare()`                                                 |
-| 5   | **tiered adjudication** — score, veto, select, sort into YES / MAYBE / NO                | npmatch                            | `np_score()`, `np_veto()`, `np_select()`, `np_tier()`                                            |
-| 6   | **packaging for review** — spreadsheets, LLM prompts, reports                            | npmatch                            | `np_route()`, `np_label_frame()`, `np_as_prompt()`, `np_review_report()`                         |
+| \# | tier | owner | npmatch entry points |
+|----|----|----|----|
+| 1 | **alias enumeration** — every name and address the entity is known by | matchdb | [`np_cascade()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_cascade.md), [`np_run_batches()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_run_batches.md) and [`np_stage1_run()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_stage1_run.md) take a matchdb reference as `reference` |
+| 2 | **input standardization** — names and addresses onto common keys | npnormalize | [`np_query()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_query.md) / [`np_reference()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_reference.md) → [`np_normalize()`](https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize.html) |
+| 3 | **data pre-prep** — tokenization, inverse document frequency, name and address frequency | npmatch, or precomputed by matchdb | [`np_ref_index()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_ref_index.md), [`np_token_idf()`](https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_token_idf.html), [`np_name_freq()`](https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_name_freq.html), [`np_addr_freq()`](https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_addr_freq.html) |
+| 4 | **candidate generation** — blocking, then fuzzy comparison | npmatch + reclin2 | [`np_block()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_block.md), [`np_block_union()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_block_union.md), [`np_compare()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_compare.md) |
+| 5 | **tiered adjudication** — score, veto, select, sort into YES / MAYBE / NO | npmatch | [`np_score()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_score.md), [`np_veto()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_veto.md), [`np_select()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_select.md), [`np_tier()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_tier.md) |
+| 6 | **packaging for review** — spreadsheets, LLM prompts, reports | npmatch | [`np_route()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_route.md), [`np_label_frame()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_label_frame.md), [`np_as_prompt()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_as_prompt.md), [`np_review_report()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_review_report.md) |
 
-`np_cascade()` orchestrates tiers 2–5 end to end as progressive passes
-(the scalable path) and `np_match()` in a single pass; `np_route()` then
-does tier 6 on the result. The stage drivers (`np_stage1_run()` …
-`np_final_run()`) wrap that in an on-disk run project, with tiers 5 and
-6 handing off to LLM adjudication and research stages. See the [Workflow
+[`np_cascade()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_cascade.md)
+orchestrates tiers 2–5 end to end as progressive passes (the scalable
+path) and
+[`np_match()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_match.md)
+in a single pass;
+[`np_route()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_route.md)
+then does tier 6 on the result. The stage drivers
+([`np_stage1_run()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_stage1_run.md)
+…
+[`np_final_run()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_final_run.md))
+wrap that in an on-disk run project, with tiers 5 and 6 handing off to
+LLM adjudication and research stages. See the [Workflow
 article](https://nonprofit-open-data-collective.github.io/npmatch/articles/workflow.html).
 
     source records -> np_normalize -> np_block -> np_compare -> np_score -> np_veto -> np_select -> np_tier -> np_route
-
-</div>
-
-<div class="section level2">
 
 ## Quick start
 
 The reference side comes from matchdb, which ships the pre-prep of tier
 3 already computed:
 
-<div id="cb5" class="sourceCode">
-
 ``` r
+
 library(npmatch)
 
 b <- matchdb::md_reference("active-observed", fetch = "missing")   # ~260 MB, once
@@ -167,8 +146,6 @@ out$review        # the MAYBE queue, one row per candidate
 out$unmatched     # the NO tier, each with its best near-miss
 ```
 
-</div>
-
 Passing the matchdb object as `reference` is the shortest path: npmatch
 takes its frame plus whichever of `name_freq`, `token_idf`, `ref_index`
 and `addr_freq` it carries instead of recomputing them, and refuses it
@@ -176,18 +153,17 @@ outright if it was built by a different normalizer. Any data frame works
 too — a plain BMF extract, a state registry, a membership list — in
 which case npmatch computes the tier-3 tables itself.
 
-For a large source, `np_run_batches()` chunks the query, caches the
-normalized reference and its tables, and writes per-chunk outputs that
-can be resumed.
-
-<div class="section level3">
+For a large source,
+[`np_run_batches()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_run_batches.md)
+chunks the query, caches the normalized reference and its tables, and
+writes per-chunk outputs that can be resumed.
 
 ### Data sources, and what is pre-wired
 
-| side          | pre-wired source                                                                                                                      | what else fits                                                                      |
-|---------------|---------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
-| **query**     | USASpending / SAM registrants, keyed by `uei` — `np_map_sam()`, `np_prepare_sam()`                                                    | any list of organization names with variable geographic detail; supply a schema map |
-| **reference** | matchdb bundles (default), or a standardized IRS EO Business Master File from NCCS, keyed by `ein` — `np_map_bmf()`, `np_fetch_bmf()` | any reference frame with a name, an address and an id                               |
+| side | pre-wired source | what else fits |
+|----|----|----|
+| **query** | USASpending / SAM registrants, keyed by `uei` — [`np_map_sam()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_maps.md), [`np_prepare_sam()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_prepare_sam.md) | any list of organization names with variable geographic detail; supply a schema map |
+| **reference** | matchdb bundles (default), or a standardized IRS EO Business Master File from NCCS, keyed by `ein` — [`np_map_bmf()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_maps.md), [`np_fetch_bmf()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_fetch_bmf.md) | any reference frame with a name, an address and an id |
 
 The SAM and BMF helpers are conveniences for the deployment npmatch was
 built for, not requirements of the framework. `np_query(df, map)` /
@@ -197,21 +173,11 @@ schema (`name`, `dba`, `division`, `street`, `city`, `state`, `zip5`,
 
 ------------------------------------------------------------------------
 
-</div>
-
-</div>
-
-</div>
-
-<div class="section level1">
-
 # The pipeline in detail
 
 Each section below lists the internal subroutines a stage calls and its
 ordered process steps, with the function that performs each step noted
 as `:: fx()`.
-
-<div class="section level2">
 
 ## Tier 2 · `np_query(df, map)` / `np_reference(df, map)` — canonicalize
 
@@ -220,10 +186,12 @@ stage works on common column names.
 
 **subroutines**
 
--   `.np_canonicalize()` :: apply a schema map (`np_map_sam()` /
-    `np_map_bmf()`) that maps canonical fields (`name`, `dba`,
-    `division`, `street`, `city`, `state`, `zip5`, `.id`/`.ein`) to
-    source columns
+- `.np_canonicalize()` :: apply a schema map
+  ([`np_map_sam()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_maps.md)
+  /
+  [`np_map_bmf()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_maps.md))
+  that maps canonical fields (`name`, `dba`, `division`, `street`,
+  `city`, `state`, `zip5`, `.id`/`.ein`) to source columns
 
 **process:**
 
@@ -232,34 +200,30 @@ stage works on common column names.
 2.  fill any unmapped canonical field with `NA` and squish white space
     :: `.np_canonicalize()`
 
-</div>
-
-<div class="section level2">
-
 ## Tier 2 · `np_normalize(df)` — standardize names and addresses
 
 Lives in
 [npnormalize](https://nonprofit-open-data-collective.github.io/npnormalize/)
-and is re-exported here unchanged, so `npmatch::np_normalize()` and
-anything built on it keeps working. It brings names and addresses onto a
-common matchable form and extracts the token-level features the veto
-layer needs. npnormalize’s own documentation is authoritative on the
-rules; what matters downstream is the columns it adds:
+and is re-exported here unchanged, so
+[`npmatch::np_normalize()`](https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize.html)
+and anything built on it keeps working. It brings names and addresses
+onto a common matchable form and extracts the token-level features the
+veto layer needs. npnormalize’s own documentation is authoritative on
+the rules; what matters downstream is the columns it adds:
 
--   **name keys** — `name_key` (the match key: cleaned, abbreviations
-    expanded, leading `THE` and trailing legal suffixes stripped),
-    `name_full` (suffix retained), `name_core`, `dba_key`,
-    `division_key`
--   **name features the veto layer reads** — `name_form` (the detected
-    legal form), `name_nums` (embedded chapter / local numbers),
-    `name_ord` (ordinals folded to a rank), `name_dir` (directionals
-    canonicalized), `name_placeholder`
--   **address parts** — `street_key` (USPS-standardized, suite removed),
-    `street_num` / `street_name` / `street_type`, `street_unit` and
-    `street_unit_id` (the identifier alone, so `STE D-2` and `Suite D2`
-    agree), `is_po_box`
--   **ZIP and state** — `zip5`, `zip3`, `zip9` as a nested prefix
-    family, and `state_abb`
+- **name keys** — `name_key` (the match key: cleaned, abbreviations
+  expanded, leading `THE` and trailing legal suffixes stripped),
+  `name_full` (suffix retained), `name_core`, `dba_key`, `division_key`
+- **name features the veto layer reads** — `name_form` (the detected
+  legal form), `name_nums` (embedded chapter / local numbers),
+  `name_ord` (ordinals folded to a rank), `name_dir` (directionals
+  canonicalized), `name_placeholder`
+- **address parts** — `street_key` (USPS-standardized, suite removed),
+  `street_num` / `street_name` / `street_type`, `street_unit` and
+  `street_unit_id` (the identifier alone, so `STE D-2` and `Suite D2`
+  agree), `is_po_box`
+- **ZIP and state** — `zip5`, `zip3`, `zip9` as a nested prefix family,
+  and `state_abb`
 
 Two decisions worth knowing because they are worth real recall:
 apostrophes are **deleted, not spaced** (the BMF holds `ST LUKES`, so
@@ -274,33 +238,32 @@ lineage. Organizations do not have generations, nothing consumes the
 columns, and they are retained only so existing labeled extracts keep
 their layout.
 
-</div>
-
-<div class="section level2">
-
 ## Tier 3 · corpus statistics — what makes a token or an address informative
 
 Distinctiveness is a property of the reference corpus, not of a pair, so
 these tables are built once over the whole reference and reused by every
-pass, batch and worker. `np_cascade()` builds any that are missing;
-matchdb’s bundles ship them precomputed, counted over exactly the
-bundle’s rows.
+pass, batch and worker.
+[`np_cascade()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_cascade.md)
+builds any that are missing; matchdb’s bundles ship them precomputed,
+counted over exactly the bundle’s rows.
 
--   `np_name_freq()` :: how many reference records share each exact
-    `name_key`. An exact match to a name held by one organization is
-    trustworthy with no address corroboration; an exact match to
-    `FIRST BAPTIST CHURCH` is not.
--   `np_token_idf()` :: per-token `log(N / df)`. Rare tokens are what
-    name-token blocking leverages; corpus-common tokens are not.
--   `np_addr_freq()` :: how many records share an address, and an
-    address + suite, how many distinct suites an address carries, and
-    **what kind of place it is** — `federated` (thousands of chapters
-    filing from one national office, where the address is
-    anti-evidence), `sponsor` (a fiscal sponsor or registered agent,
-    where it is noise), `multi_tenant` (where a suite match is real
-    evidence).
--   `np_ref_index()` :: the tokenized reference, built once rather than
-    per pass.
+- [`np_name_freq()`](https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_name_freq.html)
+  :: how many reference records share each exact `name_key`. An exact
+  match to a name held by one organization is trustworthy with no
+  address corroboration; an exact match to `FIRST BAPTIST CHURCH` is
+  not.
+- [`np_token_idf()`](https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_token_idf.html)
+  :: per-token `log(N / df)`. Rare tokens are what name-token blocking
+  leverages; corpus-common tokens are not.
+- [`np_addr_freq()`](https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_addr_freq.html)
+  :: how many records share an address, and an address + suite, how many
+  distinct suites an address carries, and **what kind of place it is** —
+  `federated` (thousands of chapters filing from one national office,
+  where the address is anti-evidence), `sponsor` (a fiscal sponsor or
+  registered agent, where it is noise), `multi_tenant` (where a suite
+  match is real evidence).
+- [`np_ref_index()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_ref_index.md)
+  :: the tokenized reference, built once rather than per pass.
 
 Pass a table counted over the **full** reference when matching against
 part of it (one state, say) via `addr_freq =` / `name_freq =` /
@@ -308,24 +271,21 @@ part of it (one state, say) via `addr_freq =` / `name_freq =` /
 under-counted. A per-slice table shifts scores with no error — the quiet
 kind of failure.
 
-</div>
-
-<div class="section level2">
-
 ## Tier 4 · `np_block(query, reference)` — generate candidate pairs
 
 Produces only the (query, reference) pairs worth comparing, so
-`np_compare()` never scores every same-state pair. This is where
-**inverse document frequency (IDF) tokenization** lives.
+[`np_compare()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_compare.md)
+never scores every same-state pair. This is where **inverse document
+frequency (IDF) tokenization** lives.
 
 **subroutines**
 
--   `.np_bykey()` :: build a composite exact-block key (e.g. `state`, or
-    `state` + `name_key`)
--   `np_stopwords()` :: the non-discriminating tokens dropped before
-    token blocking
--   `np_token_idf()` :: per-token IDF, `log(N / df)`, over the reference
-    corpus
+- `.np_bykey()` :: build a composite exact-block key (e.g. `state`, or
+  `state` + `name_key`)
+- [`np_stopwords()`](https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_stopwords.html)
+  :: the non-discriminating tokens dropped before token blocking
+- [`np_token_idf()`](https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_token_idf.html)
+  :: per-token IDF, `log(N / df)`, over the reference corpus
 
 **process:**
 
@@ -338,33 +298,32 @@ Produces only the (query, reference) pairs worth comparing, so
     the sum of its shared tokens’ IDF clears `min_pair_idf`, so one rare
     token (or several moderately common ones) justifies a pair but a
     lone common token (e.g. `CALIFORNIA`, `CHURCH`) does not
-4.  de-duplicate the pairs from several passes :: `np_block_union()`
+4.  de-duplicate the pairs from several passes ::
+    [`np_block_union()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_block_union.md)
 
-`np_cascade()` runs blocking as **progressive passes** — exact name,
-exact name/DBA, exact DBA/name, exact DBA/DBA, shared-token same-state,
-shared-token cross-state — pruning each query out of later (looser,
-costlier) passes once it is resolved (**residual pruning**).
-
-</div>
-
-<div class="section level2">
+[`np_cascade()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_cascade.md)
+runs blocking as **progressive passes** — exact name, exact name/DBA,
+exact DBA/name, exact DBA/DBA, shared-token same-state, shared-token
+cross-state — pruning each query out of later (looser, costlier) passes
+once it is resolved (**residual pruning**).
 
 ## Tier 4 · `np_compare(query, reference)` — per-field similarity
 
 **subroutines**
 
--   `reclin2::compare_pairs()` with `cmp_jarowinkler()` /
-    `cmp_identical()` :: per-field comparison
--   `.np_name_overlap()` :: token-set + acronym-aware overlap
-    (word-reorder, `EMS` \<-> `Emergency Medical Service`)
--   `.np_collapse_initials()` :: collapse single-letter runs (`F O R` ->
-    `FOR`)
--   `np_name_freq()` :: how many reference records share a normalized
-    name
--   `np_addr_freq()` :: how many reference records share an address, and
-    an address + suite, and how many distinct suites an address carries
-    — what makes a suite match informative (a multi-tenant building) or
-    meaningless (a fiscal sponsor’s mail drop)
+- [`reclin2::compare_pairs()`](https://rdrr.io/pkg/reclin2/man/compare_pairs.html)
+  with `cmp_jarowinkler()` / `cmp_identical()` :: per-field comparison
+- `.np_name_overlap()` :: token-set + acronym-aware overlap
+  (word-reorder, `EMS` \<-\> `Emergency Medical Service`)
+- `.np_collapse_initials()` :: collapse single-letter runs (`F O R` -\>
+  `FOR`)
+- [`np_name_freq()`](https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_name_freq.html)
+  :: how many reference records share a normalized name
+- [`np_addr_freq()`](https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_addr_freq.html)
+  :: how many reference records share an address, and an address +
+  suite, and how many distinct suites an address carries — what makes a
+  suite match informative (a multi-tenant building) or meaningless (a
+  fiscal sponsor’s mail drop)
 
 **process:**
 
@@ -385,21 +344,18 @@ costlier) passes once it is resolved (**residual pruning**).
 7.  record which name **version** matched on each side (`main` / `dba` /
     `division` / `token_overlap` / `none`)
 8.  compute the name distinctiveness count (`normalized_match_count`) ::
-    `np_name_freq()`
-
-</div>
-
-<div class="section level2">
+    [`np_name_freq()`](https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_name_freq.html)
 
 ## Tier 5 · `np_score(pairs, method = "hier")` — combine into one score
 
 **subroutines**
 
--   `.np_hier_score()` :: name similarity + a hierarchical geo sub-score
+- `.np_hier_score()` :: name similarity + a hierarchical geo sub-score
 
 **process:**
 
-1.  name sub-score = the effective name similarity from `np_compare()`
+1.  name sub-score = the effective name similarity from
+    [`np_compare()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_compare.md)
 2.  geo sub-score = the **strongest confirmed** location granularity via
     `max`, not a sum
     (`ZIP9 > street > ZIP5 > PO box > ZIP3 > city > state`), so
@@ -411,46 +367,45 @@ costlier) passes once it is resolved (**residual pruning**).
     **state-aware**: cross-state name-only matches get a lower floor and
     land in MAYBE for review :: `.np_hier_score()`
 
-</div>
-
-<div class="section level2">
-
 ## Tier 5 · `np_veto(pairs)` — do-not-match rules
 
 **subroutines**
 
--   `.np_rule_number()` / `.np_rule_ordinal()` / `.np_rule_direction()`
-    / `.np_rule_forprofit()` :: hard predicates
--   `.np_rule_affiliate_suffix()` / `.np_rule_government()` :: soft
-    predicates
+- `.np_rule_number()` / `.np_rule_ordinal()` / `.np_rule_direction()` /
+  `.np_rule_forprofit()` :: hard predicates
+- `.np_rule_affiliate_suffix()` / `.np_rule_government()` :: soft
+  predicates
 
 **process:** every rule in `config$rules` runs on every pair; hits
 accumulate by severity (`;`-separated when more than one fires). A
-**hard** hit means impossible — `np_select()` drops the pair, so that
-EIN is out of contention. A **soft** hit means plausible-but-review —
-the pair stays eligible, and if it is the selected match `np_tier()`
+**hard** hit means impossible —
+[`np_select()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_select.md)
+drops the pair, so that EIN is out of contention. A **soft** hit means
+plausible-but-review — the pair stays eligible, and if it is the
+selected match
+[`np_tier()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_tier.md)
 caps it at MAYBE.
 
 1.  number conflict — disjoint embedded numbers (`Local 32` vs
-    `Local 45`) -> **hard** :: `.np_rule_number()`
-2.  ordinal conflict — `FIRST` vs `SECOND` -> **hard** ::
+    `Local 45`) -\> **hard** :: `.np_rule_number()`
+2.  ordinal conflict — `FIRST` vs `SECOND` -\> **hard** ::
     `.np_rule_ordinal()`
-3.  direction conflict — `SOUTHWEST` vs `SOUTHEAST` -> **hard** ::
+3.  direction conflict — `SOUTHWEST` vs `SOUTHEAST` -\> **hard** ::
     `.np_rule_direction()`
 4.  for-profit form — query’s raw name ends in `LLC` / `LP` / `LLP` /
-    `PLLC` -> **hard** (no exempt org uses these) ::
+    `PLLC` -\> **hard** (no exempt org uses these) ::
     `.np_rule_forprofit()`
 5.  affiliate-suffix mismatch — query `X` matched to candidate
-    `X FOUNDATION` on a strong name match -> **soft** (cap at MAYBE) ::
+    `X FOUNDATION` on a strong name match -\> **soft** (cap at MAYBE) ::
     `.np_rule_affiliate_suffix()`
 6.  government entity — query is a municipality / school district /
-    special district / authority -> **soft** :: `.np_rule_government()`
+    special district / authority -\> **soft** :: `.np_rule_government()`
 7.  add `veto` / `veto_reason` (hard) and `veto_soft` /
     `veto_soft_reason` (soft)
 
 Why the layer exists: fuzzy similarity is worst exactly where org names
 differ by one short decisive token. `First Presbyterian Church` and
-`Second Presbyterian Church` are \~95% similar as strings and are two
+`Second Presbyterian Church` are ~95% similar as strings and are two
 different congregations — likewise `Southwest` vs
 `Southeast Community Center`, `Local 32` vs `Local 45`, and an org vs
 its fundraising foundation. Scorer tuning cannot separate those; the
@@ -465,18 +420,13 @@ distinguish two *people*, not two organisations, and are an artifact of
 the SAM / USASpending person-matching lineage. Rules 1–6 are the
 organisation-level equivalents.
 
-</div>
-
-<div class="section level2">
-
 ## Tier 5 · `np_select(pairs)` — best candidate per query
 
 **subroutines**
 
--   `.np_overall_summary()` :: the overall pick with tie-aware
-    tiebreaking
--   `.np_argmax_by()` :: best row per query for a given column
--   `.np_full_name_sim()` :: break a high tie by full-name similarity
+- `.np_overall_summary()` :: the overall pick with tie-aware tiebreaking
+- `.np_argmax_by()` :: best row per query for a given column
+- `.np_full_name_sim()` :: break a high tie by full-name similarity
 
 **process:**
 
@@ -491,38 +441,31 @@ organisation-level equivalents.
 5.  flag near-ties (`n_close`, `tie`) and whether the views agree
     (`views_agree`)
 
-</div>
-
-<div class="section level2">
-
 ## Tier 5 · `np_tier(selection)` — YES / MAYBE / NO
 
 **process:**
 
-1.  `score >= yes` -> **YES**; `>= maybe` -> **MAYBE**; else **NO**
-2.  demote YES -> MAYBE on a near-tie (`overall_margin < min_margin`) —
+1.  `score >= yes` -\> **YES**; `>= maybe` -\> **MAYBE**; else **NO**
+2.  demote YES -\> MAYBE on a near-tie (`overall_margin < min_margin`) —
     genuine ambiguity
-3.  demote YES -> MAYBE on a soft veto on the selected pair
+3.  demote YES -\> MAYBE on a soft veto on the selected pair
     (`affiliate_suffix`, `government_entity`) — never demotes MAYBE to
     NO
-
-</div>
-
-<div class="section level2">
 
 ## Tier 6 · `np_route(tiered)` — hand-off products
 
 **subroutines**
 
--   `.np_candidates()` :: surface top-k by score plus the best name-only
-    and best address-only pairs
--   `.np_review_layout()` / `.np_rename_review()` :: assemble the human
-    review / evaluation frame
--   `np_bmf_review_fields()` :: import reference context (for the BMF:
-    NTEE, subsection, foundation flag, ruling year, assets/revenue, 990
-    form type, affiliation, group exemption)
--   `np_token_idf()` :: annotate the tokenized name fields with each
-    token’s rarity
+- `.np_candidates()` :: surface top-k by score plus the best name-only
+  and best address-only pairs
+- `.np_review_layout()` / `.np_rename_review()` :: assemble the human
+  review / evaluation frame
+- [`np_bmf_review_fields()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_bmf_review_fields.md)
+  :: import reference context (for the BMF: NTEE, subsection, foundation
+  flag, ruling year, assets/revenue, 990 form type, affiliation, group
+  exemption)
+- [`np_token_idf()`](https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_token_idf.html)
+  :: annotate the tokenized name fields with each token’s rarity
 
 **process:**
 
@@ -532,12 +475,8 @@ organisation-level equivalents.
     `match_layer`, `decision_reason`, veto flags), the name-match
     summary and cleaning progression, the aligned address fields, and
     the imported reference context — the same schema a human sheet and
-    an LLM prompt (`np_as_prompt()`) both consume
+    an LLM prompt
+    ([`np_as_prompt()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_as_prompt.md))
+    both consume
 3.  **`unmatched`** — the NO tier, each with its best near-miss for
     reference
-
-</div>
-
-</div>
-
-</div>
