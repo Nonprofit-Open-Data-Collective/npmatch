@@ -93,7 +93,11 @@ chosen empirically against a labelled training set:</p>
 <ul><li><p><code>"weighted"</code> — normalized weighted sum using the profile weights in
 <code>config</code>. Transparent, no training required. The default.</p></li>
 <li><p><code>"hier"</code> — name similarity plus a <em>hierarchical</em> geo sub-score that takes
-the strongest confirmed location granularity (ZIP+4 &gt; street &gt; ZIP5 &gt; PO boxZIP3 &gt; city &gt; state) via a max, not a sum. Correlated address fields arenot double-counted, and a wrong city cannot pull down a ZIP-confirmed match.Degrades gracefully as geo fields go missing. See np_default_geo_weights().</p></li>
+the strongest confirmed location granularity
+(ZIP+4 &gt; street &gt; ZIP5 &gt; PO box &gt; ZIP3 &gt; city &gt; state) via a <code>max</code>, not a
+sum. Correlated address fields are not double-counted, and a wrong city
+cannot pull down a ZIP-confirmed match. Degrades gracefully as geo fields
+go missing. See <code><a href="np_default_geo_weights.html">np_default_geo_weights()</a></code>.</p></li>
 <li><p><code>"em"</code> — unsupervised Fellegi-Sunter weights via <code><a href="https://rdrr.io/pkg/reclin2/man/problink_em.html" class="external-link">reclin2::problink_em()</a></code>;
 <code>score</code> is the match posterior. Learns weights from the data.</p></li>
 <li><p><code>"model"</code> — apply a fitted classifier (<code>glm</code>, <code>ranger</code>, <code>xgboost</code>, ...)
@@ -120,21 +124,26 @@ can be compared side by side before one is adopted.</p>
 
 
   <script type="module">
-  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
-  document.querySelectorAll("pre.mermaid > code").forEach(function (code) {
-    code.parentNode.textContent = code.textContent;
-  });
-  mermaid.initialize({
-    startOnLoad: false,
-    securityLevel: "loose",
-    theme: "base",
-    themeVariables: {
-      lineColor: "#888888",
-      textColor: "#111111",
-      edgeLabelBackground: "#ffffff",
-      fontFamily: "inherit"
-    }
-  });
-  await mermaid.run({ querySelector: "pre.mermaid" });
+  const blocks = document.querySelectorAll("pre.mermaid:not(.mermaid-js)");
+  if (blocks.length) {
+    const { default: mermaid } =
+      await import("https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs");
+    blocks.forEach(function (pre) {
+      const code = pre.querySelector("code");
+      if (code) pre.textContent = code.textContent;
+    });
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "loose",
+      theme: "base",
+      themeVariables: {
+        lineColor: "#888888",
+        textColor: "#111111",
+        edgeLabelBackground: "#ffffff",
+        fontFamily: "inherit"
+      }
+    });
+    await mermaid.run({ nodes: blocks });
+  }
 </script></body></html>
 
