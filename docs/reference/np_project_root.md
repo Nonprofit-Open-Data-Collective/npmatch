@@ -54,7 +54,7 @@ The project root path, or `NA_character_` when none is active.
 ``` r
 old <- options(npmatch.project = tempdir())
 np_project_root()
-#> [1] "C:\\Users\\jdlec\\AppData\\Local\\Temp\\Rtmpw3LCWZ"
+#> [1] "C:\\Users\\jdlec\\AppData\\Local\\Temp\\RtmpK6upTW"
 options(old)
 ```
 

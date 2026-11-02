@@ -58,7 +58,9 @@
 <li>
 <strong>The move itself kept every stored artifact valid</strong>, because <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize_signature.html" class="external-link">np_normalize_signature()</a></code> still reported <code>v1-3e7b9f9d59bbb19e</code> on both sides of it — npmatch 0.1.1 and npnormalize 0.1.0 and 0.1.1.</li>
 <li>
-<strong>npnormalize has since moved the signature on purpose</strong>, to <code>v1-592912060053c4c3</code>: 0.1.2 made <code>BUILDING</code> a unit designator (<a href="https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/7" class="external-link">npnormalize#7</a>), and 0.1.3 made a line naming several units keep the most specific one and the house number a whole token. Stored <code>street_unit</code>, <code>street_unit_id</code>, <code>street_num</code> and <code>street_name</code> values from before that must be rebuilt — matchdb’s database, bundles and tranches included (<a href="https://github.com/Nonprofit-Open-Data-Collective/matchdb/issues/29" class="external-link">matchdb#29</a>). npmatch now requires <code>npnormalize (&gt;= 0.1.3)</code>, so an install cannot quietly compute keys with an older normalizer than the one it is pinned to.</li>
+<strong>npnormalize has since moved the signature on purpose</strong>, to <code>v1-592912060053c4c3</code>: 0.1.2 made <code>BUILDING</code> a unit designator (<a href="https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/7" class="external-link">npnormalize#7</a>), and 0.1.3 made a line naming several units keep the most specific one and the house number a whole token. Stored <code>street_unit</code>, <code>street_unit_id</code>, <code>street_num</code> and <code>street_name</code> values from before that must be rebuilt — matchdb’s database, bundles and tranches included (<a href="https://github.com/Nonprofit-Open-Data-Collective/matchdb/issues/29" class="external-link">matchdb#29</a>). npmatch carries a version floor on npnormalize, so an install cannot quietly compute keys with an older normalizer than the one it is pinned to.</li>
+<li>
+<strong>The floor is <code>npnormalize (&gt;= 0.1.4)</code></strong>, ahead of that release landing. 0.1.4 adds <code>street_has_box</code> — whether a street <em>carries</em> a box component, which <code>is_po_box</code> cannot answer because it is the gate that blanks the address key — and moves the signature again (<a href="https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/9" class="external-link">npnormalize#9</a>). Two consequences, both deliberate: an npmatch install resolves npnormalize from GitHub, so it cannot be satisfied until 0.1.4 is on npnormalize’s <code>main</code>; and <code>tests/testthat/test-signature.R</code> still pins 0.1.3’s value, so it must be re-pinned from the merged release rather than from a value copied out of a branch. Stored keys and the statistics built on them need rebuilding once more, matchdb’s published data included.</li>
 <li>
 <strong>Why.</strong> Both sides of a match depend on the normalizer: matchdb stores its keys, and npmatch computes them for each query. With the normalizer in its own package, matchdb no longer needs npmatch, and npmatch can depend on matchdb in turn.</li>
 <li>
@@ -111,6 +113,7 @@
 <li><p><strong>The README no longer restates npnormalize’s rules.</strong> The subroutine-level walkthrough of the normalizer is replaced by the columns it produces and a pointer to npnormalize’s own reference, which is authoritative. The tier-3 corpus statistics get a section of their own, including the warning against counting them over a slice.</p></li>
 <li><p><strong>The prose quotes no normalizer signature.</strong> The entry above names the values deliberately, as the record of what moved, and <code>tests/testthat/test-signature.R</code> pins the current one so an unintended move cannot pass unnoticed. Prose that merely asserts a signature is unchanged goes stale instead, which is what had happened here: the README and the Workflow article now say to read the value from <code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize_signature.html" class="external-link">np_normalize_signature()</a></code> and to record what a run reported.</p></li>
 <li><p>The nine normalizer topics collapsed into one <code>reexports</code> page when the normalizer moved, so <code>_pkgdown.yml</code> redirects their old URLs to it, and <code><a href="../reference/np_cluster_rollup.html">np_cluster_rollup()</a></code> / <code><a href="../reference/np_pair_links.html">np_pair_links()</a></code> are in the reference index for the first time.</p></li>
+<li><p><code>dev/BENCHMARK-RANK-DEFICIENCY.md</code> records the long-standing rank-deficient-fit warning in the <code><a href="../reference/np_benchmark.html">np_benchmark()</a></code> test — which fold degenerates and why, that <code><a href="../reference/np_train.html">np_train()</a></code>’s blanket <code><a href="https://rdrr.io/r/base/warning.html" class="external-link">suppressWarnings()</a></code> is the part worth fixing, and a plan. <code>dev/probe-rank-deficiency.R</code> reproduces it.</p></li>
 </ul></div>
 </div>
     <div class="section level2">
@@ -233,21 +236,26 @@
 
 
   <script type="module">
-  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
-  document.querySelectorAll("pre.mermaid > code").forEach(function (code) {
-    code.parentNode.textContent = code.textContent;
-  });
-  mermaid.initialize({
-    startOnLoad: false,
-    securityLevel: "loose",
-    theme: "base",
-    themeVariables: {
-      lineColor: "#888888",
-      textColor: "#111111",
-      edgeLabelBackground: "#ffffff",
-      fontFamily: "inherit"
-    }
-  });
-  await mermaid.run({ querySelector: "pre.mermaid" });
+  const blocks = document.querySelectorAll("pre.mermaid:not(.mermaid-js)");
+  if (blocks.length) {
+    const { default: mermaid } =
+      await import("https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs");
+    blocks.forEach(function (pre) {
+      const code = pre.querySelector("code");
+      if (code) pre.textContent = code.textContent;
+    });
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "loose",
+      theme: "base",
+      themeVariables: {
+        lineColor: "#888888",
+        textColor: "#111111",
+        edgeLabelBackground: "#ffffff",
+        fontFamily: "inherit"
+      }
+    });
+    await mermaid.run({ nodes: blocks });
+  }
 </script></body></html>
 

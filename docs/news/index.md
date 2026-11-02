@@ -33,9 +33,21 @@
     that must be rebuilt — matchdb’s database, bundles and tranches
     included
     ([matchdb#29](https://github.com/Nonprofit-Open-Data-Collective/matchdb/issues/29)).
-    npmatch now requires `npnormalize (>= 0.1.3)`, so an install cannot
+    npmatch carries a version floor on npnormalize, so an install cannot
     quietly compute keys with an older normalizer than the one it is
     pinned to.
+-   **The floor is `npnormalize (>= 0.1.4)`**, ahead of that release
+    landing. 0.1.4 adds `street_has_box` — whether a street *carries* a
+    box component, which `is_po_box` cannot answer because it is the
+    gate that blanks the address key — and moves the signature again
+    ([npnormalize#9](https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/9)).
+    Two consequences, both deliberate: an npmatch install resolves
+    npnormalize from GitHub, so it cannot be satisfied until 0.1.4 is on
+    npnormalize’s `main`; and `tests/testthat/test-signature.R` still
+    pins 0.1.3’s value, so it must be re-pinned from the merged release
+    rather than from a value copied out of a branch. Stored keys and the
+    statistics built on them need rebuilding once more, matchdb’s
+    published data included.
 -   **Why.** Both sides of a match depend on the normalizer: matchdb
     stores its keys, and npmatch computes them for each query. With the
     normalizer in its own package, matchdb no longer needs npmatch, and
@@ -169,6 +181,12 @@
     the normalizer moved, so `_pkgdown.yml` redirects their old URLs to
     it, and `np_cluster_rollup()` / `np_pair_links()` are in the
     reference index for the first time.
+
+-   `dev/BENCHMARK-RANK-DEFICIENCY.md` records the long-standing
+    rank-deficient-fit warning in the `np_benchmark()` test — which fold
+    degenerates and why, that `np_train()`’s blanket
+    `suppressWarnings()` is the part worth fixing, and a plan.
+    `dev/probe-rank-deficiency.R` reproduces it.
 
 </div>
 
