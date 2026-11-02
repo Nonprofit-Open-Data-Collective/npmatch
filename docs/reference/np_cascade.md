@@ -47,12 +47,14 @@ np_cascade(
 - reference:
 
   Raw data frame, `np_reference`, or a matchdb reference: the list that
-  `matchdb::md_compile()` or `matchdb::md_reference()` returns. From a
-  matchdb reference, npmatch takes the frame and whichever of
-  `name_freq`, `token_idf`, `ref_index` and `addr_freq` it carries;
-  arguments you pass explicitly take precedence. It is refused if its
-  normalizer signature differs from the installed one. matchdb itself is
-  not needed.
+  [`matchdb::md_compile()`](https://nonprofit-open-data-collective.github.io/matchdb/reference/md_compile.html)
+  or
+  [`matchdb::md_reference()`](https://nonprofit-open-data-collective.github.io/matchdb/reference/md_publish.html)
+  returns. From a matchdb reference, npmatch takes the frame and
+  whichever of `name_freq`, `token_idf`, `ref_index` and `addr_freq` it
+  carries; arguments you pass explicitly take precedence. It is refused
+  if its normalizer signature differs from the installed one. matchdb
+  itself is not needed.
 
 - config:
 

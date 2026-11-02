@@ -42,8 +42,10 @@ np_stage1_run(
   The reference: raw data frame,
   [`np_reference()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_reference.md),
   a pre-normalized reference, or a matchdb reference from
-  `matchdb::md_compile()` / `matchdb::md_reference()`, whose precomputed
-  tables are used as they are (see
+  [`matchdb::md_compile()`](https://nonprofit-open-data-collective.github.io/matchdb/reference/md_compile.html)
+  /
+  [`matchdb::md_reference()`](https://nonprofit-open-data-collective.github.io/matchdb/reference/md_publish.html),
+  whose precomputed tables are used as they are (see
   [`np_cascade()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_cascade.md)).
   May be `NULL` when `cache` holds a built bundle.
 

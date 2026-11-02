@@ -40,22 +40,28 @@
   npmatch carries a version floor on npnormalize, so an install cannot
   quietly compute keys with an older normalizer than the one it is
   pinned to.
-- **The floor is `npnormalize (>= 0.1.5)`**, and the two releases it
-  reaches for have both landed on npnormalize’s `main`. 0.1.4 added
+- **The floor is `npnormalize (>= 0.1.6)`**, and the three releases it
+  reaches for have all landed on npnormalize’s `main`. 0.1.4 added
   `street_has_box` — whether a street *carries* a box component, which
   `is_po_box` cannot answer because it is the gate that blanks the
   address key
-  ([npnormalize#9](https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/9))
-  — and 0.1.5 published one box vocabulary for the four packages that
-  had each kept their own, which also made a lettered box (`PO BOX A`) a
-  box
-  ([npnormalize#12](https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/12)).
+  ([npnormalize#9](https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/9));
+  0.1.5 published one box vocabulary for the four packages that had each
+  kept their own, which also made a lettered box (`PO BOX A`) a box
+  ([npnormalize#12](https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/12));
+  and 0.1.6 widened that vocabulary to the long-tail spellings (`PO BX`,
+  `PB`, `P BOX`, `POSTAL DRAWER`, `POSTAL OFC BOX`, `APDO`), made a
+  *mail-only* line blank the address key rather than key it — general
+  delivery, military mail, a bare drawer, none of which is a building
+  two organizations share — and added `mail_key`, the box plus its ZIP,
+  which is the one co-location signal a blanked box still carries
+  ([npnormalize#13](https://github.com/Nonprofit-Open-Data-Collective/npnormalize/issues/13)).
   Each move changed the signature, so `tests/testthat/test-signature.R`
-  now pins `v1-533f186c123357cf`, read off npnormalize’s merged `main`
+  now pins `v1-d49b18cc81ab79fb`, read off npnormalize’s merged `main`
   rather than off a value copied out of a branch; the registry comment
-  beside it keeps 0.1.4’s `v1-1179714ce1e9d31f` as part of the record.
-  Stored keys and the statistics built on them need rebuilding once
-  more, matchdb’s published data included.
+  beside it keeps every earlier value as part of the record. Stored keys
+  and the statistics built on them need rebuilding once more, matchdb’s
+  published data included.
 - **Why.** Both sides of a match depend on the normalizer: matchdb
   stores its keys, and npmatch computes them for each query. With the
   normalizer in its own package, matchdb no longer needs npmatch, and
@@ -103,13 +109,15 @@
   and
   [`np_run_batches()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_run_batches.md)
   take a matchdb reference directly.** Pass the object
-  `matchdb::md_compile()` or `matchdb::md_reference()` returns as
-  `reference`, and npmatch uses its frame plus whichever of `name_freq`,
-  `token_idf`, `ref_index` and `addr_freq` it carries, instead of
-  recomputing them. Explicit arguments still take precedence. A
-  reference whose normalizer signature differs from the installed one is
-  refused. npmatch recognises the object by its shape, so matchdb is not
-  a dependency, not even a suggested one.
+  [`matchdb::md_compile()`](https://nonprofit-open-data-collective.github.io/matchdb/reference/md_compile.html)
+  or
+  [`matchdb::md_reference()`](https://nonprofit-open-data-collective.github.io/matchdb/reference/md_publish.html)
+  returns as `reference`, and npmatch uses its frame plus whichever of
+  `name_freq`, `token_idf`, `ref_index` and `addr_freq` it carries,
+  instead of recomputing them. Explicit arguments still take precedence.
+  A reference whose normalizer signature differs from the installed one
+  is refused. npmatch recognises the object by its shape, so matchdb is
+  not a dependency, not even a suggested one.
 - **Both take an `addr_freq` argument**, a precomputed
   [`np_addr_freq()`](https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_addr_freq.html)
   table.
