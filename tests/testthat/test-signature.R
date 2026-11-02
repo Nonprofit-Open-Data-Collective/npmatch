@@ -33,7 +33,12 @@ test_that("npmatch reports npnormalize's signature, whatever it now is", {
   #                        street_key; and eleven further spellings of
   #                        FOUNDATION fold, three of them a word a line break
   #                        split (FOUND is not one of them -- it is a word)
-  expect_identical(np_normalize_signature(), "v1-59c6e84c5f38e9f5")
+  #   v1-5e901add4a04a5d6  0.1.8 -- the house-number join leaves a lone compass
+  #                        letter alone, because "1002-E SENECA ST" is 1002
+  #                        East Seneca and 0.1.7 keyed it "1002E SENECA ST",
+  #                        apart from the spelling of that door filed with a
+  #                        space
+  expect_identical(np_normalize_signature(), "v1-5e901add4a04a5d6")
 })
 
 test_that("the re-exported functions are npnormalize's own", {
