@@ -100,11 +100,18 @@ jobs:
         run: pkgdown::check_pkgdown(Sys.getenv("PKGSRC"))
         shell: Rscript {0}
 
+      # build_site() has no dest_dir argument -- that one belongs to
+      # build_site_github_pages(). The destination comes from _pkgdown.yml
+      # (`destination: docs`) and is overridden here to an absolute scratch
+      # path. $PKGSRC is already outside the checkout, so this is belt and
+      # braces, but it keeps the intent explicit and the output easy to find.
       - name: Build the site into a scratch directory and discard it
         run: |
           pkgdown::build_site(
             pkg = Sys.getenv("PKGSRC"),
-            dest_dir = file.path(Sys.getenv("RUNNER_TEMP"), "pkgdown-site"),
+            override = list(
+              destination = file.path(Sys.getenv("RUNNER_TEMP"), "pkgdown-site")
+            ),
             install = FALSE,
             new_process = FALSE,
             preview = FALSE
