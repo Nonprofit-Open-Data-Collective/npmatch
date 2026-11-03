@@ -16,11 +16,23 @@ model, where \code{x} is the similarity data frame and \code{y} is 0/1.}
 \item{features}{Similarity columns to use. Defaults to the compared fields.}
 }
 \value{
-An \code{np_model} object usable as \code{np_score(..., model = )}.
+An \code{np_model} object usable as \code{np_score(..., model = )}. Alongside
+the fit it carries \code{rank}, \code{n_terms} and \code{aliased} -- the terms the fit
+dropped as collinear, empty when there were none. \code{rank} and \code{n_terms}
+are \code{NA} for a custom \code{engine} whose object has no \code{coef()} method.
 }
 \description{
 Fits a classifier that maps the per-field similarity vector to a match
 probability — the model consumed by \code{\link[=np_score]{np_score()}} \code{method = "model"}. The
 built-in engine is logistic regression; any engine returning an object with a
 \code{predict(obj, newdata, type = "response")} method can be supplied.
+}
+\details{
+If the fit cannot estimate every term -- because a similarity column is
+constant in the labelled set, or two of them carry the same information --
+\code{glm()} drops the collinear ones and the scores quietly stop depending on
+them. \code{np_train()} reports that once, naming the dropped terms, with a
+warning of class \code{np_rank_deficient}, and records \code{rank}, \code{n_terms} and
+\code{aliased} on the model; \code{print()} shows them. The class is there so a
+caller who expects the condition can muffle precisely it.
 }

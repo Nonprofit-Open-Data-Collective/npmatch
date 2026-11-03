@@ -133,5 +133,54 @@ the model.
 
 ## 6. Status
 
-Not started. Noted 2026-11-01 while merging main into the documentation branch;
-the warning predates that work and nothing in it is a regression.
+**Done, 2026-11-03.** Section 5's plan is implemented, in the order it gives.
+
+* **(1) Report once, at the fit.** `np_train()` keeps the `suppressWarnings()`
+  around `glm()` — the "fitted probabilities numerically 0 or 1" case is still
+  expected and still silent — but now inspects the result and records `rank`,
+  `n_terms` and `aliased` on the `np_model`. `print.np_model()` shows them, and
+  a single warning names the dropped terms. It is raised with the condition
+  class `np_rank_deficient` rather than as a bare message, so §5's "matched on
+  the condition, not a blanket suppressWarnings()" is literal: a caller muffles
+  the class, not a substring.
+* **(2) Narrow the suppression at predict.** `predict.np_model()` muffles only
+  `predict.lm()`'s "prediction from rank-deficient fit" — by text, since that
+  warning is stats' own and carries no class — and lets `newdata` problems and
+  NA coercions through as before.
+* **(3) Make the benchmark account for it.** `np_benchmark()` muffles the
+  per-fold `np_rank_deficient` condition and reports instead: a
+  `rank_deficient_folds` column (`NA` on the unsupervised rows) and a
+  `rank_deficient` attribute, one entry per affected fold, naming the terms it
+  dropped.
+* **(4) Fixture untouched.** The 24-row fixture still degenerates at fold 2 and
+  is still the regression case. The "every fold full rank" test builds its own
+  well-conditioned 40-row frame rather than changing the shared fixture — note
+  that §5's suggested `k = 2` fallback would not have worked: at `k = 2` *both*
+  folds drop `zip5`, and at `k = 5` folds 1 and 4 do.
+* **Verify.** `expect_silent()` now wraps the `np_benchmark()` call in
+  `test-train.R`, as §5 asks, plus tests that a duplicated feature column makes
+  `np_train()` warn with the right class and record the aliased name. Suite:
+  `FAIL 0 | WARN 0 | PASS 706`.
+
+### Correction to §5's "inspect first", step 2
+
+Step 2 said to fit on the real `training_pairs` projection and "confirm
+`coef(fit)` has no `NA` there". **It does have NAs.** Fitting a logistic model
+on all 11 numeric non-target columns of `TRAINING-PAIRS-1502.csv` (304,274
+rows, 1,168 positives) gives rank 9 of 12 terms and aliases three:
+
+| term | why |
+|---|---|
+| `geo_zip9` | constant across all 304,274 rows |
+| `geo_pobox` | constant across all 304,274 rows |
+| `geo_zip5` | `cor(zip_sim, geo_zip5) = 1.000` |
+
+This does **not** trigger step 2's conclusion that "the aliased feature needs
+removing from the default set", because those are the columns of the exported
+training projection, not `attr(pairs, "cmp_cols")` — the compared-field set is
+`name_key`, `street_key`, `city`, `zip5`, and the full fixture fit on it is
+rank 5 of 5. But it does retire the framing that this is only a 24-row fixture
+curiosity: a reader who follows the classifier vignette and fits on that file
+gets three terms dropped, silently before this change. Whether the projection
+should ship constant and duplicated columns at all is a separate question for
+whoever regenerates it.

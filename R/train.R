@@ -23,12 +23,23 @@ np_label <- function(pairs, labels) {
 #' built-in engine is logistic regression; any engine returning an object with a
 #' `predict(obj, newdata, type = "response")` method can be supplied.
 #'
+#' If the fit cannot estimate every term -- because a similarity column is
+#' constant in the labelled set, or two of them carry the same information --
+#' `glm()` drops the collinear ones and the scores quietly stop depending on
+#' them. `np_train()` reports that once, naming the dropped terms, with a
+#' warning of class `np_rank_deficient`, and records `rank`, `n_terms` and
+#' `aliased` on the model; `print()` shows them. The class is there so a
+#' caller who expects the condition can muffle precisely it.
+#'
 #' @param pairs A labelled `np_pairs` frame (see [np_label()]); rows with `NA`
 #'   label are ignored.
 #' @param engine `"logit"` (default) or a function `(x, y)` returning a fitted
 #'   model, where `x` is the similarity data frame and `y` is 0/1.
 #' @param features Similarity columns to use. Defaults to the compared fields.
-#' @return An `np_model` object usable as `np_score(..., model = )`.
+#' @return An `np_model` object usable as `np_score(..., model = )`. Alongside
+#'   the fit it carries `rank`, `n_terms` and `aliased` -- the terms the fit
+#'   dropped as collinear, empty when there were none. `rank` and `n_terms`
+#'   are `NA` for a custom `engine` whose object has no `coef()` method.
 #' @export
 np_train <- function(pairs, engine = "logit", features = attr(pairs, "cmp_cols")) {
   features <- intersect(features, names(pairs))
@@ -41,6 +52,11 @@ np_train <- function(pairs, engine = "logit", features = attr(pairs, "cmp_cols")
   }
 
   if (identical(engine, "logit")) {
+    # glm's fit-time warnings stay suppressed: "fitted probabilities
+    # numerically 0 or 1" is expected on well-separated label sets and says
+    # nothing actionable. But that suppression also hid the rank-deficiency
+    # report, and the fit is the one place that knows which coefficients were
+    # dropped -- so the fit is inspected below and reported by name instead.
     fit <- suppressWarnings(
       stats::glm(y ~ ., data = cbind(y = y, x), family = stats::binomial())
     )
@@ -51,16 +67,50 @@ np_train <- function(pairs, engine = "logit", features = attr(pairs, "cmp_cols")
   } else {
     stop("engine must be 'logit' or a function(x, y).", call. = FALSE)
   }
-  structure(list(fit = fit, features = features, engine = eng, n = sum(keep)),
-            class = "np_model")
+
+  co <- tryCatch(stats::coef(fit), error = function(e) NULL)
+  named <- length(co) && !is.null(names(co))
+  aliased <- if (named) setdiff(names(co)[is.na(unname(co))], "(Intercept)") else character()
+  model <- structure(
+    list(fit = fit, features = features, engine = eng, n = sum(keep),
+         rank = if (is.null(fit$rank)) NA_integer_ else as.integer(fit$rank),
+         n_terms = if (named) length(co) else NA_integer_,
+         aliased = aliased),
+    class = "np_model")
+
+  # A dropped similarity column is the quiet failure this package stops on
+  # elsewhere, and it is a realistic input: a field empty on one side of the
+  # join, or two columns saying the same thing. Raised with its own condition
+  # class so a caller who expects it -- np_benchmark() cross-validating a small
+  # set -- can muffle precisely this and nothing else.
+  if (length(aliased))
+    warning(structure(
+      class = c("np_rank_deficient", "warning", "condition"),
+      list(call = NULL, message = paste0(
+        length(aliased), " feature(s) could not be estimated and were dropped ",
+        "as collinear: ", paste(aliased, collapse = ", "),
+        ". Scores from this model ignore them, and predictions for rows that ",
+        "depend on them are not identified. Look for constant or duplicated ",
+        "similarity columns in the labelled set."))))
+
+  model
 }
 
 #' @export
 predict.np_model <- function(object, newdata, type = "response", ...) {
   x <- as.data.frame(newdata)[, object$features, drop = FALSE]
+  # np_train() already reported rank deficiency once, by name, when the model
+  # was fitted. predict.lm() repeats it on every prediction call with no names
+  # in it, so muffle that one message -- matched on its text, since it is
+  # stats' own warning and carries no class to match on. Everything else
+  # predict() emits (newdata level mismatches, NA coercions) still gets through.
+  quiet <- function(expr) withCallingHandlers(expr, warning = function(w) {
+    if (grepl("rank-deficient fit", conditionMessage(w), fixed = TRUE))
+      invokeRestart("muffleWarning")
+  })
   p <- tryCatch(
-    as.numeric(stats::predict(object$fit, x, type = "response")),
-    error = function(e) as.numeric(stats::predict(object$fit, x))
+    quiet(as.numeric(stats::predict(object$fit, x, type = "response"))),
+    error = function(e) quiet(as.numeric(stats::predict(object$fit, x)))
   )
   p
 }
@@ -70,6 +120,10 @@ print.np_model <- function(x, ...) {
   cat("<np_model>", x$engine, "on", length(x$features), "features:",
       paste(x$features, collapse = ", "), "\n")
   cat("  trained on", x$n, "labelled pairs\n")
+  if (!is.na(x$rank) && !is.na(x$n_terms))
+    cat("  rank", x$rank, "of", x$n_terms, "terms\n")
+  if (length(x$aliased))
+    cat("  dropped as collinear:", paste(x$aliased, collapse = ", "), "\n")
   invisible(x)
 }
 
@@ -91,6 +145,14 @@ print.np_model <- function(x, ...) {
 #' Each method is then evaluated at thresholds tuned on the same labels, so the
 #' comparison reflects how the tiering would actually behave.
 #'
+#' On a small labelled set a fold can hold fewer usable rows than the model
+#' has features, leaving that fold's fit rank-deficient and its out-of-fold
+#' predictions unidentified. That is an expected consequence of splitting a
+#' small set, so [np_train()]'s per-model warning is muffled here and the
+#' count is reported in the `rank_deficient_folds` column instead, with the
+#' per-fold detail on the `rank_deficient` attribute. A non-zero count means
+#' the `model` row should be read as provisional.
+#'
 #' @param pairs A labelled `np_pairs` frame.
 #' @param methods Which scorers to compare.
 #' @param k Number of CV folds for the supervised `model` method.
@@ -99,8 +161,11 @@ print.np_model <- function(x, ...) {
 #' @param target_precision,min_recall Passed to [np_tune_thresholds()].
 #' @param seed Fold-assignment seed.
 #' @return A data frame, one row per method, with AUC and tuned-threshold
-#'   precision/recall/coverage. Out-of-fold scores are attached as
-#'   attribute `scores`.
+#'   precision/recall/coverage, plus `rank_deficient_folds`: the number of
+#'   `model` folds whose fit dropped a term (`NA` for the unsupervised rows).
+#'   Out-of-fold scores are attached as attribute `scores`, and
+#'   `rank_deficient` holds one entry per affected fold, named by fold number
+#'   and listing the terms it dropped.
 #' @export
 np_benchmark <- function(pairs, methods = c("weighted", "em", "model"),
                          k = 5, config = np_config(), engine = "logit",
@@ -111,6 +176,8 @@ np_benchmark <- function(pairs, methods = c("weighted", "em", "model"),
   y <- .np_as01(df$label[lab_idx])
 
   method_scores <- list()
+  # fold number (as character) -> terms that fold's fit dropped as collinear
+  rank_deficient <- list()
 
   if ("weighted" %in% methods) {
     s <- np_score(pairs, config, method = "weighted")$score
@@ -128,8 +195,20 @@ np_benchmark <- function(pairs, methods = c("weighted", "em", "model"),
       tr <- lab_idx[fold != f]; te <- lab_idx[fold == f]
       p_tr <- pairs[tr, , drop = FALSE]; attr(p_tr, "cmp_cols") <- attr(pairs, "cmp_cols")
       p_tr$label <- df$label[tr]
-      m <- tryCatch(np_train(p_tr, engine = engine), error = function(e) NULL)
-      if (!is.null(m)) oof[fold == f] <- predict(m, df[te, , drop = FALSE])
+      # A fold thin enough to degenerate is an expected outcome of
+      # cross-validating a small labelled set, so np_train()'s per-model
+      # warning is muffled by its condition class -- precisely that, nothing
+      # else -- and the count is reported in the result instead, as the
+      # rank_deficient_folds column, with the per-fold detail on the
+      # rank_deficient attribute.
+      m <- withCallingHandlers(
+        tryCatch(np_train(p_tr, engine = engine), error = function(e) NULL),
+        np_rank_deficient = function(w) invokeRestart("muffleWarning")
+      )
+      if (!is.null(m)) {
+        if (length(m$aliased)) rank_deficient[[as.character(f)]] <- m$aliased
+        oof[fold == f] <- predict(m, df[te, , drop = FALSE])
+      }
     }
     method_scores[["model"]] <- oof
   }
@@ -141,11 +220,14 @@ np_benchmark <- function(pairs, methods = c("weighted", "em", "model"),
     data.frame(method = nm, n = ev$n, n_pos = ev$n_pos, auc = ev$auc,
                yes = th[["yes"]], maybe = th[["maybe"]],
                yes_precision = ev$precision, yes_recall = ev$recall,
-               yes_coverage = mean(s >= th[["yes"]], na.rm = TRUE))
+               yes_coverage = mean(s >= th[["yes"]], na.rm = TRUE),
+               rank_deficient_folds = if (identical(nm, "model"))
+                 length(rank_deficient) else NA_integer_)
   })
   out <- do.call(rbind, rows)
   out <- out[order(-out$auc), , drop = FALSE]
   rownames(out) <- NULL
   attr(out, "scores") <- method_scores
+  attr(out, "rank_deficient") <- rank_deficient
   out
 }

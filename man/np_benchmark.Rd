@@ -32,8 +32,11 @@ np_benchmark(
 }
 \value{
 A data frame, one row per method, with AUC and tuned-threshold
-precision/recall/coverage. Out-of-fold scores are attached as
-attribute \code{scores}.
+precision/recall/coverage, plus \code{rank_deficient_folds}: the number of
+\code{model} folds whose fit dropped a term (\code{NA} for the unsupervised rows).
+Out-of-fold scores are attached as attribute \code{scores}, and
+\code{rank_deficient} holds one entry per affected fold, named by fold number
+and listing the terms it dropped.
 }
 \description{
 Compares the candidate scorers on a labelled set so the "best" combiner can be
@@ -41,4 +44,13 @@ chosen empirically. The unsupervised methods (\code{weighted}, \code{em}) are sc
 the full candidate set; \code{model} uses out-of-fold predictions to avoid optimism.
 Each method is then evaluated at thresholds tuned on the same labels, so the
 comparison reflects how the tiering would actually behave.
+}
+\details{
+On a small labelled set a fold can hold fewer usable rows than the model
+has features, leaving that fold's fit rank-deficient and its out-of-fold
+predictions unidentified. That is an expected consequence of splitting a
+small set, so \code{\link[=np_train]{np_train()}}'s per-model warning is muffled here and the
+count is reported in the \code{rank_deficient_folds} column instead, with the
+per-fold detail on the \code{rank_deficient} attribute. A non-zero count means
+the \code{model} row should be read as provisional.
 }
