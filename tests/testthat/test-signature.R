@@ -55,3 +55,84 @@ test_that("npmatch no longer carries a copy of the normalizer", {
     expect_false(exists(f, envir = ns, inherits = FALSE), label = f)
   }
 })
+
+# ---------------------------------------------------------------------------
+# Provenance: the label and the stamp (npnormalize 0.1.9's np_signature_history)
+# ---------------------------------------------------------------------------
+
+test_that(".np_sig_label names the release a signature came from", {
+  skip_if_not_installed("npnormalize")
+  lbl <- npmatch:::.np_sig_label(np_normalize_signature())
+  expect_identical(lbl, "v1-5e901add4a04a5d6 (npnormalize 0.1.8)")
+})
+
+test_that(".np_sig_label distinguishes unrecognized from recognized-undated", {
+  skip_if_not_installed("npnormalize")
+  # A value npnormalize has never reported gets no row, which must read as
+  # unknown rather than as a pre-split value with a missing version.
+  expect_match(npmatch:::.np_sig_label("v1-0000000000000000"), "unrecognized", fixed = TRUE)
+  # A pre-split npmatch signature is recognized, and is attributed to npmatch
+  # rather than to npnormalize.
+  expect_match(npmatch:::.np_sig_label("v1-421e1e2a6afb024e"), "npmatch", fixed = TRUE)
+  # Degenerate input never errors -- this text goes into error messages.
+  expect_identical(npmatch:::.np_sig_label(NULL), "(none recorded)")
+  expect_identical(npmatch:::.np_sig_label(NA), "(none recorded)")
+  expect_identical(npmatch:::.np_sig_label(""), "(none recorded)")
+})
+
+test_that("np_signature_stamp writes the bare signature on line 1", {
+  p <- file.path(tempdir(), paste0("npp-sig-", sample.int(1e6, 1)))
+  on.exit(unlink(p, recursive = TRUE))
+  old <- options(npmatch.project = NULL); on.exit(options(old), add = TRUE)
+  np_project_init(p, run_id = "unit", quiet = TRUE, use = FALSE)
+
+  f <- np_signature_stamp(p)
+  expect_true(file.exists(f))
+  txt <- readLines(f)
+  # Line 1 stays the bare hash: the hand-written files this replaces were one
+  # line, and readers compare readLines(f)[1] to the installed signature.
+  expect_identical(txt[1], np_normalize_signature())
+  # Everything after it is commented, so a reader cannot mistake prose for a value.
+  expect_true(all(grepl("^#", txt[-1])))
+  expect_true(any(grepl("npnormalize 0.1.8", txt, fixed = TRUE)))
+})
+
+test_that("np_signature_stamp records a signature other than the installed one", {
+  p <- file.path(tempdir(), paste0("npp-sig-", sample.int(1e6, 1)))
+  on.exit(unlink(p, recursive = TRUE))
+  old <- options(npmatch.project = NULL); on.exit(options(old), add = TRUE)
+  np_project_init(p, run_id = "unit", quiet = TRUE, use = FALSE)
+
+  # An older bundle's real provenance, not overwritten with today's value.
+  f <- np_signature_stamp(p, signature = "v1-421e1e2a6afb024e")
+  txt <- readLines(f)
+  expect_identical(txt[1], "v1-421e1e2a6afb024e")
+  expect_true(any(grepl("npmatch", txt, fixed = TRUE)))
+
+  # overwrite = FALSE leaves that claim in place rather than restamping it.
+  np_signature_stamp(p, overwrite = FALSE)
+  expect_identical(readLines(f)[1], "v1-421e1e2a6afb024e")
+  # The default does restamp, because a stamp describes the cache as it now is.
+  np_signature_stamp(p)
+  expect_identical(readLines(f)[1], np_normalize_signature())
+})
+
+test_that("np_signature_stamp refuses a path that is not a project", {
+  p <- file.path(tempdir(), paste0("npp-sig-", sample.int(1e6, 1)))
+  dir.create(p); on.exit(unlink(p, recursive = TRUE))
+  expect_error(np_signature_stamp(p), "no 00_bmf/ folder", fixed = TRUE)
+  old <- options(npmatch.project = NULL); on.exit(options(old), add = TRUE)
+  expect_error(np_signature_stamp(), "no project given", fixed = TRUE)
+})
+
+test_that("the cascade's normalizer refusal names both releases", {
+  skip_if_not_installed("npnormalize")
+  ref <- list(reference = data.frame(ein = "1", name_key = "A"),
+              stamp = list(normalize_signature = "v1-421e1e2a6afb024e"))
+  # A stale matchdb reference is refused, and the message dates both values so
+  # the reader can see which way the drift runs without looking a hash up.
+  expect_error(npmatch:::.np_unpack_reference(ref),
+               "npmatch", fixed = TRUE)
+  expect_error(npmatch:::.np_unpack_reference(ref),
+               "npnormalize 0.1.8", fixed = TRUE)
+})

@@ -14,10 +14,12 @@ and check `RUN-STATUS.md` between stages.
 
 ## Order of operations
 
-1. **`00_bmf`** — confirm `SOURCE.md` names a reference vintage and that
-   `SIGNATURE.txt` still matches `np_normalize_signature()` on the cached
-   bundle. A mismatch means the cache drifted from the current normalization
-   code: rebuild it before matching, or the run is not reproducible.
+1. **`00_bmf`** — confirm `SOURCE.md` names a reference vintage and that the
+   first line of `SIGNATURE.txt` still equals `np_normalize_signature()`. A
+   mismatch means the cache drifted from the current normalization rules:
+   rebuild it, re-stamp with `np_signature_stamp()`, and only then match — or
+   the run is not reproducible. The commented lines below the fingerprint name
+   the npnormalize release it came from.
 2. **`00_sams`** — put the SAM extract in `00_sams/raw/` (paste it, or use
    `np_fetch_sam()`), then filter to nonprofits. Output: `sam_query.csv`.
 3. **`01_stage1`** — run the cascade. Outputs: `stage1_yes`, `stage1_maybe`,
@@ -35,7 +37,7 @@ and check `RUN-STATUS.md` between stages.
 
 Stop and report rather than improvising if any of these hold:
 
-- `SIGNATURE.txt` does not match the cached reference bundle.
+- `SIGNATURE.txt`'s first line does not match `np_normalize_signature()`.
 - A stage's expected outputs are present but its row counts do not reconcile
   with the previous stage (e.g. `stage2_yes` + `stage2_no` != `stage1_maybe`).
 - A batch queued for an LLM stage returns no output file. Record which, and do

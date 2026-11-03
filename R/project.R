@@ -200,8 +200,10 @@ np_project_use <- function(path, quiet = FALSE) {
 #' The BMF is ~3.5 GB raw plus a ~470 MB normalized bundle, and is reused across
 #' runs. `00_bmf/` therefore holds only `SOURCE.md` (vintage, resolved path in
 #' the shared store, checksum, row count) and `SIGNATURE.txt` (the
-#' [np_normalize_signature()] hash of the cached artifact, so drift is
-#' detectable). The bytes stay in the [np_data_path()] store. SAM is genuinely
+#' [np_normalize_signature()] fingerprint of the cached artifact and the
+#' npnormalize release that introduced it, so drift is detectable — written by
+#' [np_signature_stamp()] once the bundle this run points at has been built).
+#' The bytes stay in the [np_data_path()] store. SAM is genuinely
 #' per-run, so `00_sams/raw/` holds the real extract — paste one in, or let
 #' [np_fetch_sam()] download into it.
 #'
@@ -310,9 +312,11 @@ np_project_init <- function(path, run_id = NULL, bmf = NULL, sam = NULL,
         "- row_count: (run np_manifest_add() to fill)",
         "",
         "The bytes live in the shared asset store; this run points at them.",
-        "See SIGNATURE.txt for the np_normalize_signature() hash of the cached",
-        "normalized bundle -- if it stops matching, the cache has drifted from",
-        "the current normalization code and must be rebuilt."
+        "See SIGNATURE.txt for the np_normalize_signature() fingerprint of the",
+        "cached normalized bundle, written by np_signature_stamp() with the",
+        "npnormalize release that introduced it -- if it stops matching, the",
+        "cache has drifted from the current normalization rules and must be",
+        "rebuilt."
       ), src)
   }
 

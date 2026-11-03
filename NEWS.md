@@ -97,6 +97,39 @@
   veto rules changed, so `attr(pairs, "cmp_cols")` and stored models are
   untouched.
 
+## Normalizer provenance names its release
+
+A signature is opaque on purpose, which makes a bare hash in a provenance file
+a record of the value and not of the release. npnormalize 0.1.9 added
+`np_signature_history()` to date one, and npmatch now uses it everywhere it
+reports a signature to a person.
+
+* **The floor moves to `npnormalize (>= 0.1.9)`.** 0.1.9 changed no rule — it
+  reports `v1-5e901add4a04a5d6` exactly as 0.1.8 did, so nothing cached needs
+  rebuilding and the pinned literal in `tests/testthat/test-signature.R` is
+  unchanged. The floor moves only because the new function is now called.
+* **`np_signature_stamp()` writes `00_bmf/SIGNATURE.txt`.** That file has been a
+  declared output of the `00_bmf` stage since 0.1.0 and nothing in the package
+  ever wrote it: it was created by hand, which is how both runs in `data-dev`
+  came to hold a bare `v1-421e1e2a6afb024e` — the last pre-split npmatch
+  signature — with no release and no date beside it. The stamp keeps the bare
+  fingerprint on line 1, so a reader comparing `readLines(f)[1]` to
+  `np_normalize_signature()` works against the old hand-written files too, and
+  adds the release, the installed npnormalize version and the time underneath
+  as comments. Pass `signature` to record an older bundle's real provenance
+  rather than overwriting it with today's value.
+* **A refused matchdb reference dates both sides.** `np_cascade()` already
+  refused a reference built by another normalizer; the message now reads
+  `v1-421e1e2a6afb024e (npmatch 0.0.0.9000)` rather than the hash alone, so
+  which way the drift runs is legible without looking a value up. An
+  unrecognized signature is reported as unrecognized, which is a different
+  answer from a recognized one whose version was never written down.
+* **One documented check was wrong.** `README-00_bmf.md` told the reader to run
+  `np_normalize_signature(readRDS(<bundle>)$reference)`. The signature
+  fingerprints the normalization *rules*, not the data — the function's only
+  argument is `detail` — so that call could never have done what the template
+  said. It now compares the installed signature to the file's first line.
+
 ## matchdb references and precomputed address counts
 
 * **`np_cascade()` and `np_run_batches()` take a matchdb reference directly.**
