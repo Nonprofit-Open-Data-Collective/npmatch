@@ -143,8 +143,10 @@ optional — one that never runs simply leaves its outputs absent, which
 <p>The BMF is ~3.5 GB raw plus a ~470 MB normalized bundle, and is reused across
 runs. <code>00_bmf/</code> therefore holds only <code>SOURCE.md</code> (vintage, resolved path in
 the shared store, checksum, row count) and <code>SIGNATURE.txt</code> (the
-<code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize_signature.html" class="external-link">np_normalize_signature()</a></code> hash of the cached artifact, so drift is
-detectable). The bytes stay in the <code><a href="np_data.html">np_data_path()</a></code> store. SAM is genuinely
+<code><a href="https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize_signature.html" class="external-link">np_normalize_signature()</a></code> fingerprint of the cached artifact and the
+npnormalize release that introduced it, so drift is detectable — written by
+<code><a href="np_signature_stamp.html">np_signature_stamp()</a></code> once the bundle this run points at has been built).
+The bytes stay in the <code><a href="np_data.html">np_data_path()</a></code> store. SAM is genuinely
 per-run, so <code>00_sams/raw/</code> holds the real extract — paste one in, or let
 <code><a href="np_fetch_sam.html">np_fetch_sam()</a></code> download into it.</p>
     </div>

@@ -156,6 +156,7 @@ reference:
   - np_project_root
   - np_project_path
   - np_project_status
+  - np_signature_stamp
   - np_stage_schema
   - np_stage1_run
   - np_stage2_run

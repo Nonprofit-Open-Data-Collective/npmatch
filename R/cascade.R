@@ -207,7 +207,9 @@ np_cascade <- function(query, reference, config = np_config(), method = "hier",
                                     npnormalize::np_normalize_signature())) {
       stop(sprintf(paste0("this matchdb reference was built by normalizer %s; the ",
                           "installed one is %s. Recompile or republish it."),
-                   sig, npnormalize::np_normalize_signature()), call. = FALSE)
+                   .np_sig_label(sig),
+                   .np_sig_label(npnormalize::np_normalize_signature())),
+           call. = FALSE)
     }
     name_freq <- name_freq %||% reference$name_freq
     token_idf <- token_idf %||% reference$token_idf

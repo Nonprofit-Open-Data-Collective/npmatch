@@ -60,8 +60,10 @@ optional — one that never runs simply leaves its outputs absent, which
 The BMF is ~3.5 GB raw plus a ~470 MB normalized bundle, and is reused across
 runs. \verb{00_bmf/} therefore holds only \code{SOURCE.md} (vintage, resolved path in
 the shared store, checksum, row count) and \code{SIGNATURE.txt} (the
-\code{\link[=np_normalize_signature]{np_normalize_signature()}} hash of the cached artifact, so drift is
-detectable). The bytes stay in the \code{\link[=np_data_path]{np_data_path()}} store. SAM is genuinely
+\code{\link[=np_normalize_signature]{np_normalize_signature()}} fingerprint of the cached artifact and the
+npnormalize release that introduced it, so drift is detectable — written by
+\code{\link[=np_signature_stamp]{np_signature_stamp()}} once the bundle this run points at has been built).
+The bytes stay in the \code{\link[=np_data_path]{np_data_path()}} store. SAM is genuinely
 per-run, so \verb{00_sams/raw/} holds the real extract — paste one in, or let
 \code{\link[=np_fetch_sam]{np_fetch_sam()}} download into it.
 }

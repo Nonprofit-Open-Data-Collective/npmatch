@@ -499,6 +499,8 @@ produce.
   : Build a path inside the active project
 - [`np_project_status()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_project_status.md)
   : Report the status of a run project
+- [`np_signature_stamp()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_signature_stamp.md)
+  : Stamp a run's normalizer provenance
 - [`np_stage_schema()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_stage_schema.md)
   : The shared outcome schema
 - [`np_stage1_run()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_stage1_run.md)

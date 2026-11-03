@@ -85,7 +85,10 @@ across runs. `00_bmf/` therefore holds only `SOURCE.md` (vintage,
 resolved path in the shared store, checksum, row count) and
 `SIGNATURE.txt` (the
 [`np_normalize_signature()`](https://nonprofit-open-data-collective.github.io/npnormalize/reference/np_normalize_signature.html)
-hash of the cached artifact, so drift is detectable). The bytes stay in
+fingerprint of the cached artifact and the npnormalize release that
+introduced it, so drift is detectable — written by
+[`np_signature_stamp()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_signature_stamp.md)
+once the bundle this run points at has been built). The bytes stay in
 the
 [`np_data_path()`](https://nonprofit-open-data-collective.github.io/npmatch/reference/np_data.md)
 store. SAM is genuinely per-run, so `00_sams/raw/` holds the real
