@@ -9,6 +9,10 @@ np_select(pairs, config = np_config(), include_vetoed = FALSE)
 \arguments{
 \item{pairs}{Scored + vetoed \code{np_pairs} (see \code{\link[=np_score]{np_score()}}, \code{\link[=np_veto]{np_veto()}}).}
 
+\item{config}{An \code{np_config} (see \code{\link[=np_config]{np_config()}}). Only the tie-handling
+settings are used here: \code{tie_band}, \code{tie_high} and \code{tiebreak}, which
+decide when the \code{overall} pick counts as a tie and how it is broken.}
+
 \item{include_vetoed}{If \code{TRUE}, vetoed pairs remain eligible (recorded, not
 dropped). Default \code{FALSE}.}
 }

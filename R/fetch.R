@@ -74,6 +74,8 @@ np_fetch <- function(url, dest = NULL, overwrite = FALSE, manifest = TRUE,
 #' @param which Which BMF file: `"unified"` (active+inactive), `"processed"`
 #'   (active only), or `"dictionary"`.
 #' @param dest,overwrite,quiet Passed to [np_fetch()].
+#' @param ... Further arguments passed on to [np_fetch()], such as `timeout`,
+#'   `method` or `manifest`.
 #' @return The destination path, invisibly.
 #' @export
 np_fetch_bmf <- function(which = c("unified", "processed", "dictionary"),
@@ -92,6 +94,8 @@ np_fetch_bmf <- function(which = c("unified", "processed", "dictionary"),
 #'
 #' @param url SAM extract URL. Defaults to the pinned archive extract.
 #' @param dest,overwrite,quiet Passed to [np_fetch()].
+#' @param ... Further arguments passed on to [np_fetch()], such as `timeout`,
+#'   `method` or `manifest`.
 #' @return The destination path, invisibly.
 #' @export
 np_fetch_sam <- function(url = NULL, dest = NULL, overwrite = FALSE, quiet = FALSE, ...) {

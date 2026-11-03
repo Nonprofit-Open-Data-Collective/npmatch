@@ -5,7 +5,7 @@
 \alias{npmatch_groundtruth}
 \title{npmatch ground-truth master (1,502-org benchmark)}
 \format{
-A data frame with 1,502 rows and 17 columns, including:
+A data frame with 1,502 rows and 17 columns:
 \describe{
 \item{uei}{Source (SAM) Unique Entity ID.}
 \item{sample_type}{\code{"random"} (1,000 representative) or \code{"hard"} (502 oversampled).}
@@ -16,6 +16,31 @@ A data frame with 1,502 rows and 17 columns, including:
 \item{gt_ein}{The correct EIN (may be an inactive-BMF or externally-collected EIN).}
 \item{gt_ein_in_bmf, gt_ein_bmf_active}{Whether \code{gt_ein} is in the BMF, and active.}
 \item{gt_method, gt_confidence, gt_notes}{How the label was determined, confidence, and notes.}
+
+\item{gt_method_detail}{Finer sub-tag on \code{gt_method} - for example
+\code{match:cross_state?}, \code{nonprofit_not_in_bmf:inactive},
+\code{not_a_nonprofit:for_profit} or \code{screen:name}. Empty string where no
+sub-tag applies, which is most rows.}
+
+\item{screen_active}{Whether the EIN found by the tier-1 BMF screen was
+active in the BMF. \code{NA} wherever that screen produced no EIN, which is
+always the case for \code{gt_method == "algo_auto"}.}
+
+\item{algo_tier_at_label}{The tier the matching algorithm assigned at the
+time the label was made: \code{"YES"}, \code{"MAYBE"}, \code{"NO"}, or \code{"ZERO_CAND"}
+when blocking surfaced no candidate at all. A frozen snapshot, so it
+does not move when the algorithm changes.}
+
+\item{algo_pick_ein_at_label}{The EIN the algorithm picked at that same
+moment, hyphenated as in \code{gt_ein}; empty string for exactly the
+\code{"ZERO_CAND"} rows. Compare against \code{gt_ein} to see where the
+algorithm was right.}
+
+\item{labeled_by}{Provenance of the label. One value across this
+release: \code{"claude_judge + web/propublica + tier1_screen"}.}
+
+\item{label_date}{Date the label was assigned, as a character string
+(\code{"2026-08-05"} throughout this release).}
 }
 }
 \source{

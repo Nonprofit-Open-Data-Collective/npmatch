@@ -371,8 +371,9 @@ np_as_prompt <- function(routing, id) {
   rows <- rows[order(-rows$total_score), , drop = FALSE]
 
   addr <- function(r, sfx) {
-    paste(na.omit(c(r[[paste0("street_", sfx)]], r[[paste0("city_", sfx)]],
-                    r[[paste0("state_", sfx)]], r[[paste0("zip5_", sfx)]])), collapse = ", ")
+    paste(stats::na.omit(c(r[[paste0("street_", sfx)]], r[[paste0("city_", sfx)]],
+                           r[[paste0("state_", sfx)]], r[[paste0("zip5_", sfx)]])),
+          collapse = ", ")
   }
   q <- rows[1, ]
   cand_lines <- vapply(seq_len(nrow(rows)), function(i) {

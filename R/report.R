@@ -138,7 +138,7 @@ np_run_report <- function(res, inputs = NULL, timings = NULL, outputs = NULL,
   }
 
   ## ---- next stage ----
-  add(""); add("## Next stage — review hand-off")
+  add(""); add("## Next stage \u2014 review hand-off")
   add("")
   add("The %s MAYBE cases are the review queue. Generate per-case LLM adjudication",
       fmt_int(tt[["MAYBE"]]))
