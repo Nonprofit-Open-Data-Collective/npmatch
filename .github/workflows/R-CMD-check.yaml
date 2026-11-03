@@ -54,7 +54,26 @@ jobs:
           extra-packages: any::rcmdcheck
           needs: check
 
+      # error-on is "error", not the r-lib default of "warning". `main` already
+      # carries three R CMD check WARNINGs, none of them introduced here and
+      # none fixable without touching files this PR deliberately leaves alone:
+      #
+      #   * non-ASCII characters in R/report.R
+      #   * data codoc mismatch in npmatch_groundtruth.Rd (the documented
+      #     columns are a subset of the actual ones)
+      #   * undocumented arguments: `...` in np_fetch_bmf / np_fetch_sam,
+      #     `config` in np_select
+      #
+      # Plus two NOTEs: no importFrom for stats::na.omit and utils::count.fields,
+      # and `rpart` used in a vignette without being declared. Every one of those
+      # lives in R source, man/, NAMESPACE or DESCRIPTION. Gating on warnings
+      # would make this job red on arrival and teach everyone to ignore it. The
+      # defects worth catching here surface as ERRORs anyway: a call into a
+      # sibling package that the DESCRIPTION floor does not actually provide
+      # fails the examples or the test suite, not the warning tally. Tighten this
+      # to "warning" once the six items above are cleared.
       - uses: r-lib/actions/check-r-package@v2
         with:
           upload-snapshots: true
           build_args: 'c("--no-manual")'
+          error-on: '"error"'

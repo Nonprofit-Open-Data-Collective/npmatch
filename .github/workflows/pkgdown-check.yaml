@@ -1,13 +1,14 @@
 # Verify that the pkgdown site still builds. This job DOES NOT deploy and DOES
-# NOT commit: docs/ is tracked in this repo and rebuilt deliberately by hand,
-# so the site is built into a scratch directory outside the checkout and then
+# NOT commit: docs/ is tracked in this repo and rebuilt deliberately by hand, so
+# the site is built into a scratch directory outside the checkout and then
 # thrown away. The last step fails if the working tree moved at all, which is
 # the tripwire for an accidental write into docs/.
 #
 # What this covers: _pkgdown.yml is hand-curated, exactly like NAMESPACE. A
 # newly exported function that nobody added to the `reference:` section makes
-# pkgdown abort with "1 topic missing from index" — a breakage that previously
+# pkgdown abort with "1 topic missing from index" -- a breakage that previously
 # only showed up if the author happened to rebuild the site before pushing.
+# check_pkgdown() below is precisely that assertion, and it needs no template.
 name: pkgdown-check
 
 on:
@@ -28,7 +29,14 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      # Nonprofit-Open-Data-Collective/pkgstyle is a PRIVATE repo, and the
+      # automatic GITHUB_TOKEN is scoped to this repository only -- it cannot
+      # read a sibling private repo, which is why pak reports "Can't find GitHub
+      # repo". Set a repo or org secret named NODC_PAT (a PAT with `repo` scope,
+      # or a fine-grained token with Contents:read on pkgstyle) and the real
+      # template gets used. Without it the job still runs, with the fallback
+      # described at the build step.
+      GITHUB_PAT: ${{ secrets.NODC_PAT || secrets.GITHUB_TOKEN }}
 
     steps:
       - uses: actions/checkout@v4
@@ -43,15 +51,24 @@ jobs:
           r-version: release
           use-public-rspm: true
 
-      # `needs: website` picks up Config/Needs/website, which names
-      # Nonprofit-Open-Data-Collective/pkgstyle — the GitHub-hosted template
-      # that _pkgdown.yml selects with `template: package: pkgstyle`.
+      # Deliberately NOT `needs: website`. That would pull Config/Needs/website
+      # (pkgstyle) into the pak solve, and an unreachable private repo there is a
+      # hard resolution failure that kills the job before anything is checked.
+      # pkgstyle is installed separately below, where it is allowed to fail.
       # `local::.` installs npmatch itself so pkgdown can read its topics.
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: any::pkgdown, local::.
-          needs: website
 
+      - name: Install the pkgstyle template if it is reachable
+        id: pkgstyle
+        continue-on-error: true
+        run: pak::pkg_install("Nonprofit-Open-Data-Collective/pkgstyle")
+        shell: Rscript {0}
+
+      # This is the check that would have caught the missing reference: topic.
+      # It compares _pkgdown.yml's index against the package's actual topics and
+      # does not care about the template, so it runs unconditionally.
       - name: Check _pkgdown.yml against the package index
         run: pkgdown::check_pkgdown()
         shell: Rscript {0}
@@ -59,11 +76,32 @@ jobs:
       - name: Build the site into a scratch directory and discard it
         run: |
           dest <- file.path(Sys.getenv("RUNNER_TEMP"), "pkgdown-site")
+
+          # _pkgdown.yml sets `template: package: pkgstyle`. When that private
+          # repo could not be installed above, drop just that key and let
+          # pkgdown use its own default template: a NULL in the override list
+          # deletes the entry (utils::modifyList semantics), so the rest of the
+          # template block -- the mermaid after_body include -- survives. The
+          # site then renders unstyled, which is fine: this job exists to prove
+          # the reference index, the articles and the topic resolution are
+          # intact, not to review the CSS. The real template is exercised
+          # whenever NODC_PAT is present.
+          override <- list()
+          if (!requireNamespace("pkgstyle", quietly = TRUE)) {
+            message(
+              "NOTE: pkgstyle is not installed (private repo, no NODC_PAT ",
+              "secret). Building with pkgdown's default template; the site ",
+              "structure is still fully checked."
+            )
+            override <- list(template = list(package = NULL))
+          }
+
           pkgdown::build_site(
             dest_dir = dest,
             install = FALSE,
             new_process = FALSE,
-            preview = FALSE
+            preview = FALSE,
+            override = override
           )
         shell: Rscript {0}
 
