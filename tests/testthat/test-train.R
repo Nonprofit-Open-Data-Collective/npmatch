@@ -55,24 +55,74 @@ test_that("np_tune_thresholds keeps yes >= maybe and hits target precision", {
 
 test_that("np_benchmark compares methods and separates matches", {
   p <- np_test_labeled_pairs()
-  # k = min(3, n_pos, n_neg) = 3, so the 24-pair fixture (4 positives) gives
-  # three folds of eight and 16 training rows each. Fold 2 keeps only two
-  # positives, and in that subset street_key and zip5 are collinear with the
-  # rest: glm aliases both to NA and predict.lm warns "prediction from
-  # rank-deficient fit". It is deterministic (np_benchmark defaults to
-  # seed = 1L) and it is accurate -- the fixture is simply too thin to fit
-  # four features under cross-validation, which is not what this test is
-  # about. Muffle that one warning by message so any OTHER warning from
-  # np_benchmark still surfaces as a test warning.
-  bench <- withCallingHandlers(
-    np_benchmark(p, methods = c("weighted", "em", "model"), k = 3),
-    warning = function(w) {
-      if (grepl("rank-deficient fit", conditionMessage(w), fixed = TRUE))
-        invokeRestart("muffleWarning")
-    }
-  )
+  # Fold 2 of this 24-row fixture is rank-deficient (see
+  # dev/BENCHMARK-RANK-DEFICIENCY.md), but np_benchmark() now accounts for that
+  # in its result rather than on the console, so the call is simply silent.
+  expect_silent(bench <- np_benchmark(p, methods = c("weighted", "em", "model"), k = 3))
   expect_true(all(c("method", "auc", "yes", "yes_precision") %in% names(bench)))
   expect_setequal(bench$method, c("weighted", "em", "model"))
   # every method should order true matches above non-matches here
   expect_true(all(bench$auc >= 0.75, na.rm = TRUE))
+})
+
+test_that("np_train reports and records terms it had to drop", {
+  p <- np_test_labeled_pairs()
+  # An exact duplicate column cannot be estimated alongside its original, so
+  # glm aliases it. That is the realistic case the warning exists for: a
+  # similarity column that is constant, or says the same thing as another.
+  p$zip5_copy <- p$zip5
+  attr(p, "cmp_cols") <- c(attr(p, "cmp_cols"), "zip5_copy")
+
+  expect_warning(m <- np_train(p), class = "np_rank_deficient")
+  expect_warning(np_train(p), "zip5_copy")
+  expect_identical(m$aliased, "zip5_copy")
+  expect_identical(m$rank, 5L)
+  expect_identical(m$n_terms, 6L)
+  expect_output(print(m), "dropped as collinear: zip5_copy", fixed = TRUE)
+
+  # predict() must not repeat it: np_train() already said it by name.
+  expect_silent(s <- predict(m, as.data.frame(p)))
+  expect_true(all(is.finite(s)))
+})
+
+test_that("np_train is quiet and records full rank when every term is estimable", {
+  p <- np_test_labeled_pairs()
+  expect_silent(m <- np_train(p))
+  expect_identical(m$aliased, character())
+  expect_identical(m$rank, m$n_terms)
+  expect_output(print(m), "rank 5 of 5 terms", fixed = TRUE)
+})
+
+test_that("np_benchmark counts rank-deficient folds in its result", {
+  p <- np_test_labeled_pairs()
+  bench <- np_benchmark(p, methods = c("weighted", "em", "model"), k = 3)
+
+  # One of the three folds degenerates; the unsupervised rows have no folds.
+  expect_identical(bench$rank_deficient_folds[bench$method == "model"], 1L)
+  expect_true(all(is.na(bench$rank_deficient_folds[bench$method != "model"])))
+
+  rd <- attr(bench, "rank_deficient")
+  expect_named(rd, "2")
+  expect_setequal(rd[["2"]], c("street_key", "zip5"))
+})
+
+test_that("np_benchmark reports no deficient folds when every fold is full rank", {
+  # The shared fixture degenerates at every k worth trying, so a
+  # well-conditioned frame is built here: 40 rows, 20 positive, two continuous
+  # features. Guards against the count being reported unconditionally.
+  set.seed(42)
+  n <- 40
+  d <- data.frame(
+    .id  = sprintf("q%02d", seq_len(n)),
+    .ein = sprintf("%02d", seq_len(n)),
+    f1   = round(stats::runif(n), 3),
+    f2   = round(stats::runif(n), 3)
+  )
+  d$label <- c(rep(TRUE, n / 2), rep(FALSE, n / 2))
+  d$f1 <- round(ifelse(d$label, d$f1 * 0.4 + 0.6, d$f1 * 0.4), 3)
+  attr(d, "cmp_cols") <- c("f1", "f2")
+
+  expect_silent(bench <- np_benchmark(d, methods = "model", k = 3))
+  expect_identical(bench$rank_deficient_folds, 0L)
+  expect_identical(attr(bench, "rank_deficient"), list())
 })

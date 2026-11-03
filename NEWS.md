@@ -224,6 +224,26 @@ reports a signature to a person.
   rank-deficient-fit warning in the `np_benchmark()` test — which fold
   degenerates and why, that `np_train()`'s blanket `suppressWarnings()` is the
   part worth fixing, and a plan. `dev/probe-rank-deficiency.R` reproduces it.
+* **A model that drops a feature now says so, once, by name.** That plan is
+  implemented. `np_train()` keeps suppressing `glm()`'s expected fit-time noise
+  ("fitted probabilities numerically 0 or 1") but inspects the fit: it records
+  `rank`, `n_terms` and `aliased` on the `np_model`, shows them in `print()`,
+  and warns once naming the dropped terms. The warning carries the condition
+  class `np_rank_deficient`, so a caller that expects it can muffle precisely
+  it. `predict.np_model()` no longer repeats `predict.lm()`'s anonymous
+  per-prediction version of the same message, but still passes every other
+  warning through. `np_benchmark()` muffles the per-fold case — a thin fold is
+  what cross-validating a small set means — and reports it in the result
+  instead, as the `rank_deficient_folds` column plus a `rank_deficient`
+  attribute naming the terms each fold dropped. The suite no longer carries a
+  warning.
+* **The aliasing is not only a fixture artifact.** Fitting on the real
+  `training_pairs` projection (304,274 rows) drops three terms: `geo_zip9` and
+  `geo_pobox` are constant across every row, and `geo_zip5` is perfectly
+  correlated with `zip_sim`. That is the exported training projection rather
+  than `attr(pairs, "cmp_cols")`, so it is not a defect in the compared-field
+  set — but anyone fitting on that file gets terms dropped, which is exactly
+  what the new warning is for.
 
 # npmatch 0.1.1
 
