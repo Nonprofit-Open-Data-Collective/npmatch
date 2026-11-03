@@ -55,7 +55,22 @@ test_that("np_tune_thresholds keeps yes >= maybe and hits target precision", {
 
 test_that("np_benchmark compares methods and separates matches", {
   p <- np_test_labeled_pairs()
-  bench <- np_benchmark(p, methods = c("weighted", "em", "model"), k = 3)
+  # k = min(3, n_pos, n_neg) = 3, so the 24-pair fixture (4 positives) gives
+  # three folds of eight and 16 training rows each. Fold 2 keeps only two
+  # positives, and in that subset street_key and zip5 are collinear with the
+  # rest: glm aliases both to NA and predict.lm warns "prediction from
+  # rank-deficient fit". It is deterministic (np_benchmark defaults to
+  # seed = 1L) and it is accurate -- the fixture is simply too thin to fit
+  # four features under cross-validation, which is not what this test is
+  # about. Muffle that one warning by message so any OTHER warning from
+  # np_benchmark still surfaces as a test warning.
+  bench <- withCallingHandlers(
+    np_benchmark(p, methods = c("weighted", "em", "model"), k = 3),
+    warning = function(w) {
+      if (grepl("rank-deficient fit", conditionMessage(w), fixed = TRUE))
+        invokeRestart("muffleWarning")
+    }
+  )
   expect_true(all(c("method", "auc", "yes", "yes_precision") %in% names(bench)))
   expect_setequal(bench$method, c("weighted", "em", "model"))
   # every method should order true matches above non-matches here
