@@ -42,6 +42,7 @@ Suggests:
     reclin2,
     readxl,
     rmarkdown,
+    rpart,
     stringdist,
     zipcodeR,
     testthat (>= 3.0.0)

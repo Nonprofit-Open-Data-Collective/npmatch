@@ -114,6 +114,9 @@
 #' Vetoed pairs are excluded from every "best" pick by default.
 #'
 #' @param pairs Scored + vetoed `np_pairs` (see [np_score()], [np_veto()]).
+#' @param config An `np_config` (see [np_config()]). Only the tie-handling
+#'   settings are used here: `tie_band`, `tie_high` and `tiebreak`, which
+#'   decide when the `overall` pick counts as a tie and how it is broken.
 #' @param include_vetoed If `TRUE`, vetoed pairs remain eligible (recorded, not
 #'   dropped). Default `FALSE`.
 #' @return A one-row-per-query data frame of class `np_selection` with the chosen

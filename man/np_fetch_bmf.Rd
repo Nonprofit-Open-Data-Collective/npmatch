@@ -17,6 +17,9 @@ np_fetch_bmf(
 (active only), or \code{"dictionary"}.}
 
 \item{dest, overwrite, quiet}{Passed to \code{\link[=np_fetch]{np_fetch()}}.}
+
+\item{...}{Further arguments passed on to \code{\link[=np_fetch]{np_fetch()}}, such as \code{timeout},
+\code{method} or \code{manifest}.}
 }
 \value{
 The destination path, invisibly.

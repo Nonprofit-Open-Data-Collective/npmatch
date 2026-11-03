@@ -105,7 +105,7 @@ np_manifest_add <- function(asset, tier = c("raw", "normalized", "results"),
   if (!is.null(path) && file.exists(path)) {
     if (is.na(md5)) md5 <- unname(tools::md5sum(path))
     if (is.na(row_count))
-      row_count <- tryCatch(length(count.fields(path, sep = ",")) - 1L,
+      row_count <- tryCatch(length(utils::count.fields(path, sep = ",")) - 1L,
                             error = function(e) NA_integer_)
   }
   man  <- file.path(root, "MANIFEST.csv")
